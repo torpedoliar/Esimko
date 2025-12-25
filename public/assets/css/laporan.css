@@ -1,0 +1,57 @@
+
+@media print {
+  .fit-toPage{
+      width: 100%;
+      height: auto;
+  }
+}
+body {
+  font-family: arial;
+}
+
+th, td, .tabel-bordered {
+    border-radius: 0 0 0 0 !important;
+}
+.tabl{
+  margin-bottom:20px;
+  border-collapse: collapse;
+}
+.tabl th, .tabl td {
+  font-size: 10pt;
+  line-height: 20px;
+  padding: 5px;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid #000;
+
+}
+.tabl-bord{
+    font-weight: bold;
+    font-size: 12px;
+    background-color: #ddd;
+}
+ul.a {
+  list-style-type: decimal;
+  padding-left: 15px;
+}
+.col-table {
+  float: left;
+  width: 50%;
+}
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+.tabl thead tr th{
+  background: #d6d6d6
+}
+.frame{
+  padding: 30px
+}
+.ttd{
+  width:100%
+}
+.ttd tr td{
+  text-align:center
+}

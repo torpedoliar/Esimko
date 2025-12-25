@@ -1,0 +1,30 @@
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/storage/logs/
+/storage/framework/
+/storage/app/
+/vendor
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+
+# Database backup (large file)
+*.sql
+
+# Docker
+mysql_data/
+
+# IDE
+.idea/
+.vscode/
+
+# HTML folder (copied from server, might have large files)
+/html/
+

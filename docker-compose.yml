@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: esimko-app
+    ports:
+      - "8080:80"
+      - "8443:443"
+      - "2222:22"
+    volumes:
+      # Mount project files ke /var/www/html untuk match Laravel config
+      - .:/var/www/html
+      # Persist MySQL data
+      - mysql_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=MYSQLp4ssw0rd7%
+      - APP_ENV=local
+      - APP_DEBUG=true
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
