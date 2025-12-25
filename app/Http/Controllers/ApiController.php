@@ -28,7 +28,7 @@ class ApiController extends Controller
       $data->total_simpanan=GlobalHelper::saldo_tabungan($data->no_anggota,'Total Simpanan'); //Total Simpanan
 
       $data->sisa_pinjaman=GlobalHelper::sisa_pinjaman($data->no_anggota,'all'); //Sisa pinjaman
-      $data->bunga_pinjaman=$data->sisa_pinjaman*0.01; //Bunga Pinjaman
+      $data->bunga_pinjaman=$data->sisa_pinjaman*GlobalHelper::getBungaPinjaman(); //Bunga Pinjaman
       $data->total_tagihan=$data->sisa_pinjaman+$data->bunga_pinjaman; //Total Tagihan
       $data->sisa_saldo=$data->total_simpanan-$data->total_tagihan; // Sisa Saldo
 

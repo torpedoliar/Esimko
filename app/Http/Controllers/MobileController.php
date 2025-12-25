@@ -103,7 +103,7 @@ class MobileController extends Controller
       $anggota->saldo_simpanan_hari_raya = GlobalHelper::saldo_tabungan($anggota->no_anggota, 'Simpanan Hari Raya'); //Simpanan Sukarela
 
 
-      $anggota->bunga_pinjaman = intval($anggota->sisa_pinjaman * 0.01); //Bunga Semua Pinjaman
+      $anggota->bunga_pinjaman = intval($anggota->sisa_pinjaman * GlobalHelper::getBungaPinjaman()); //Bunga Semua Pinjaman
 
       $anggota->angsuran_jangka_panjang = GlobalHelper::sisa_pinjaman($anggota->no_anggota, 9); //Sisa Jangka Panjang
       $anggota->angsuran_jangka_pendek = GlobalHelper::sisa_pinjaman($anggota->no_anggota, 10); //Sisa Jangka Pendek
@@ -463,10 +463,10 @@ class MobileController extends Controller
       $field = new Angsuran;
       $field->angsuran_ke = $n;
       $field->fid_transaksi = $id;
-      $field->bunga = 0.01;
+      $field->bunga = GlobalHelper::getBungaPinjaman();
       $field->sisa_hutang = $this->sisa_hutang($id, $n);
       $field->angsuran_pokok = ROUND(str_replace('.', '', $request->nominal) / $request->tenor, 0);
-      $field->angsuran_bunga = ROUND(0.01 * str_replace('.', '', $request->nominal));
+      $field->angsuran_bunga = ROUND(GlobalHelper::getBungaPinjaman() * str_replace('.', '', $request->nominal));
       $field->fid_status = 2;
       $field->save();
     }

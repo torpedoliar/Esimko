@@ -287,6 +287,9 @@ Route::group(['middleware' => ['ceklogin']],function(){
     Route::get('pengaturan/metode_pembayaran', 'PengaturanController@metode_pembayaran');
     Route::post('pengaturan/metode_pembayaran/proses', 'PengaturanController@proses_metode_pembayaran');
 
+    Route::get('pengaturan/bunga_pinjaman', 'PengaturanController@bunga_pinjaman');
+    Route::post('pengaturan/bunga_pinjaman/proses', 'PengaturanController@proses_bunga_pinjaman');
+
     Route::post('auth/user_akses/proses','AuthController@user_akses');
     Route::get('auth/logout','AuthController@proses_logout');
 

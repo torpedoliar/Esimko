@@ -163,7 +163,7 @@ class ImportController extends Controller
         $field=new Angsuran;
         $field->angsuran_ke=$n;
         $field->fid_transaksi=$id;
-        $field->bunga=0.01;
+        $field->bunga=GlobalHelper::getBungaPinjaman();
         $field->sisa_hutang=$this->sisa_hutang($id,$n);
         $field->angsuran_pokok=$request->angsuran_pokok;
         $field->angsuran_bunga=$request->angsuran_bunga;

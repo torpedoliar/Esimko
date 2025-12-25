@@ -32,7 +32,7 @@ class ProfilController extends Controller
       $anggota->saldo_simpanan_sukarela=GlobalHelper::saldo_tabungan($anggota->no_anggota,'Simpanan Sukarela'); //Simpanan Sukarela
 
       $anggota->sisa_pinjaman=GlobalHelper::sisa_pinjaman($anggota->no_anggota,'all'); //Sisa Semua Pinjaman
-      $anggota->bunga_pinjaman=$anggota->sisa_pinjaman*0.01; //Bunga Semua Pinjaman
+      $anggota->bunga_pinjaman=$anggota->sisa_pinjaman*GlobalHelper::getBungaPinjaman(); //Bunga Semua Pinjaman
 
       $anggota->total_angsuran_pinjaman=GlobalHelper::angsuran_pinjaman($anggota->no_anggota,'all'); //Total Angsuran Pinjaman
       $anggota->angsuran_jangka_panjang=GlobalHelper::angsuran_pinjaman($anggota->no_anggota,9); //Angsuran Pinjaman Jangka Panjang

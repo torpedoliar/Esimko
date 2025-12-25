@@ -9,6 +9,8 @@ use App\UserAkses;
 use App\OtoritasUser;
 use App\RekeningPembayaran;
 use App\OtoritasRekeningPembayaran;
+use App\Pengaturan;
+use App\PengaturanLog;
 use View;
 use DB;
 use DateTime;
@@ -79,4 +81,73 @@ class PengaturanController extends Controller
           ->with('data',$data);
       }
     }
+
+    //----------------------------Bunga Pinjaman---------------------------------//
+
+    public function bunga_pinjaman(Request $request){
+      $data['otoritas']=GlobalHelper::otoritas_modul(Session::get('useractive')->hak_akses,73);
+      if($data['otoritas']['view']=='N'){
+        return view('404');
+      }
+      else{
+        $data['pengaturan'] = Pengaturan::where('kode', 'bunga_pinjaman')->first();
+        $data['logs'] = PengaturanLog::where('fid_pengaturan', $data['pengaturan']->id ?? 0)
+            ->orderBy('created_at', 'DESC')
+            ->limit(20)
+            ->get();
+        
+        // Get admin names for logs
+        foreach($data['logs'] as $key => $log) {
+            $admin = DB::table('anggota')->where('no_anggota', $log->created_by)->first();
+            $data['logs'][$key]->nama_admin = $admin ? $admin->nama_lengkap : 'Unknown';
+        }
+        
+        return view('pengaturan.bunga_pinjaman.index')
+          ->with('data',$data);
+      }
+    }
+
+    public function proses_bunga_pinjaman(Request $request){
+      // 1. Verify admin password
+      if (!GlobalHelper::verifyAdminPassword($request->password)) {
+          return Redirect::back()
+              ->with('message', 'Password tidak valid. Perubahan dibatalkan.')
+              ->with('message_type', 'danger');
+      }
+
+      // 2. Get or create setting
+      $pengaturan = Pengaturan::firstOrCreate(
+          ['kode' => 'bunga_pinjaman'],
+          ['nama' => 'Bunga Pinjaman (Per Bulan)', 'tipe' => 'persen']
+      );
+
+      // 3. Convert percentage input to decimal (e.g., 1 -> 0.01)
+      $nilai_baru = floatval(str_replace(',', '.', $request->nilai)) / 100;
+
+      // 4. Log the change (audit trail) if value changed
+      if ($pengaturan->nilai != $nilai_baru) {
+          PengaturanLog::create([
+              'fid_pengaturan' => $pengaturan->id,
+              'nilai_lama' => $pengaturan->nilai,
+              'nilai_baru' => $nilai_baru,
+              'created_by' => Session::get('useractive')->no_anggota,
+              'keterangan' => $request->keterangan,
+              'created_at' => now()
+          ]);
+
+          // 5. Update value
+          $pengaturan->nilai = $nilai_baru;
+          $pengaturan->updated_at = now();
+          $pengaturan->save();
+
+          return Redirect::back()
+              ->with('message', 'Pengaturan bunga pinjaman berhasil diubah dari ' . ($pengaturan->getOriginal('nilai') * 100) . '% menjadi ' . ($nilai_baru * 100) . '%')
+              ->with('message_type', 'success');
+      }
+
+      return Redirect::back()
+          ->with('message', 'Tidak ada perubahan nilai')
+          ->with('message_type', 'info');
+    }
 }
+

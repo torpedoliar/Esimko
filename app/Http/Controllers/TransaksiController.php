@@ -346,10 +346,10 @@ class TransaksiController extends Controller
             $field=new Angsuran;
             $field->angsuran_ke=$n;
             $field->fid_transaksi=$id;
-            $field->bunga=0.01;
+            $field->bunga=GlobalHelper::getBungaPinjaman();
             $field->sisa_hutang=$this->sisa_hutang($id,$n);
             $field->angsuran_pokok=ROUND(str_replace('.','',$request->nominal)/$request->tenor,0);
-            $field->angsuran_bunga=ROUND(0.01*str_replace('.','',$request->nominal));
+            $field->angsuran_bunga=ROUND(GlobalHelper::getBungaPinjaman()*str_replace('.','',$request->nominal));
             $field->fid_status=2;
             $field->save();
         }
