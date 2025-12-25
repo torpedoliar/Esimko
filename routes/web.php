@@ -196,6 +196,7 @@ Route::group(['middleware' => ['ceklogin']],function(){
     Route::post('pos/penjualan_baru/{id}/delete', 'PenjualanBaruController@delete');
     Route::post('pos/penjualan_baru/{id}/tunda', 'PenjualanBaruController@tunda');
     Route::get('pos/penjualan_baru/{id}/cetak_struk', 'PenjualanBaruController@cetak_struk');
+    Route::get('pos/customer_display/{id?}', 'PenjualanBaruController@customer_display');
 
     Route::post('pos/penjualan_baru/item/create', 'PenjualanBaruItemController@create');
     Route::post('pos/penjualan_baru/item/{id}/search', 'PenjualanBaruItemController@search');

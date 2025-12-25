@@ -54,26 +54,47 @@ class GlobalHelper
 
     public static function get_modul($id)
     {
-        $modul = DB::table('modul')
-            ->select('modul.*')
-            ->join('otoritas_user', 'otoritas_user.fid_modul', '=', 'modul.id')
-            ->where('otoritas_user.fid_hak_akses', '=', Session::get('useractive')->hak_akses)
-            ->where('otoritas_user.is_view', 'Y')
-            ->where('modul.parent_id', '=', $id)
-            ->where('modul.is_active', 1)
-            ->orderBy('modul.order')->get();
-        foreach ($modul as $key => $value) {
-            $modul[$key]->submodul = DB::table('modul')
+        // Cache menu per user role for 1 hour
+        $hakAkses = Session::get('useractive')->hak_akses ?? 0;
+        $cacheKey = "menu_{$hakAkses}_{$id}";
+        
+        return Cache::remember($cacheKey, 3600, function() use ($id, $hakAkses) {
+            $modul = DB::table('modul')
                 ->select('modul.*')
                 ->join('otoritas_user', 'otoritas_user.fid_modul', '=', 'modul.id')
-                ->where('otoritas_user.fid_hak_akses', '=', Session::get('useractive')->hak_akses)
+                ->where('otoritas_user.fid_hak_akses', '=', $hakAkses)
                 ->where('otoritas_user.is_view', 'Y')
-                ->where('parent_id', '=', $value->id)
+                ->where('modul.parent_id', '=', $id)
                 ->where('modul.is_active', 1)
-                ->orderBy('order')
-                ->get();
-        }
-        return $modul;
+                ->orderBy('modul.order')->get();
+            
+            // Pre-fetch all submodules in ONE query instead of N queries
+            $modulIds = $modul->pluck('id')->toArray();
+            
+            if (!empty($modulIds)) {
+                $allSubmoduls = DB::table('modul')
+                    ->select('modul.*')
+                    ->join('otoritas_user', 'otoritas_user.fid_modul', '=', 'modul.id')
+                    ->where('otoritas_user.fid_hak_akses', '=', $hakAkses)
+                    ->where('otoritas_user.is_view', 'Y')
+                    ->whereIn('parent_id', $modulIds)
+                    ->where('modul.is_active', 1)
+                    ->orderBy('order')
+                    ->get()
+                    ->groupBy('parent_id');
+                
+                // Assign submodules to parent modules
+                foreach ($modul as $key => $value) {
+                    $modul[$key]->submodul = $allSubmoduls[$value->id] ?? collect([]);
+                }
+            } else {
+                foreach ($modul as $key => $value) {
+                    $modul[$key]->submodul = collect([]);
+                }
+            }
+            
+            return $modul;
+        });
     }
 
     public static function date_range($bulan)

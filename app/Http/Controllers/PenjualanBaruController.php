@@ -85,6 +85,27 @@ class PenjualanBaruController extends Controller
         return ['error' => 'No. Anggota tidak ditemukan !'];
     }
 
+    /**
+     * Customer Display for Dual Monitor POS
+     * Auto-refreshes every 2 seconds to sync with cashier
+     */
+    public function customer_display($id = null)
+    {
+        $penjualan = null;
+        $items = collect([]);
+        
+        if ($id) {
+            $penjualan = Penjualan::with('anggota')->find($id);
+            if ($penjualan) {
+                $items = ItemPenjualan::with('produk')
+                    ->where('fid_penjualan', $penjualan->id)
+                    ->get();
+            }
+        }
+        
+        return view('pos.penjualan_baru.customer_display', compact('penjualan', 'items'));
+    }
+
     public function cetak_struk($id)
     {
         $penjualan = Penjualan::find($id);
@@ -94,10 +115,49 @@ class PenjualanBaruController extends Controller
 
     public function cari_produk(Request $request)
     {
-        $produk = Produk::where('nama_produk', 'like', '%'. $request->input('nama') .'%')->limit(8)->get();
-        foreach ($produk as $item) {
-            $item->stok = GlobalHelper::stok_barang($item->id);
+        // Optimized search with limit and simplified stok
+        $nama = $request->input('nama');
+        
+        // Get all columns needed by view + relationships (foto for foto_url accessor)
+        $produk = Produk::with(['satuan_barang', 'foto'])
+            ->where(function($query) use ($nama) {
+                $query->where('nama_produk', 'like', '%'. $nama .'%')
+                      ->orWhere('kode', 'like', '%'. $nama .'%');
+            })
+            ->limit(8)
+            ->get();
+        
+        // Batch get stok for all products in one set of queries instead of N+1
+        if ($produk->count() > 0) {
+            $produkIds = $produk->pluck('id')->toArray();
+            
+            // Batch query pembelian
+            $pembelian = \DB::table('item_pembelian')
+                ->select('fid_produk', \DB::raw('SUM(jumlah) as total'))
+                ->whereIn('fid_produk', $produkIds)
+                ->groupBy('fid_produk')
+                ->pluck('total', 'fid_produk')
+                ->toArray();
+            
+            // Batch query penjualan
+            $penjualan = \DB::table('item_penjualan')
+                ->join('penjualan', 'penjualan.id', 'item_penjualan.fid_penjualan')
+                ->select('fid_produk', \DB::raw('SUM(item_penjualan.jumlah) as total'))
+                ->whereIn('fid_produk', $produkIds)
+                ->where('penjualan.fid_status', 2)
+                ->groupBy('fid_produk')
+                ->pluck('total', 'fid_produk')
+                ->toArray();
+            
+            foreach ($produk as $item) {
+                $stok_pembelian = $pembelian[$item->id] ?? 0;
+                $stok_penjualan = $penjualan[$item->id] ?? 0;
+                $item->stok = [
+                    'sisa' => $item->stok_awal + $stok_pembelian - $stok_penjualan
+                ];
+            }
         }
+        
         return view('pos.penjualan_baru._list_produk', compact('produk'));
     }
 }

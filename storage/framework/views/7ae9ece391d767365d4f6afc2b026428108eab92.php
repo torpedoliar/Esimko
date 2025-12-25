@@ -18,6 +18,9 @@
                 <input type="text" id="kode_produk" name="kode_produk" class="form-control form-control-lg" placeholder="Kode Produk (F2)" autofocus>
                 <input type="text" id="no_anggota" name="no_anggota" class="form-control form-control-lg" placeholder="Kode Anggota (F3)" value="<?php echo e(!empty($penjualan->anggota) ? $penjualan->anggota->no_anggota : ''); ?>" style="width: 250px;" onchange="cari_anggota()">
                 <button class="btn btn-primary text-nowrap px-4" type="button" onclick="open_modal_search_produk()">Cari Barang (F4)</button>
+                <button class="btn btn-info text-nowrap px-3" type="button" onclick="open_customer_display()" title="Buka tampilan customer di monitor kedua">
+                    <i class="mdi mdi-monitor-multiple"></i> Dual Display (F5)
+                </button>
             </div>
             <div id="list_items" style="height: calc(100vh - 220px);overflow-y: scroll;"></div>
         </div>
@@ -423,11 +426,49 @@
         shortcut.add("F2", () => $kode_produk.focus());
         shortcut.add("F3", () => $no_anggota.focus());
         shortcut.add("F4", () => open_modal_search_produk());
+        shortcut.add("F5", () => open_customer_display());
         shortcut.add("F6", () => $kode_voucher.focus());
         shortcut.add("F7", () => delete_penjualan());
         shortcut.add("F8", () => open_modal_tunda());
         shortcut.add("F9", () => tunda_penjualan());
         shortcut.add("F10", () => bayar());
+        
+        // Customer Display for dual monitor
+        let customerDisplayWindow = null;
+        let open_customer_display = () => {
+            // Store penjualan_id in localStorage for customer display to read
+            if (penjualan_id !== '') {
+                localStorage.setItem('pos_penjualan_id', penjualan_id);
+            }
+            
+            const url = penjualan_id !== '' 
+                ? '<?php echo e(url("pos/customer_display")); ?>/' + penjualan_id 
+                : '<?php echo e(url("pos/customer_display")); ?>';
+            
+            // Open in new window optimized for second monitor
+            if (customerDisplayWindow && !customerDisplayWindow.closed) {
+                customerDisplayWindow.location.href = url;
+                customerDisplayWindow.focus();
+            } else {
+                customerDisplayWindow = window.open(url, 'CustomerDisplay', 
+                    'width=1024,height=768,menubar=no,toolbar=no,location=no,status=no');
+            }
+        }
+        
+        // Update localStorage whenever items change so customer display can sync
+        let updateCustomerDisplay = () => {
+            if (penjualan_id !== '') {
+                localStorage.setItem('pos_penjualan_id', penjualan_id);
+                localStorage.setItem('pos_updated', Date.now().toString());
+            }
+        }
+        
+        // Wrap search_items to also update customer display
+        let original_search_items = search_items;
+        search_items = () => {
+            original_search_items();
+            updateCustomerDisplay();
+        }
 
         <?php if(!empty($penjualan)): ?>
             penjualan_id = '<?php echo e($penjualan->id); ?>';
