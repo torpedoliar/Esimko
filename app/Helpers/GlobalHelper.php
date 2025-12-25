@@ -25,6 +25,7 @@ use App\GajiPokok;
 use App\VerifikasiTransaksi;
 use App\SetoranBerkala;
 use App\Pengaturan;
+use Illuminate\Support\Facades\Cache;
 use DateTime;
 use Session;
 
@@ -256,19 +257,28 @@ class GlobalHelper
 
     public static function otoritas_modul($hak_akses, $modul)
     {
-        $otoritas = DB::table('otoritas_user')->where('fid_hak_akses', '=', $hak_akses)->where('fid_modul', '=', $modul)->first();
-        if (!empty($otoritas)) {
-            $data = array(
-                'view' => $otoritas->is_view,
-                'insert' => $otoritas->is_insert,
-                'update' => $otoritas->is_update,
-                'delete' => $otoritas->is_delete,
-                'all_user' => $otoritas->is_all_user,
-                'print' => $otoritas->is_print,
-                'verified' => $otoritas->is_verified
-            );
-        } else {
-            $data = array(
+        // Cache key unique per user role + modul (cache for 30 minutes)
+        $cacheKey = "otoritas_{$hak_akses}_{$modul}";
+        
+        return Cache::remember($cacheKey, 1800, function() use ($hak_akses, $modul) {
+            $otoritas = DB::table('otoritas_user')
+                ->where('fid_hak_akses', '=', $hak_akses)
+                ->where('fid_modul', '=', $modul)
+                ->first();
+            
+            if (!empty($otoritas)) {
+                return array(
+                    'view' => $otoritas->is_view,
+                    'insert' => $otoritas->is_insert,
+                    'update' => $otoritas->is_update,
+                    'delete' => $otoritas->is_delete,
+                    'all_user' => $otoritas->is_all_user,
+                    'print' => $otoritas->is_print,
+                    'verified' => $otoritas->is_verified
+                );
+            }
+            
+            return array(
                 'view' => 'N',
                 'insert' => 'N',
                 'update' => 'N',
@@ -277,8 +287,7 @@ class GlobalHelper
                 'print' => 'N',
                 'verified' => 'N'
             );
-        }
-        return $data;
+        });
     }
 
     public static function formatSizeUnits($bytes)
@@ -333,18 +342,28 @@ class GlobalHelper
 
     public static function sisa_kredit_belanja($anggota, $jenis)
     {
-        $kredit = DB::table('penjualan')->where('fid_anggota', $anggota)->where('fid_metode_pembayaran', 3);
+        // Build query for penjualan
+        $query = DB::table('penjualan')
+            ->where('fid_anggota', $anggota)
+            ->where('fid_metode_pembayaran', 3);
+        
         if ($jenis != 'all') {
-            $kredit = $kredit->where('jenis_belanja', $jenis)->get();
-        } else {
-            $kredit = $kredit->get();
+            $query = $query->where('jenis_belanja', $jenis);
         }
-        $sisa_kredit = 0;
-        foreach ($kredit as $key => $value) {
-            $sisa_angsuran = DB::table('angsuran_belanja')->where('fid_penjualan', $value->id)->where('fid_status', '!=', 6)->sum('total_angsuran');
-            $sisa_kredit = $sisa_kredit + $sisa_angsuran;
+        
+        // Get all penjualan IDs in one query
+        $penjualan_ids = $query->pluck('id')->toArray();
+        
+        // Return 0 if no penjualan found
+        if (empty($penjualan_ids)) {
+            return 0;
         }
-        return $sisa_kredit;
+        
+        // Single aggregated query instead of N queries (fixes N+1 problem)
+        return DB::table('angsuran_belanja')
+            ->whereIn('fid_penjualan', $penjualan_ids)
+            ->where('fid_status', '!=', 6)
+            ->sum('total_angsuran');
     }
 
     public static function saldo_tabungan($anggota, $jenis)
@@ -890,4 +909,104 @@ class GlobalHelper
         }
         return false;
     }
+
+    /**
+     * Clear otoritas cache when permissions are updated
+     */
+    public static function clearOtoritasCache()
+    {
+        // Clear all otoritas cache keys
+        // In production, consider using tagged cache for selective clearing
+        Cache::flush();
+    }
+
+    /**
+     * Batch get saldo simpanan for multiple anggota at once
+     * Used for lists/reports to avoid N+1 problem
+     * @param array $no_anggota_list
+     * @return array Format: ['K 0001_1' => 500000, 'K 0001_2' => 300000, ...]
+     */
+    public static function saldo_simpanan_batch(array $no_anggota_list)
+    {
+        if (empty($no_anggota_list)) {
+            return [];
+        }
+
+        $result = DB::table('transaksi')
+            ->select('fid_anggota', 'fid_jenis_transaksi', DB::raw('SUM(nominal) as total'))
+            ->whereIn('fid_anggota', $no_anggota_list)
+            ->where('fid_status', 4)
+            ->groupBy('fid_anggota', 'fid_jenis_transaksi')
+            ->get();
+
+        // Format: ['K 0001_1' => 500000, 'K 0001_2' => 300000, ...]
+        $saldo = [];
+        foreach ($result as $row) {
+            $key = strtoupper($row->fid_anggota) . '_' . $row->fid_jenis_transaksi;
+            $saldo[$key] = intval($row->total);
+        }
+
+        return $saldo;
+    }
+
+    /**
+     * Batch get sisa pinjaman for multiple anggota at once
+     * @param array $no_anggota_list
+     * @param mixed $jenis - 'all' or specific jenis transaksi ID
+     * @return array Format: ['K 0001_9' => 1000000, ...]
+     */
+    public static function sisa_pinjaman_batch(array $no_anggota_list, $jenis = 'all')
+    {
+        if (empty($no_anggota_list)) {
+            return [];
+        }
+
+        // Get all loans
+        $query = DB::table('transaksi')
+            ->select('fid_anggota', 'fid_jenis_transaksi', DB::raw('SUM(nominal) as total_pinjaman'))
+            ->whereIn('fid_anggota', $no_anggota_list)
+            ->where('fid_status', 4);
+
+        if ($jenis != 'all') {
+            $query->where('fid_jenis_transaksi', $jenis);
+        } else {
+            $query->whereIn('fid_jenis_transaksi', [9, 10, 11]);
+        }
+
+        $pinjaman = $query->groupBy('fid_anggota', 'fid_jenis_transaksi')->get();
+
+        // Get paid amounts
+        $transaksi_ids = DB::table('transaksi')
+            ->whereIn('fid_anggota', $no_anggota_list)
+            ->where('fid_status', 4)
+            ->whereIn('fid_jenis_transaksi', $jenis == 'all' ? [9, 10, 11] : [$jenis])
+            ->pluck('id')
+            ->toArray();
+
+        $paid = [];
+        if (!empty($transaksi_ids)) {
+            $paid_result = DB::table('angsuran')
+                ->select('fid_transaksi', DB::raw('SUM(angsuran_pokok) as paid'))
+                ->whereIn('fid_transaksi', $transaksi_ids)
+                ->where('fid_status', 6)
+                ->groupBy('fid_transaksi')
+                ->get()
+                ->keyBy('fid_transaksi');
+
+            foreach ($paid_result as $key => $val) {
+                $paid[$key] = intval($val->paid);
+            }
+        }
+
+        // Calculate sisa
+        $sisa = [];
+        foreach ($pinjaman as $row) {
+            $key = strtoupper($row->fid_anggota) . '_' . $row->fid_jenis_transaksi;
+            $total_paid = $paid[$row->id] ?? 0;
+            $sisa[$key] = intval($row->total_pinjaman) - $total_paid;
+        }
+
+        return $sisa;
+    }
 }
+

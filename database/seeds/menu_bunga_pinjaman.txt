@@ -1,0 +1,2 @@
+INSERT INTO modul (parent_id, nama_modul, icon, link, `order`, is_active) 
+VALUES (11, 'Bunga Pinjaman', 'mdi mdi-percent', 'pengaturan/bunga_pinjaman', 3, 1);

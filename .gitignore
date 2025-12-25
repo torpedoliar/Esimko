@@ -1,11 +1,3 @@
-/node_modules
-/public/hot
-/public/storage
-/storage/*.key
-/storage/logs/
-/storage/framework/
-/storage/app/
-/vendor
 .env
 .env.backup
 .env.production
@@ -16,7 +8,7 @@ npm-debug.log
 yarn-error.log
 
 # Database backup (large file)
-*.sql
+
 
 # Docker
 mysql_data/
