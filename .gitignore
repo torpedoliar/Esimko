@@ -7,8 +7,14 @@ Homestead.yaml
 npm-debug.log
 yarn-error.log
 
-# Database backup (large file)
+# Database backup (large files)
+*.sql
+esimko_backup.sql
+esimko_prod_backup.sql
 
+# Storage (logs and cache - large files)
+storage/logs/
+storage/framework/cache/
 
 # Docker
 mysql_data/
@@ -19,4 +25,3 @@ mysql_data/
 
 # HTML folder (copied from server, might have large files)
 /html/
-
