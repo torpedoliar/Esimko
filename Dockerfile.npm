@@ -1,0 +1,74 @@
+# Esimko Laravel App with Nginx + PHP-FPM
+FROM php:7.4-fpm
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    nginx \
+    supervisor \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+
+# Disable opcache to prevent caching issues
+RUN echo "opcache.enable=0" >> /usr/local/etc/php/conf.d/opcache.ini
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy application files
+COPY --chown=www-data:www-data . /var/www/html
+
+# Remove files not needed in production
+RUN rm -rf /var/www/html/.git \
+    /var/www/html/html \
+    /var/www/html/esimko_backup.sql \
+    /var/www/html/esimko_prod_backup.sql \
+    /var/www/html/*.sql
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Create storage directories
+RUN mkdir -p /var/www/html/storage/framework/sessions \
+    /var/www/html/storage/framework/views \
+    /var/www/html/storage/framework/cache \
+    /var/www/html/storage/logs \
+    /var/www/html/bootstrap/cache
+
+# IMPORTANT: Clear any cached config from development
+RUN rm -f /var/www/html/bootstrap/cache/*.php
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Configure Nginx
+COPY docker/nginx.conf /etc/nginx/sites-available/default
+
+# Configure Supervisor
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Create startup script - NO config caching to ensure .env is read fresh
+# Note: config:cache and route:cache removed to avoid caching issues with mounted .env
+RUN echo '#!/bin/bash\n\
+    exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf\n\
+    ' > /start.sh && chmod +x /start.sh
+
+# Expose port 80
+EXPOSE 80
+
+# Start with our script instead of directly supervisord
+CMD ["/start.sh"]
