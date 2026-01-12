@@ -18,85 +18,106 @@ REM Configuration
 set SSH_HOST=104.248.150.30
 set SSH_PORT=22
 set SSH_USER=root
-set SSH_PASS=ESIMKO4rt1s4n
 set DB_NAME=esimko
 set DB_USER=esimko
 set DB_PASS=esimko
 
-set BACKUP_FILE=esimko_prod_%date:~10,4%%date:~4,2%%date:~7,2%_%time:~0,2%%time:~3,2%%time:~6,2%.sql
-set BACKUP_FILE=%BACKUP_FILE: =0%
+REM Create backup filename with timestamp
+for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
+set BACKUP_FILE=esimko_prod_%datetime:~0,8%_%datetime:~8,6%.sql
 
-echo [1/4] Connecting to production server...
-echo       Host: %SSH_HOST%
-echo       User: %SSH_USER%
-echo.
+REM Create backups directory if not exists
+if not exist backups mkdir backups
 
-REM Check if ssh is available
+echo [1/5] Checking SSH...
 where ssh >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] SSH not found! Please install OpenSSH.
-    echo         Go to: Settings ^> Apps ^> Optional Features ^> OpenSSH Client
+    echo [ERROR] SSH not found!
+    echo         Please install OpenSSH:
+    echo         Settings ^> Apps ^> Optional Features ^> OpenSSH Client
     pause
     exit /b 1
 )
+echo       SSH is available
 
-echo [2/4] Exporting database from production...
-echo       This may take a few minutes...
 echo.
-echo       [!] When prompted, enter password: %SSH_PASS%
+echo [2/5] Connection Info
+echo       Host: %SSH_HOST%
+echo       User: %SSH_USER%
+echo       Database: %DB_NAME%
+echo.
+echo       SSH Password: ESIMKO4rt1s4n
+echo       (Enter this when prompted)
+
+echo.
+echo [3/5] Exporting database from production...
+echo       This may take several minutes...
+echo.
+echo       When prompted, enter password: ESIMKO4rt1s4n
 echo.
 
-REM Export database via SSH
-ssh -o StrictHostKeyChecking=no -p %SSH_PORT% %SSH_USER%@%SSH_HOST% "mysqldump -u %DB_USER% -p'%DB_PASS%' --single-transaction %DB_NAME%" > %BACKUP_FILE%
+REM Direct SSH with mysqldump piped to local file
+ssh -o StrictHostKeyChecking=no -p %SSH_PORT% %SSH_USER%@%SSH_HOST% "mysqldump -u %DB_USER% -p'%DB_PASS%' --single-transaction --routines --triggers %DB_NAME%" > backups\%BACKUP_FILE%
 
 if errorlevel 1 (
-    echo [ERROR] Failed to export database!
+    echo [ERROR] SSH command failed!
     pause
     exit /b 1
 )
 
 REM Check file size
-for %%A in (%BACKUP_FILE%) do set size=%%~zA
+for %%A in (backups\%BACKUP_FILE%) do set size=%%~zA
 if %size% LSS 1000 (
-    echo [ERROR] Backup file is too small, export may have failed!
+    echo [ERROR] Backup file is too small (%size% bytes)
+    echo         Export may have failed. Check credentials.
     pause
     exit /b 1
 )
 
+set /a sizeMB=%size%/1048576
 echo.
-echo [3/4] Backup downloaded successfully!
-echo       File: %BACKUP_FILE%
-echo       Size: %size% bytes
-copy %BACKUP_FILE% esimko_latest_backup.sql >nul
+echo       Database exported: %BACKUP_FILE% (%sizeMB% MB)
 
 echo.
-echo [4/4] Importing to Docker...
+echo [4/5] Updating latest backup...
+copy backups\%BACKUP_FILE% esimko_latest_backup.sql >nul
+echo       Done!
 
-REM Try development container first
+echo.
+echo [5/5] Importing to Docker...
+
+REM Check for development container
 docker ps -q -f name=esimko-app >nul 2>&1
 if not errorlevel 1 (
-    echo       Importing to esimko-app container...
+    echo       Found esimko-app container
+    echo       Importing database...
     type esimko_latest_backup.sql | docker exec -i esimko-app mysql -u root -pMYSQLp4ssw0rd7%% esimko 2>nul
     echo       Done!
-) else (
-    REM Try production container
-    docker ps -q -f name=esimko-db >nul 2>&1
-    if not errorlevel 1 (
-        echo       Importing to esimko-db container...
-        type esimko_latest_backup.sql | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>nul
-        echo       Done!
-    ) else (
-        echo       [WARN] No Docker container found, backup saved only
-    )
+    goto :done
 )
 
+REM Check for production container
+docker ps -q -f name=esimko-db >nul 2>&1
+if not errorlevel 1 (
+    echo       Found esimko-db container
+    echo       Importing database...
+    type esimko_latest_backup.sql | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>nul
+    echo       Done!
+    goto :done
+)
+
+echo       [WARN] No Docker container found
+echo       Backup saved to: esimko_latest_backup.sql
+
+:done
 echo.
 echo ==========================================
 echo   SYNC COMPLETE!
 echo ==========================================
 echo.
-echo   Backup saved to: %BACKUP_FILE%
-echo   Latest backup: esimko_latest_backup.sql
+echo   Files saved:
+echo   - backups\%BACKUP_FILE%
+echo   - esimko_latest_backup.sql
 echo.
 echo ==========================================
 pause

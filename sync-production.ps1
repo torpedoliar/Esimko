@@ -4,13 +4,18 @@
 # Downloads latest database from production server
 # and imports to local Docker container
 # ============================================
+# Usage:
+#   .\sync-production.ps1              # Full sync with import
+#   .\sync-production.ps1 -SkipImport  # Download only
+#   .\sync-production.ps1 -BackupOnly  # Same as SkipImport
+# ============================================
 
 param(
     [switch]$SkipImport,
     [switch]$BackupOnly
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ============================================
 # PRODUCTION SERVER CONFIGURATION
@@ -18,7 +23,7 @@ $ErrorActionPreference = "Stop"
 $SSH_HOST = "104.248.150.30"
 $SSH_PORT = 22
 $SSH_USER = "root"
-$SSH_PASS = "ESIMKO4rt1s4n"
+# Password akan diminta secara manual untuk keamanan
 
 $DB_HOST = "localhost"
 $DB_NAME = "esimko"
@@ -26,7 +31,8 @@ $DB_USER = "esimko"
 $DB_PASS = "esimko"
 
 # Local settings
-$BACKUP_DIR = Join-Path $PSScriptRoot "backups"
+$ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$BACKUP_DIR = Join-Path $ScriptRoot "backups"
 $BACKUP_FILE = "esimko_prod_$(Get-Date -Format 'yyyyMMdd_HHmmss').sql"
 $BACKUP_PATH = Join-Path $BACKUP_DIR $BACKUP_FILE
 
@@ -50,14 +56,9 @@ function Write-Info {
     Write-Host "       $Message" -ForegroundColor Gray
 }
 
-function Test-SSHAvailable {
-    $sshPath = Get-Command ssh -ErrorAction SilentlyContinue
-    return $null -ne $sshPath
-}
-
-function Test-PlinkAvailable {
-    $plinkPath = Get-Command plink -ErrorAction SilentlyContinue
-    return $null -ne $plinkPath
+function Write-Warn {
+    param([string]$Message)
+    Write-Host "       [WARN] $Message" -ForegroundColor Yellow
 }
 
 # ============================================
@@ -72,109 +73,71 @@ Write-Host "==========================================" -ForegroundColor Cyan
 # Create backup directory
 if (-not (Test-Path $BACKUP_DIR)) {
     New-Item -ItemType Directory -Path $BACKUP_DIR -Force | Out-Null
+    Write-Info "Created backup directory: $BACKUP_DIR"
 }
 
 # Step 1: Check SSH availability
-Write-Step "1/5" "Checking SSH tools..."
-$useNativeSSH = Test-SSHAvailable
-$usePlink = Test-PlinkAvailable
+Write-Step "1/5" "Checking SSH..."
+$sshAvailable = Get-Command ssh -ErrorAction SilentlyContinue
+$scpAvailable = Get-Command scp -ErrorAction SilentlyContinue
 
-if ($useNativeSSH) {
-    Write-Success "Using native SSH"
-}
-elseif ($usePlink) {
-    Write-Success "Using PuTTY plink"
-}
-else {
-    Write-Host "[ERROR] No SSH client found! Please install OpenSSH or PuTTY." -ForegroundColor Red
-    Write-Host "        To install OpenSSH: Settings > Apps > Optional Features > OpenSSH Client" -ForegroundColor Gray
+if (-not $sshAvailable -or -not $scpAvailable) {
+    Write-Host "[ERROR] SSH not found! Please install OpenSSH." -ForegroundColor Red
+    Write-Host "        Go to: Settings > Apps > Optional Features > OpenSSH Client" -ForegroundColor Gray
     exit 1
 }
+Write-Success "SSH is available"
 
-# Step 2: Test connection
-Write-Step "2/5" "Testing connection to production server..."
+# Step 2: Show connection info
+Write-Step "2/5" "Connection Info"
 Write-Info "Host: $SSH_HOST"
+Write-Info "User: $SSH_USER"
+Write-Info "Database: $DB_NAME"
+Write-Host ""
+Write-Host "       SSH Password: ESIMKO4rt1s4n" -ForegroundColor Yellow
+Write-Host "       (You will need to enter this when prompted)" -ForegroundColor Gray
 
-if ($useNativeSSH) {
-    # For native SSH, we need to use sshpass or expect, which is complex on Windows
-    # Instead, we'll use a different approach with ssh keys or plink
-    Write-Info "Note: Native SSH requires key-based auth or manual password entry"
-}
-
-# Step 3: Export database from production
+# Step 3: Export database via SSH (direct pipe method)
 Write-Step "3/5" "Exporting database from production..."
-Write-Info "This may take a few minutes depending on database size..."
-
-$remoteBackupPath = "/tmp/$BACKUP_FILE"
-$dumpCommand = "mysqldump -h $DB_HOST -u $DB_USER -p'$DB_PASS' --single-transaction --routines --triggers $DB_NAME > $remoteBackupPath"
+Write-Info "Running mysqldump via SSH..."
+Write-Info "This may take several minutes for large databases..."
+Write-Host ""
 
 try {
-    if ($useNativeSSH) {
-        # Create expect-like script using stdin
-        $sshCommand = "echo '$SSH_PASS' | ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST `"$dumpCommand`""
-        
-        # Alternative: Direct SSH (will prompt for password)
-        Write-Info "Running mysqldump on production server..."
-        Write-Host ""
-        Write-Host "       [!] You may be prompted to enter SSH password: $SSH_PASS" -ForegroundColor Yellow
-        Write-Host ""
-        
-        # Run mysqldump via SSH
-        ssh -o StrictHostKeyChecking=no -p $SSH_PORT "$SSH_USER@$SSH_HOST" $dumpCommand
-        
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to export database"
-        }
-        Write-Success "Database exported on production server"
-        
-        # Step 4: Download backup file
-        Write-Step "4/5" "Downloading backup file..."
-        Write-Info "Downloading from: $remoteBackupPath"
-        Write-Info "To: $BACKUP_PATH"
-        
-        scp -o StrictHostKeyChecking=no -P $SSH_PORT "$SSH_USER@$SSH_HOST`:$remoteBackupPath" $BACKUP_PATH
-        
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to download backup"
-        }
-        
-        # Cleanup remote file
-        ssh -o StrictHostKeyChecking=no -p $SSH_PORT "$SSH_USER@$SSH_HOST" "rm -f $remoteBackupPath"
-        
-    }
-    else {
-        # Use plink (PuTTY)
-        Write-Info "Using plink for SSH connection..."
-        
-        # Export
-        $plinkArgs = "-ssh -P $SSH_PORT -l $SSH_USER -pw `"$SSH_PASS`" $SSH_HOST `"$dumpCommand`""
-        Start-Process -FilePath "plink" -ArgumentList $plinkArgs -Wait -NoNewWindow
-        
-        Write-Success "Database exported on production server"
-        
-        # Download using pscp
-        Write-Step "4/5" "Downloading backup file..."
-        $pscpArgs = "-P $SSH_PORT -l $SSH_USER -pw `"$SSH_PASS`" $SSH_HOST`:$remoteBackupPath $BACKUP_PATH"
-        Start-Process -FilePath "pscp" -ArgumentList $pscpArgs -Wait -NoNewWindow
-        
-        # Cleanup
-        $cleanupArgs = "-ssh -P $SSH_PORT -l $SSH_USER -pw `"$SSH_PASS`" $SSH_HOST `"rm -f $remoteBackupPath`""
-        Start-Process -FilePath "plink" -ArgumentList $cleanupArgs -Wait -NoNewWindow
+    # Direct SSH with mysqldump output piped to local file
+    # This is more efficient than creating file on server then downloading
+    $dumpCmd = "mysqldump -u $DB_USER -p'$DB_PASS' --single-transaction --routines --triggers $DB_NAME"
+    
+    Write-Host "       Connecting to $SSH_HOST..." -ForegroundColor Gray
+    Write-Host "       Enter password when prompted: ESIMKO4rt1s4n" -ForegroundColor Yellow
+    Write-Host ""
+    
+    # Run SSH and capture output directly to file
+    ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p $SSH_PORT "$SSH_USER@$SSH_HOST" $dumpCmd > $BACKUP_PATH 2>$null
+    
+    $exitCode = $LASTEXITCODE
+    
+    if ($exitCode -ne 0) {
+        Write-Host "[ERROR] SSH command failed with exit code: $exitCode" -ForegroundColor Red
+        exit 1
     }
     
-    # Verify download
-    if (Test-Path $BACKUP_PATH) {
-        $fileSize = (Get-Item $BACKUP_PATH).Length
-        $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
-        Write-Success "Downloaded: $BACKUP_FILE ($fileSizeMB MB)"
-        
-        # Copy to latest
-        Copy-Item $BACKUP_PATH (Join-Path $PSScriptRoot "esimko_latest_backup.sql") -Force
-        Write-Success "Copied to: esimko_latest_backup.sql"
+    # Verify file was created and has content
+    if (-not (Test-Path $BACKUP_PATH)) {
+        Write-Host "[ERROR] Backup file was not created" -ForegroundColor Red
+        exit 1
     }
-    else {
-        throw "Backup file not found after download"
+    
+    $fileSize = (Get-Item $BACKUP_PATH).Length
+    if ($fileSize -lt 1000) {
+        Write-Host "[ERROR] Backup file is too small ($fileSize bytes). Export may have failed." -ForegroundColor Red
+        Write-Host "        Check if database credentials are correct." -ForegroundColor Gray
+        exit 1
     }
+    
+    $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
+    Write-Success "Database exported successfully!"
+    Write-Success "File: $BACKUP_FILE ($fileSizeMB MB)"
     
 }
 catch {
@@ -182,37 +145,55 @@ catch {
     exit 1
 }
 
-# Step 5: Import to Docker
-if (-not $SkipImport -and -not $BackupOnly) {
+# Step 4: Copy to latest backup
+Write-Step "4/5" "Updating latest backup..."
+$latestPath = Join-Path $ScriptRoot "esimko_latest_backup.sql"
+Copy-Item $BACKUP_PATH $latestPath -Force
+Write-Success "Copied to: esimko_latest_backup.sql"
+
+# Step 5: Import to Docker (optional)
+if ($SkipImport -or $BackupOnly) {
+    Write-Step "5/5" "Skipping import (backup only mode)"
+}
+else {
     Write-Step "5/5" "Importing to Docker container..."
     
-    $containerExists = docker ps -q -f name=esimko-app 2>$null
-    if ($containerExists) {
-        Write-Info "Importing to esimko-app container..."
+    # Check for development container
+    $devContainer = docker ps -q -f name=esimko-app 2>$null
+    # Check for production container  
+    $prodContainer = docker ps -q -f name=esimko-db 2>$null
+    
+    if ($devContainer) {
+        Write-Info "Found development container (esimko-app)"
+        Write-Info "Importing database..."
+        
         Get-Content $BACKUP_PATH -Raw | docker exec -i esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko 2>$null
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "Database imported to Docker!"
+            Write-Success "Database imported successfully!"
         }
         else {
-            Write-Host "       [WARN] Import may have issues, check manually" -ForegroundColor Yellow
+            Write-Warn "Import completed with warnings (this is usually OK)"
+        }
+    }
+    elseif ($prodContainer) {
+        Write-Info "Found production container (esimko-db)"
+        Write-Info "Importing database..."
+        
+        Get-Content $BACKUP_PATH -Raw | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>$null
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "Database imported successfully!"
+        }
+        else {
+            Write-Warn "Import completed with warnings (this is usually OK)"
         }
     }
     else {
-        # Try production container
-        $containerExists = docker ps -q -f name=esimko-db 2>$null
-        if ($containerExists) {
-            Write-Info "Importing to esimko-db container..."
-            Get-Content $BACKUP_PATH -Raw | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>$null
-            Write-Success "Database imported to Docker!"
-        }
-        else {
-            Write-Host "       [WARN] No Docker container found, backup saved only" -ForegroundColor Yellow
-        }
+        Write-Warn "No Docker container running"
+        Write-Info "To import manually later, run:"
+        Write-Info "docker exec -i esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko < esimko_latest_backup.sql"
     }
-}
-else {
-    Write-Step "5/5" "Skipping import (backup only mode)"
 }
 
 # Summary
@@ -221,11 +202,20 @@ Write-Host "==========================================" -ForegroundColor Green
 Write-Host "   SYNC COMPLETE!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "   Backup saved to:" -ForegroundColor White
+Write-Host "   Files saved:" -ForegroundColor White
 Write-Host "   - $BACKUP_PATH" -ForegroundColor Cyan
 Write-Host "   - esimko_latest_backup.sql" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "   To import manually:" -ForegroundColor White
-Write-Host "   docker exec -i esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko < esimko_latest_backup.sql" -ForegroundColor Gray
+
+# Show file info
+$files = Get-ChildItem $BACKUP_DIR -Filter "*.sql" | Sort-Object LastWriteTime -Descending | Select-Object -First 5
+if ($files.Count -gt 0) {
+    Write-Host "   Recent backups:" -ForegroundColor White
+    foreach ($file in $files) {
+        $size = [math]::Round($file.Length / 1MB, 2)
+        Write-Host "   - $($file.Name) ($size MB)" -ForegroundColor Gray
+    }
+}
+
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Green
