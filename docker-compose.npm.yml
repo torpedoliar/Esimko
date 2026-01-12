@@ -4,17 +4,38 @@ services:
   # Nginx Proxy Manager - handles SSL and reverse proxy
   npm:
     image: 'jc21/nginx-proxy-manager:latest'
-    container_name: npm
+    container_name: esimko-npm
     restart: unless-stopped
     ports:
-      - '80:80'      # HTTP
-      - '443:443'    # HTTPS
-      - '81:81'      # NPM Admin UI
+      - '80:80' # HTTP
+      - '443:443' # HTTPS
+      - '81:81' # NPM Admin UI
     volumes:
       - npm_data:/data
       - npm_letsencrypt:/etc/letsencrypt
     networks:
       - esimko-network
+    healthcheck:
+      test: [ "CMD", "/bin/check-health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: esimko-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - esimko-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # MySQL Database
   db:
@@ -28,36 +49,66 @@ services:
       MYSQL_PASSWORD: esimko_password_123
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./esimko_prod_backup.sql:/docker-entrypoint-initdb.d/backup.sql:ro
+      # Uncomment to auto-import backup on first run:
+      # - ./esimko_latest_backup.sql:/docker-entrypoint-initdb.d/backup.sql:ro
     networks:
       - esimko-network
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password_123" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Esimko Laravel Application
   app:
     build:
       context: .
-      dockerfile: Dockerfile.npm
+      dockerfile: Dockerfile
     container_name: esimko-app
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      - APP_NAME=eSIMKO
       - APP_ENV=production
       - APP_DEBUG=false
-      - APP_KEY=base64:YOUR_APP_KEY_HERE
       - APP_URL=https://esimko.com
+
+      # Database
       - DB_CONNECTION=mysql
       - DB_HOST=db
       - DB_PORT=3306
       - DB_DATABASE=esimko
       - DB_USERNAME=esimko
       - DB_PASSWORD=esimko_password_123
+
+      # Cache & Session
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=file
+      - QUEUE_CONNECTION=sync
+
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=null
+
+      # Trusted Proxies for NPM
+      - TRUSTED_PROXIES=*
     volumes:
-      - app_storage:/var/www/html/storage
-      - app_cache:/var/www/html/bootstrap/cache
+      # Mount project files
+      - .:/var/www/html
+      # Persist storage
+      - app_storage:/var/www/html/storage/app
+      - app_framework:/var/www/html/storage/framework
     networks:
       - esimko-network
+    # Expose internal port (NPM will proxy to this)
+    expose:
+      - "80"
 
 networks:
   esimko-network:
@@ -67,5 +118,6 @@ volumes:
   npm_data:
   npm_letsencrypt:
   mysql_data:
+  redis_data:
   app_storage:
-  app_cache:
+  app_framework:
