@@ -92,8 +92,21 @@ class PenjualanBaruController extends Controller
 
     public function cari_anggota(Request $request)
     {
-        $no_anggota = str_replace(' ', '', $request->input('no_anggota'));
-        $anggota = Anggota::whereRaw("REPLACE(no_anggota, ' ', '') = '$no_anggota'")->first();
+        $no_anggota = strtoupper(trim($request->input('no_anggota')));
+        
+        // Try exact match first (uses index)
+        $anggota = Anggota::select('id', 'no_anggota', 'nama_lengkap', 'avatar')
+            ->where('no_anggota', $no_anggota)
+            ->first();
+        
+        // If not found, try with spaces removed (slower but handles format variations)
+        if (empty($anggota)) {
+            $no_anggota_clean = str_replace(' ', '', $no_anggota);
+            $anggota = Anggota::select('id', 'no_anggota', 'nama_lengkap', 'avatar')
+                ->whereRaw("REPLACE(no_anggota, ' ', '') = ?", [$no_anggota_clean])
+                ->first();
+        }
+        
         if (!empty($anggota)) return $anggota;
         return ['error' => 'No. Anggota tidak ditemukan !'];
     }
