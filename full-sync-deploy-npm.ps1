@@ -73,6 +73,33 @@ if (-not $SkipSync) {
         Write-Host "   [WARN] Sync failed, continuing with existing backup" -ForegroundColor Yellow
     }
     
+    # Sync APP_KEY from production (IMPORTANT for password decryption!)
+    Write-Host ""
+    Write-Host "   Syncing APP_KEY from production..." -ForegroundColor Gray
+    Write-Host "   (Required for password encryption to work)" -ForegroundColor Gray
+    
+    $appKeyCmd = "grep '^APP_KEY=' /var/www/html/.env"
+    $prodAppKey = ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p $SSH_PORT "$SSH_USER@$SSH_HOST" $appKeyCmd 2>$null
+    
+    if ($prodAppKey -and $prodAppKey -match "^APP_KEY=") {
+        # Save to .env.production for reference
+        $prodAppKey | Out-File -FilePath (Join-Path $ScriptPath ".env.production.key") -Encoding UTF8 -Force
+        Write-Host "   APP_KEY synced: $($prodAppKey.Substring(0, 30))..." -ForegroundColor Green
+        
+        # Update local .env file
+        $envPath = Join-Path $ScriptPath ".env"
+        if (Test-Path $envPath) {
+            $envContent = Get-Content $envPath -Raw
+            $newEnvContent = $envContent -replace "APP_KEY=.*", $prodAppKey
+            $newEnvContent | Set-Content $envPath -Encoding UTF8 -Force
+            Write-Host "   Local .env updated with production APP_KEY" -ForegroundColor Green
+        }
+    }
+    else {
+        Write-Host "   [WARN] Could not sync APP_KEY, login may not work!" -ForegroundColor Yellow
+        Write-Host "   You may need to manually copy APP_KEY from production" -ForegroundColor Yellow
+    }
+    
     Write-Host ""
     Write-Host "[PHASE 1] Complete!" -ForegroundColor Green
 }

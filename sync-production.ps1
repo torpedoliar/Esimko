@@ -146,17 +146,44 @@ catch {
 }
 
 # Step 4: Copy to latest backup
-Write-Step "4/5" "Updating latest backup..."
+Write-Step "4/6" "Updating latest backup..."
 $latestPath = Join-Path $ScriptRoot "esimko_latest_backup.sql"
 Copy-Item $BACKUP_PATH $latestPath -Force
 Write-Success "Copied to: esimko_latest_backup.sql"
 
-# Step 5: Import to Docker (optional)
-if ($SkipImport -or $BackupOnly) {
-    Write-Step "5/5" "Skipping import (backup only mode)"
+# Step 5: Sync APP_KEY from production
+Write-Step "5/6" "Syncing APP_KEY from production..."
+Write-Info "(Required for password encryption to work)"
+
+$appKeyCmd = "grep '^APP_KEY=' /var/www/html/.env"
+$prodAppKey = ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p $SSH_PORT "$SSH_USER@$SSH_HOST" $appKeyCmd 2>$null
+
+if ($prodAppKey -and $prodAppKey -match "^APP_KEY=") {
+    # Save to .env.production.key for reference
+    $prodAppKey | Out-File -FilePath (Join-Path $ScriptRoot ".env.production.key") -Encoding UTF8 -Force
+    Write-Success "APP_KEY synced: $($prodAppKey.Substring(0, 30))..."
+    
+    # Update local .env file
+    $envPath = Join-Path $ScriptRoot ".env"
+    if (Test-Path $envPath) {
+        $envContent = Get-Content $envPath -Raw
+        $newEnvContent = $envContent -replace "APP_KEY=.*", $prodAppKey
+        $newEnvContent | Set-Content $envPath -Encoding UTF8 -Force
+        Write-Success "Local .env updated with production APP_KEY"
+    }
 }
 else {
-    Write-Step "5/5" "Importing to Docker container..."
+    Write-Warn "Could not sync APP_KEY"
+    Write-Info "You may need to manually copy APP_KEY from production"
+    Write-Info "Login (password decryption) might not work without correct APP_KEY!"
+}
+
+# Step 6: Import to Docker (optional)
+if ($SkipImport -or $BackupOnly) {
+    Write-Step "6/6" "Skipping import (backup only mode)"
+}
+else {
+    Write-Step "6/6" "Importing to Docker container..."
     
     # Check for development container
     $devContainer = docker ps -q -f name=esimko-app 2>$null
