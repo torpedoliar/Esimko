@@ -176,9 +176,33 @@ Write-Host "   Importing database..." -ForegroundColor Gray
 $latestBackup = Join-Path $ScriptPath "esimko_latest_backup.sql"
 if (Test-Path $latestBackup) {
     $fileSize = (Get-Item $latestBackup).Length
+    $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
+    
     if ($fileSize -gt 1000) {
+        Write-Host "   File: esimko_latest_backup.sql ($fileSizeMB MB)" -ForegroundColor Gray
+        Write-Host "   This may take several minutes..." -ForegroundColor Gray
+        
+        # Import database
         Get-Content $latestBackup -Raw | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>$null
-        Write-Host "   Database imported!" -ForegroundColor Green
+        
+        # Verify import
+        $tableCount = docker exec esimko-db mysql -u root -proot_password_123 esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
+        
+        if ($tableCount -and [int]$tableCount -gt 50) {
+            Write-Host "   Database imported successfully! ($tableCount tables)" -ForegroundColor Green
+        }
+        else {
+            Write-Host "   [WARN] Import may have issues (found $tableCount tables)" -ForegroundColor Yellow
+            Write-Host "   Retrying import..." -ForegroundColor Yellow
+            
+            # Retry import
+            Get-Content $latestBackup -Raw | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>$null
+            $tableCount = docker exec esimko-db mysql -u root -proot_password_123 esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
+            Write-Host "   Second attempt: $tableCount tables" -ForegroundColor $(if ([int]$tableCount -gt 50) { "Green" }else { "Yellow" })
+        }
+    }
+    else {
+        Write-Host "   [WARN] Backup file too small ($fileSizeMB MB)" -ForegroundColor Yellow
     }
 }
 else {

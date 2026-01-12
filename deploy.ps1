@@ -174,19 +174,48 @@ Write-Step "7/8" "Importing database..."
 if (-not $SkipDbImport) {
     if (Test-Path "esimko_latest_backup.sql") {
         $fileSize = (Get-Item "esimko_latest_backup.sql").Length
+        $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
+        
         if ($fileSize -gt 1000) {
-            Write-Info "Importing esimko_latest_backup.sql ($([math]::Round($fileSize/1MB, 2)) MB)..."
+            Write-Info "Importing esimko_latest_backup.sql ($fileSizeMB MB)..."
+            Write-Info "This may take several minutes for large databases..."
             
             if ($Production) {
                 Get-Content "esimko_latest_backup.sql" -Raw | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>$null
+                $tableCount = docker exec esimko-db mysql -u root -proot_password_123 esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
             }
             else {
                 Get-Content "esimko_latest_backup.sql" -Raw | docker exec -i esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko 2>$null
+                $tableCount = docker exec esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
             }
-            Write-Success "Database imported"
+            
+            # Verify import
+            if ($tableCount -and [int]$tableCount -gt 50) {
+                Write-Success "Database imported successfully! ($tableCount tables)"
+            }
+            else {
+                Write-Warning "Import may have issues (found $tableCount tables), retrying..."
+                
+                # Retry import
+                if ($Production) {
+                    Get-Content "esimko_latest_backup.sql" -Raw | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>$null
+                    $tableCount = docker exec esimko-db mysql -u root -proot_password_123 esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
+                }
+                else {
+                    Get-Content "esimko_latest_backup.sql" -Raw | docker exec -i esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko 2>$null
+                    $tableCount = docker exec esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
+                }
+                
+                if ($tableCount -and [int]$tableCount -gt 50) {
+                    Write-Success "Database imported on retry! ($tableCount tables)"
+                }
+                else {
+                    Write-Warning "Import may still have issues, please check manually"
+                }
+            }
         }
         else {
-            Write-Warning "Backup file is too small, skipping import"
+            Write-Warning "Backup file is too small ($fileSizeMB MB), skipping import"
         }
     }
     else {
