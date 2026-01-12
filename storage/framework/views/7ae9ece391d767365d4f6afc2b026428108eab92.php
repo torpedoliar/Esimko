@@ -191,7 +191,8 @@
     <script src="<?php echo e(asset('assets/js/shortcut.js')); ?>"></script>
     <script>
         let _token = '<?php echo e(csrf_token()); ?>', total = 0, total_diskon = 0, tunai = 0, kembali = 0, no_transaksi = '',
-            penjualan_id = '', limit = 0, tenor = 0, angsuran = 0, produk_pertama = '', boleh_simpan = true;
+            penjualan_id = '', limit = 0, tenor = 0, angsuran = 0, produk_pertama = '', boleh_simpan = true,
+            pending_delete_id = '', delete_from_tunda = false;
         let $modal_search_produk = $('#modal_search_produk'),
             $no_anggota = $('#no_anggota'),
             $kode_produk = $('#kode_produk'),
@@ -284,6 +285,8 @@
 
         let delete_penjualan = () => {
             if (penjualan_id !== '') {
+                pending_delete_id = penjualan_id;
+                delete_from_tunda = false;
                 $('#alasan_batal').val('');
                 $('#modal_batal').modal('show');
                 setTimeout(() => $('#alasan_batal').focus(), 500);
@@ -298,13 +301,19 @@
                 return;
             }
             
-            $.post("<?php echo e(url('pos/penjualan_baru')); ?>/" + penjualan_id + '/delete', {
+            $.post("<?php echo e(url('pos/penjualan_baru')); ?>/" + pending_delete_id + '/delete', {
                 _token,
                 alasan_batal: alasan
             }, () => {
-                swal.fire('Berhasil', 'Transaksi berhasil dibatalkan', 'success').then(() => {
-                    window.location.href = '<?php echo e(url('pos/penjualan_baru')); ?>';
-                });
+                $('#modal_batal').modal('hide');
+                if (delete_from_tunda) {
+                    // Refresh list tunda
+                    open_modal_tunda();
+                } else {
+                    swal.fire('Berhasil', 'Transaksi berhasil dibatalkan', 'success').then(() => {
+                        window.location.href = '<?php echo e(url('pos/penjualan_baru')); ?>';
+                    });
+                }
             }).fail((xhr) => {
                 swal.fire('Error', 'Gagal membatalkan transaksi', 'error');
             });
@@ -438,9 +447,12 @@
         }
 
         let hapus_penjualan = (id) => {
-            $.post("<?php echo e(url('pos/penjualan_baru')); ?>/" + id + '/delete', {_token}, () => {
-                open_modal_tunda()
-            });
+            // Gunakan modal yang sama untuk pembatalan dari list tunda
+            pending_delete_id = id;
+            delete_from_tunda = true;
+            $('#alasan_batal').val('');
+            $('#modal_batal').modal('show');
+            setTimeout(() => $('#alasan_batal').focus(), 500);
         }
 
         $no_anggota.keydown((e) => {

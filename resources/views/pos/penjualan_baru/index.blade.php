@@ -155,7 +155,37 @@
         </div>
     </div>
 
-    <!-- Modal Pembatalan dengan Alasan -->
+    <!-- Modal Ganti Anggota dengan Alasan -->
+    <div class="modal fade" id="modal_unlock_anggota" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="mdi mdi-account-switch"></i> Ganti Anggota</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <i class="mdi mdi-account-edit text-warning" style="font-size: 60px;"></i>
+                        <h5 class="mt-2">Apakah Anda yakin ingin mengganti anggota?</h5>
+                        <p class="text-muted">Anggota saat ini: <strong id="current_anggota_name"></strong></p>
+                    </div>
+                    <div class="form-group">
+                        <label><strong>Alasan Ganti Anggota <span class="text-danger">*</span></strong></label>
+                        <textarea class="form-control" id="alasan_unlock" rows="3" placeholder="Masukkan alasan mengganti anggota..." required></textarea>
+                        <small class="text-muted">Alasan akan tercatat dalam history transaksi</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-warning" onclick="konfirmasi_unlock()">
+                        <i class="mdi mdi-lock-open"></i> Konfirmasi Ganti
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="modal_batal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -276,11 +306,41 @@
         }
 
         let unlock_anggota = () => {
+            // Tampilkan modal untuk minta alasan
+            $('#current_anggota_name').text($('#nama_anggota').text());
+            $('#alasan_unlock').val('');
+            $('#modal_unlock_anggota').modal('show');
+            setTimeout(() => $('#alasan_unlock').focus(), 500);
+        }
+
+        let konfirmasi_unlock = () => {
+            let alasan = $('#alasan_unlock').val().trim();
+            if (alasan === '') {
+                swal.fire('Error', 'Alasan ganti anggota tidak boleh kosong!', 'error');
+                $('#alasan_unlock').focus();
+                return;
+            }
+            
+            // Simpan alasan ke keterangan transaksi (opsional: bisa juga buat kolom khusus)
+            if (penjualan_id !== '') {
+                $.post("{{ url('pos/penjualan_baru') }}/" + penjualan_id + '/update', {
+                    _token,
+                    keterangan: 'Ganti anggota: ' + alasan
+                });
+            }
+            
+            // Unlock field
             anggota_locked = false;
             $no_anggota.prop('readonly', false);
             $no_anggota.css('background-color', '');
             $('#btn_unlock_anggota').hide();
-            $no_anggota.focus();
+            
+            // Tutup modal dan focus ke field
+            $('#modal_unlock_anggota').modal('hide');
+            setTimeout(() => {
+                $no_anggota.val('').focus();
+                $('#nama_anggota').html('Bukan Anggota (0000)');
+            }, 300);
         }
 
         let delete_penjualan = () => {
