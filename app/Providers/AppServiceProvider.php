@@ -23,9 +23,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        // Force HTTPS when behind reverse proxy (NPM) or in production
-        if (env('FORCE_HTTPS', false) || env('APP_ENV') === 'production') {
-            \URL::forceScheme('https');
+        // Dynamic APP_URL based on request (works with any domain)
+        if (request()->getHost()) {
+            $scheme = request()->secure() ? 'https' : 'http';
+            
+            // Force HTTPS when behind reverse proxy (NPM) or in production
+            if (env('FORCE_HTTPS', false) || env('APP_ENV') === 'production') {
+                $scheme = 'https';
+            }
+            
+            // Set dynamic URL
+            \URL::forceScheme($scheme);
+            \URL::forceRootUrl($scheme . '://' . request()->getHost());
         }
     }
 }
