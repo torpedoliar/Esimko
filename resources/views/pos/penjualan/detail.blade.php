@@ -231,9 +231,30 @@
                             <a class="btn btn-secondary" target="_blank" href="{{url('pos/penjualan/cetak_struk?id='.$id)}}" >Cetak Struk</a>
                         </div>
                     @elseif($data['belanja']->fid_status == 3 )
-                        <div class="alert alert-secondary mb-5" role="alert">
-                            <h5 class="mb-2">Transaksi Dibatalkan</h5>
-                            <p>Transkasi sudah dibatalkan, anda tidak bisa membuka atau melanjutkan transksi ini. Silahkan membuat transaksi baru</p>
+                        <div class="alert alert-danger mb-5" role="alert">
+                            <h5 class="mb-3"><i class="mdi mdi-cancel"></i> Transaksi Dibatalkan</h5>
+                            <table class="table table-borderless table-sm mb-0">
+                                @if(!empty($data['belanja']->alasan_batal))
+                                <tr>
+                                    <th width="130">Alasan</th>
+                                    <td>: {{ $data['belanja']->alasan_batal }}</td>
+                                </tr>
+                                @endif
+                                @if(!empty($data['belanja']->dibatalkan_oleh))
+                                <tr>
+                                    <th>Dibatalkan oleh</th>
+                                    <td>: {{ $data['belanja']->dibatalkan_oleh }}</td>
+                                </tr>
+                                @endif
+                                @if(!empty($data['belanja']->tanggal_batal))
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <td>: {{ \App\Helpers\GlobalHelper::dateFormat($data['belanja']->tanggal_batal, 'd/m/Y H:i:s') }}</td>
+                                </tr>
+                                @endif
+                            </table>
+                            <hr>
+                            <small class="text-muted">Transaksi sudah dibatalkan, anda tidak bisa membuka atau melanjutkan transaksi ini.</small>
                         </div>
                     @else
                         <div class="alert alert-secondary" role="alert">

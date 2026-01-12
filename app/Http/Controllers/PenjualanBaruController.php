@@ -64,11 +64,24 @@ class PenjualanBaruController extends Controller
         $penjualan->update($request->all());
     }
 
-    public function delete($id)
+    public function delete(Request $request, $id)
     {
+        $penjualan = Penjualan::find($id);
+        if ($penjualan) {
+            // Simpan alasan pembatalan dan ubah status ke dibatalkan (3)
+            $penjualan->update([
+                'fid_status' => 3,
+                'alasan_batal' => $request->input('alasan_batal'),
+                'dibatalkan_oleh' => session('useractive')->no_anggota,
+                'tanggal_batal' => now(),
+            ]);
+        }
+        
+        // Hapus items terkait
         AngsuranBelanja::where('fid_penjualan', $id)->delete();
         ItemPenjualan::where('fid_penjualan', $id)->delete();
-        Penjualan::where('id', $id)->delete();
+        
+        return response()->json(['success' => true]);
     }
 
     public function list_tunda()

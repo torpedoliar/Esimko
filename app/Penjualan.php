@@ -30,7 +30,10 @@ class Penjualan extends Model
         'attachment',
         'fid_status',
         'created_by',
-        'kasir'
+        'kasir',
+        'alasan_batal',
+        'dibatalkan_oleh',
+        'tanggal_batal'
     ];
 
     public function user_kasir()

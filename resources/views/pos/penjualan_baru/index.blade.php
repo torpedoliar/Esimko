@@ -16,7 +16,14 @@
         <div class="w-75 bg-white d-flex flex-column" style="padding: 20px;">
             <div class="d-flex flex-row" style="gap: 10px;">
                 <input type="text" id="kode_produk" name="kode_produk" class="form-control form-control-lg" placeholder="Kode Produk (F2)" autofocus>
-                <input type="text" id="no_anggota" name="no_anggota" class="form-control form-control-lg" placeholder="Kode Anggota (F3)" value="{{ !empty($penjualan->anggota) ? $penjualan->anggota->no_anggota : '' }}" style="width: 250px;" onchange="cari_anggota()">
+                <div class="input-group" style="width: 300px;">
+                    <input type="text" id="no_anggota" name="no_anggota" class="form-control form-control-lg" placeholder="Kode Anggota (F3)" value="{{ !empty($penjualan->anggota) ? $penjualan->anggota->no_anggota : '' }}" onchange="cari_anggota()">
+                    <div class="input-group-append">
+                        <button class="btn btn-secondary" type="button" id="btn_unlock_anggota" style="display: none;" onclick="unlock_anggota()" title="Klik untuk membuka kunci">
+                            <i class="mdi mdi-lock"></i>
+                        </button>
+                    </div>
+                </div>
                 <button class="btn btn-primary text-nowrap px-4" type="button" onclick="open_modal_search_produk()">Cari Barang (F4)</button>
                 <button class="btn btn-info text-nowrap px-3" type="button" onclick="open_customer_display()" title="Buka tampilan customer di monitor kedua">
                     <i class="mdi mdi-monitor-multiple"></i> Dual Display (F5)
@@ -147,6 +154,37 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Pembatalan dengan Alasan -->
+    <div class="modal fade" id="modal_batal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="mdi mdi-alert-circle"></i> Batalkan Transaksi</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <i class="mdi mdi-alert-circle-outline text-danger" style="font-size: 60px;"></i>
+                        <h5 class="mt-2">Apakah Anda yakin ingin membatalkan transaksi ini?</h5>
+                    </div>
+                    <div class="form-group">
+                        <label><strong>Alasan Pembatalan <span class="text-danger">*</span></strong></label>
+                        <textarea class="form-control" id="alasan_batal" rows="3" placeholder="Masukkan alasan pembatalan..." required></textarea>
+                        <small class="text-muted">Alasan pembatalan akan tercatat dalam history transaksi</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Kembali</button>
+                    <button type="button" class="btn btn-danger" onclick="konfirmasi_batal()">
+                        <i class="mdi mdi-delete"></i> Konfirmasi Pembatalan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('js')
@@ -226,12 +264,50 @@
             });
         }
 
+        // Auto lock anggota
+        let anggota_locked = false;
+
+        let lock_anggota = () => {
+            anggota_locked = true;
+            $no_anggota.prop('readonly', true);
+            $no_anggota.css('background-color', '#e9ecef');
+            $('#btn_unlock_anggota').show();
+        }
+
+        let unlock_anggota = () => {
+            anggota_locked = false;
+            $no_anggota.prop('readonly', false);
+            $no_anggota.css('background-color', '');
+            $('#btn_unlock_anggota').hide();
+            $no_anggota.focus();
+        }
+
         let delete_penjualan = () => {
             if (penjualan_id !== '') {
-                $.post("{{ url('pos/penjualan_baru') }}/" + penjualan_id + '/delete', {_token} ,() => {
+                $('#alasan_batal').val('');
+                $('#modal_batal').modal('show');
+                setTimeout(() => $('#alasan_batal').focus(), 500);
+            }
+        }
+
+        let konfirmasi_batal = () => {
+            let alasan = $('#alasan_batal').val().trim();
+            if (alasan === '') {
+                swal.fire('Error', 'Alasan pembatalan tidak boleh kosong!', 'error');
+                $('#alasan_batal').focus();
+                return;
+            }
+            
+            $.post("{{ url('pos/penjualan_baru') }}/" + penjualan_id + '/delete', {
+                _token,
+                alasan_batal: alasan
+            }, () => {
+                swal.fire('Berhasil', 'Transaksi berhasil dibatalkan', 'success').then(() => {
                     window.location.href = '{{ url('pos/penjualan_baru') }}';
                 });
-            }
+            }).fail((xhr) => {
+                swal.fire('Error', 'Gagal membatalkan transaksi', 'error');
+            });
         }
 
         let tunda_penjualan = () => {
@@ -268,6 +344,9 @@
                         });
                     }
                     $('#nama_anggota').html(result.nama_lengkap + '('+ result.no_anggota +')');
+                    
+                    // AUTO LOCK setelah anggota ditemukan
+                    lock_anggota();
                 }
             });
         }
