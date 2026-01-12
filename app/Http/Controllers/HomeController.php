@@ -13,6 +13,7 @@ use View;
 use DB;
 use DateTime;
 use Redirect;
+use Illuminate\Support\Facades\Cache;
 
 class HomeController extends Controller
 {
@@ -67,10 +68,26 @@ class HomeController extends Controller
     }
 
     public function dashboard(){
-      $data['total-anggota']=DB::table('anggota')->whereIn('fid_status',array(2,3))->count();
-      $data['total-simpanan']=DB::table('transaksi')->whereIn('fid_jenis_transaksi',array(1,2,3,4,5,6,7,8))->where('fid_status',4)->sum('nominal');
-      $data['total-pinjaman']=DB::table('transaksi')->whereIn('fid_jenis_transaksi',array(9,10,11))->whereIn('fid_status',array(4,6))->sum('nominal');
-      $data['total-penjualan']=DB::table('penjualan')->where('fid_status',3)->sum('total_pembayaran');
+      // Cache heavy aggregate queries for 5 minutes
+      $stats = Cache::remember('dashboard_stats', 300, function() {
+          return [
+              'total-anggota' => DB::table('anggota')->whereIn('fid_status', [2,3])->count(),
+              'total-simpanan' => DB::table('transaksi')
+                  ->whereIn('fid_jenis_transaksi', [1,2,3,4,5,6,7,8])
+                  ->where('fid_status', 4)
+                  ->sum('nominal'),
+              'total-pinjaman' => DB::table('transaksi')
+                  ->whereIn('fid_jenis_transaksi', [9,10,11])
+                  ->whereIn('fid_status', [4,6])
+                  ->sum('nominal'),
+              'total-penjualan' => DB::table('penjualan')
+                  ->where('fid_status', 3)
+                  ->sum('total_pembayaran'),
+          ];
+      });
+      
+      // Real-time data (not cached)
+      $data = $stats;
       $data['ver_setoran']=$this->get_verifikasi_transaksi('setoran');
       $data['ver_penarikan']=$this->get_verifikasi_transaksi('penarikan');
       $data['ver_pinjaman']=$this->get_verifikasi_transaksi('pinjaman');

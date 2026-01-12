@@ -339,18 +339,27 @@ class PenarikanController extends Controller
     function proses_payroll_hari_raya($id,$request){
       Transaksi::where('fid_payroll',$id)->where('fid_jenis_transaksi',7)->delete();
       $anggota=Anggota::whereIn('fid_status',array(2,3))->where('no_anggota','<>',null)->get(); //Anggota Baru dan Aktif
+      
+      // Batch query for all saldo at once (fixes N+1 problem)
+      $no_anggota_list = $anggota->pluck('no_anggota')->toArray();
+      $saldo_batch = GlobalHelper::saldo_simpanan($no_anggota_list);
+      
       foreach ($anggota as $key => $value) {
-        $field=new Transaksi;
-        $field->created_at=date('Y-m-d H:i:s');
-        $field->created_by=Session::get('useractive')->no_anggota;
-        $field->fid_status=4;
-        $field->fid_jenis_transaksi=7;
-        $field->fid_anggota=$value->no_anggota;
-        $field->fid_metode_transaksi=2;
-        $field->fid_payroll=$id;
-        $field->nominal=-str_replace(',','',GlobalHelper::saldo_tabungan($field->fid_anggota, 4));
-        $field->tanggal=date('Y-m-d');
-        if($field->nominal!=0){
+        $key_upper = strtoupper($value->no_anggota);
+        // Type 4 = Simpanan Hari Raya deposit, Type 7 = Simpanan Hari Raya withdrawal
+        $saldo_hari_raya = ($saldo_batch[$key_upper . '_4'] ?? 0) + ($saldo_batch[$key_upper . '_7'] ?? 0);
+        
+        if($saldo_hari_raya != 0){
+          $field=new Transaksi;
+          $field->created_at=date('Y-m-d H:i:s');
+          $field->created_by=Session::get('useractive')->no_anggota;
+          $field->fid_status=4;
+          $field->fid_jenis_transaksi=7;
+          $field->fid_anggota=$value->no_anggota;
+          $field->fid_metode_transaksi=2;
+          $field->fid_payroll=$id;
+          $field->nominal=-$saldo_hari_raya;
+          $field->tanggal=date('Y-m-d');
           $field->save();
         }
       }

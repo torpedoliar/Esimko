@@ -974,6 +974,57 @@ class GlobalHelper
      * Batch get sisa pinjaman for multiple anggota at once
      * @param array $no_anggota_list
      * @param mixed $jenis - 'all' or specific jenis transaksi ID
+     * @return array Format: ['K 0001_9' => ['sisa' => 5, 'total' => 10], ...]
+     */
+    public static function sisa_tenor_pinjaman_batch(array $no_anggota_list, $jenis = 'all')
+    {
+        if (empty($no_anggota_list)) {
+            return [];
+        }
+
+        // Get all loans with tenor info
+        $query = DB::table('transaksi')
+            ->select('id', 'fid_anggota', 'fid_jenis_transaksi', 'tenor')
+            ->whereIn('fid_anggota', $no_anggota_list)
+            ->where('fid_status', 4);
+
+        if ($jenis != 'all') {
+            $query->where('fid_jenis_transaksi', $jenis);
+        } else {
+            $query->whereIn('fid_jenis_transaksi', [9, 10, 11]);
+        }
+
+        $pinjaman = $query->get();
+
+        if ($pinjaman->isEmpty()) {
+            return [];
+        }
+
+        // Get unpaid angsuran counts in single query
+        $transaksi_ids = $pinjaman->pluck('id')->toArray();
+        $unpaid_counts = DB::table('angsuran')
+            ->select('fid_transaksi', DB::raw('COUNT(*) as sisa'))
+            ->whereIn('fid_transaksi', $transaksi_ids)
+            ->where('fid_status', '!=', 6)
+            ->groupBy('fid_transaksi')
+            ->get()
+            ->keyBy('fid_transaksi');
+
+        // Build result
+        $result = [];
+        foreach ($pinjaman as $row) {
+            $key = strtoupper($row->fid_anggota) . '_' . $row->fid_jenis_transaksi;
+            $sisa = isset($unpaid_counts[$row->id]) ? $unpaid_counts[$row->id]->sisa : 0;
+            $result[$key] = ['tenor' => $row->tenor ?? 0, 'sisa' => $sisa, 'total' => $row->tenor ?? 0];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Batch version of sisa_pinjaman to fix N+1 query problem
+     * @param array $no_anggota_list
+     * @param mixed $jenis - 'all' or specific jenis transaksi ID
      * @return array Format: ['K 0001_9' => 1000000, ...]
      */
     public static function sisa_pinjaman_batch(array $no_anggota_list, $jenis = 'all')

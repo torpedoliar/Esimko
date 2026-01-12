@@ -37,21 +37,42 @@ class MonitoringController extends Controller
 
         if ($paginate === true) {
             $result = $query->orderBy('anggota.nama_lengkap')->paginate(10);
-            foreach ($result as $key => $value) {
-                if ($jenis == 'saldo_simpanan') {
-                    $result[$key]->simpanan_pokok = GlobalHelper::saldo_tabungan($value->no_anggota, 1); //Simpanan Pokok
-                    $result[$key]->simpanan_wajib = GlobalHelper::saldo_tabungan($value->no_anggota, 2); //Simpanan Wajib
-                    $result[$key]->simpanan_sukarela = GlobalHelper::saldo_tabungan($value->no_anggota, 'Simpanan Sukarela'); //Simpanan Sukarela
-                    $result[$key]->simpanan_hari_raya = GlobalHelper::saldo_tabungan($value->no_anggota, 'Simpanan Hari Raya'); //Simpanan Hari Raya
-                    $result[$key]->total_simpanan = GlobalHelper::saldo_tabungan($value->no_anggota, 'Total Simpanan'); //Total Simpanan
-                } elseif ($jenis == 'sisa_pinjaman') {
-                    $result[$key]->sisa_jangka_panjang = GlobalHelper::sisa_pinjaman($value->no_anggota, 9); //Sisa Jangka Panjang
-                    $result[$key]->sisa_jangka_pendek = GlobalHelper::sisa_pinjaman($value->no_anggota, 10); //Sisa Jangka Pendek
-                    $result[$key]->sisa_barang = GlobalHelper::sisa_pinjaman($value->no_anggota, 11); //Sisa Barang
+            
+            // Collect all no_anggota for batch query (fixes N+1 problem)
+            $no_anggota_list = $result->pluck('no_anggota')->toArray();
+            
+            if ($jenis == 'saldo_simpanan') {
+                // Single batch query instead of N queries
+                $saldo_batch = GlobalHelper::saldo_simpanan($no_anggota_list);
+                
+                foreach ($result as $key => $value) {
+                    $key_upper = strtoupper($value->no_anggota);
+                    $result[$key]->simpanan_pokok = $saldo_batch[$key_upper . '_1'] ?? 0;
+                    $result[$key]->simpanan_wajib = $saldo_batch[$key_upper . '_2'] ?? 0;
+                    $result[$key]->simpanan_sukarela = ($saldo_batch[$key_upper . '_3'] ?? 0) 
+                        + ($saldo_batch[$key_upper . '_5'] ?? 0) 
+                        + ($saldo_batch[$key_upper . '_6'] ?? 0);
+                    $result[$key]->simpanan_hari_raya = ($saldo_batch[$key_upper . '_4'] ?? 0) 
+                        + ($saldo_batch[$key_upper . '_7'] ?? 0);
+                    $result[$key]->total_simpanan = $result[$key]->simpanan_pokok 
+                        + $result[$key]->simpanan_wajib 
+                        + $result[$key]->simpanan_sukarela 
+                        + $result[$key]->simpanan_hari_raya;
+                }
+            } elseif ($jenis == 'sisa_pinjaman') {
+                // Use batch query for sisa_pinjaman (fixes N+1)
+                $sisa_batch = GlobalHelper::sisa_pinjaman_batch($no_anggota_list);
+                $tenor_batch = GlobalHelper::sisa_tenor_pinjaman_batch($no_anggota_list);
+                
+                foreach ($result as $key => $value) {
+                    $key_upper = strtoupper($value->no_anggota);
+                    $result[$key]->sisa_jangka_panjang = $sisa_batch[$key_upper . '_9'] ?? 0;
+                    $result[$key]->sisa_jangka_pendek = $sisa_batch[$key_upper . '_10'] ?? 0;
+                    $result[$key]->sisa_barang = $sisa_batch[$key_upper . '_11'] ?? 0;
 
-                    $result[$key]->tenor_jangka_panjang = GlobalHelper::sisa_tenor_pinjaman($value->no_anggota, 9); //Sisa Jangka Panjang
-                    $result[$key]->tenor_jangka_pendek = GlobalHelper::sisa_tenor_pinjaman($value->no_anggota, 10); //Sisa Jangka Pendek
-                    $result[$key]->tenor_barang = GlobalHelper::sisa_tenor_pinjaman($value->no_anggota, 11); //Sisa Barang
+                    $result[$key]->tenor_jangka_panjang = $tenor_batch[$key_upper . '_9'] ?? ['sisa' => 0, 'total' => 0];
+                    $result[$key]->tenor_jangka_pendek = $tenor_batch[$key_upper . '_10'] ?? ['sisa' => 0, 'total' => 0];
+                    $result[$key]->tenor_barang = $tenor_batch[$key_upper . '_11'] ?? ['sisa' => 0, 'total' => 0];
                 }
             }
             if (!empty($search)) {
