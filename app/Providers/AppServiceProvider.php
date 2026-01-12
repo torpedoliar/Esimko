@@ -23,6 +23,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-//        \URL::forceScheme('https');
+        // Force HTTPS when behind reverse proxy (NPM) or in production
+        if (env('FORCE_HTTPS', false) || env('APP_ENV') === 'production') {
+            \URL::forceScheme('https');
+        }
     }
 }
