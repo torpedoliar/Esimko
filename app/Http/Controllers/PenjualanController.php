@@ -475,6 +475,15 @@ class PenjualanController extends Controller
     }
 
     public function proses_angsuran($id,$request){
+        // Check if angsuran already exists to prevent duplicates
+        $existing = AngsuranBelanja::where('fid_penjualan', $id)
+            ->where('angsuran_ke', 1)
+            ->first();
+        
+        if ($existing) {
+            return; // Already exists, skip creation
+        }
+        
         $field=new AngsuranBelanja;
         $field->fid_penjualan=$id;
         $field->angsuran_ke=1;

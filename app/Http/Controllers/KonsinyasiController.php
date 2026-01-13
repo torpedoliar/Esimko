@@ -259,6 +259,15 @@ class KonsinyasiController extends Controller
     public function proses_angsuran($id,$request){
         AngsuranBelanja::where('fid_penjualan',$id)->delete();
         for($n=1;$n<=$request->tenor;$n++){
+            // Check if angsuran already exists to prevent duplicates
+            $existing = AngsuranBelanja::where('fid_penjualan', $id)
+                ->where('angsuran_ke', $n)
+                ->first();
+            
+            if ($existing) {
+                continue; // Already exists, skip this iteration
+            }
+            
             $field=new AngsuranBelanja;
             $field->fid_penjualan=$id;
             $field->angsuran_ke=$n;

@@ -337,6 +337,15 @@ class ImportController extends Controller
         AngsuranBelanja::where('fid_penjualan',$penjualan_id)->delete();
         $angsuran_ke=$import->tenor-$import->sisa_angsuran;
         for($n=1;$n<=$import->tenor;$n++){
+          // Check if angsuran already exists to prevent duplicates
+          $existing = AngsuranBelanja::where('fid_penjualan', $penjualan_id)
+              ->where('angsuran_ke', $n)
+              ->first();
+          
+          if ($existing) {
+              continue; // Already exists, skip this iteration
+          }
+          
           $field=new AngsuranBelanja;
           $field->angsuran_ke=$n;
           $field->fid_penjualan=$penjualan_id;
