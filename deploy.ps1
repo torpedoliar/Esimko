@@ -55,6 +55,24 @@ Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "   ESIMKO One-Click Deploy Script" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 
+# Interactive mode selection if no Production flag specified
+if (-not $Production -and -not $PSBoundParameters.ContainsKey('Production')) {
+    Write-Host ""
+    Write-Host "Pilih mode deployment:" -ForegroundColor Yellow
+    Write-Host "  [1] Development (docker-compose.dev.yml) - DB terpisah, tanpa NPM" -ForegroundColor White
+    Write-Host "  [2] Production  (docker-compose.npm.yml) - Dengan NPM/SSL" -ForegroundColor White
+    Write-Host ""
+    $choice = Read-Host "Masukkan pilihan (1/2) [default: 1]"
+    
+    if ($choice -eq "2") {
+        $Production = $true
+        Write-Host "       Mode: Production (NPM)" -ForegroundColor Green
+    }
+    else {
+        Write-Host "       Mode: Development" -ForegroundColor Green
+    }
+}
+
 # Step 1: Check Docker
 Write-Step "1/8" "Checking Docker..."
 try {
@@ -149,13 +167,8 @@ while ($attempt -lt $maxAttempts -and -not $dbReady) {
     Start-Sleep -Seconds 5
     $attempt++
     
-    # Check appropriate database
-    if ($Production) {
-        $check = docker exec esimko-db mysql -u root -proot_password_123 -e "SELECT 1" 2>$null
-    }
-    else {
-        $check = docker exec esimko-app mysql -u root -pMYSQLp4ssw0rd7% -e "SELECT 1" 2>$null
-    }
+    # Check appropriate database (both dev and prod now use separate esimko-db container)
+    $check = docker exec esimko-db mysql -u root -proot_password_123 -e "SELECT 1" 2>$null
     
     if ($check) {
         $dbReady = $true
@@ -181,14 +194,9 @@ if (-not $SkipDbImport) {
             Write-Info "Importing esimko_latest_backup.sql ($fileSizeMB MB)..."
             Write-Info "This may take several minutes for large databases..."
             
-            if ($Production) {
-                Get-Content "esimko_latest_backup.sql" -Raw | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>$null
-                $tableCount = docker exec esimko-db mysql -u root -proot_password_123 esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
-            }
-            else {
-                Get-Content "esimko_latest_backup.sql" -Raw | docker exec -i esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko 2>$null
-                $tableCount = docker exec esimko-app mysql -u root -pMYSQLp4ssw0rd7% esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
-            }
+            # Both dev and prod now use separate esimko-db container
+            Get-Content "esimko_latest_backup.sql" -Raw | docker exec -i esimko-db mysql -u root -proot_password_123 esimko 2>$null
+            $tableCount = docker exec esimko-db mysql -u root -proot_password_123 esimko -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'esimko';" 2>$null
             
             # Verify import
             if ($tableCount -and [int]$tableCount -gt 50) {
