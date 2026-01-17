@@ -52,6 +52,13 @@ Route::group(['middleware' => ['ceklogin']],function(){
     Route::get('pengaturan/system-update', 'SystemUpdateController@index')->name('system-update');
     Route::get('pengaturan/system-update/check', 'SystemUpdateController@checkUpdate')->name('system-update.check');
     
+    // Pengaturan Routes
+    Route::get('pengaturan/otoritas_user', 'PengaturanController@otoritas_user');
+    Route::post('pengaturan/otoritas_user/proses', 'PengaturanController@proses_otoritas_user');
+    Route::get('pengaturan/metode_pembayaran', 'PengaturanController@metode_pembayaran');
+    Route::get('pengaturan/bunga_pinjaman', 'PengaturanController@bunga_pinjaman');
+    Route::post('pengaturan/bunga_pinjaman/proses', 'PengaturanController@proses_bunga_pinjaman');
+    
     Route::prefix('main')->group(function () {
 
         Route::get('dashboard', 'HomeController@main_dashboard');
