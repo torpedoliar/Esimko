@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: esimko-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - esimko-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # MySQL Database (Separate Container)
+  db:
+    image: mysql:8.0
+    container_name: esimko-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_123
+      MYSQL_DATABASE: esimko
+      MYSQL_USER: esimko
+      MYSQL_PASSWORD: esimko_password_123
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - esimko-network
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password_123" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Esimko Laravel Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: esimko-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - APP_NAME=eSIMKO
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_URL=http://localhost:8080
+
+      # Database (External Container)
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=esimko
+      - DB_USERNAME=esimko
+      - DB_PASSWORD=esimko_password_123
+
+      # Cache & Session
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=file
+      - QUEUE_CONNECTION=sync
+
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=null
+    volumes:
+      # Mount project files
+      - .:/var/www/html
+      # Persist storage
+      - app_storage:/var/www/html/storage/app
+      - app_framework:/var/www/html/storage/framework
+    networks:
+      - esimko-network
+    # Direct access ports
+    ports:
+      - "8080:80"
+      - "8443:443"
+
+networks:
+  esimko-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  app_storage:
+  app_framework:

@@ -97,6 +97,7 @@ else {
 # Step 3: Stop existing containers
 Write-Step "3/8" "Stopping existing containers..."
 docker-compose down 2>$null
+docker-compose -f docker-compose.dev.yml down 2>$null
 docker-compose -f docker-compose.npm.yml down 2>$null
 Write-Success "Containers stopped"
 
@@ -128,8 +129,8 @@ if ($Production) {
     docker-compose -f docker-compose.npm.yml up -d --build
 }
 else {
-    Write-Info "Development mode..."
-    docker-compose up -d --build
+    Write-Info "Development mode (with separate DB)..."
+    docker-compose -f docker-compose.dev.yml up -d --build
 }
 
 if ($LASTEXITCODE -ne 0) {
