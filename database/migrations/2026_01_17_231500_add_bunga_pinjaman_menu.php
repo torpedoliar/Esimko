@@ -64,6 +64,22 @@ class AddBungaPinjamanMenu extends Migration
                 }
             }
         }
+        
+        // Create default pengaturan record for bunga_pinjaman if not exists
+        $pengaturanExists = DB::table('pengaturan')
+            ->where('kode', 'bunga_pinjaman')
+            ->exists();
+        
+        if (!$pengaturanExists) {
+            DB::table('pengaturan')->insert([
+                'kode' => 'bunga_pinjaman',
+                'nama' => 'Bunga Pinjaman (Per Bulan)',
+                'tipe' => 'persen',
+                'nilai' => 0.01, // Default 1%
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     /**
@@ -73,8 +89,23 @@ class AddBungaPinjamanMenu extends Migration
      */
     public function down()
     {
-        DB::table('modul')
+        // Get menu ID
+        $menuId = DB::table('modul')
             ->where('link', 'pengaturan/bunga_pinjaman')
-            ->delete();
+            ->value('id');
+        
+        if ($menuId) {
+            // Remove permissions
+            DB::table('otoritas_user')
+                ->where('fid_modul', $menuId)
+                ->delete();
+            
+            // Remove menu
+            DB::table('modul')
+                ->where('id', $menuId)
+                ->delete();
+        }
+        
+        // Note: We don't remove pengaturan data as it may contain audit logs
     }
 }
