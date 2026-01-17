@@ -1,1 +1,0 @@
-<?php /**PATH /var/www/html/resources/views/anggota/detail/belanja_konsinyasi.blade.php ENDPATH**/ ?>

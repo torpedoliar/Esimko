@@ -1,1 +1,0 @@
-<?php /**PATH /var/www/html/resources/views/anggota/detail/belanja_toko.blade.php ENDPATH**/ ?>

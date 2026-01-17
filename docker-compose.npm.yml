@@ -106,7 +106,10 @@ services:
       - app_framework:/var/www/html/storage/framework
     networks:
       - esimko-network
-    # Expose internal port (NPM will proxy to this)
+    # Direct access on port 8080 (bypass NPM)
+    ports:
+      - "8080:80"
+    # Also expose for NPM proxy
     expose:
       - "80"
 
