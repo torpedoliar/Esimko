@@ -20,7 +20,12 @@ class SystemUpdateController extends Controller
             $version = json_decode(file_get_contents($versionFile));
         }
         
-        return view('pengaturan.system_update.index', compact('version'));
+        // Required for admin layout
+        $app = 'master';
+        $page = 'System Update';
+        $subpage = '';
+        
+        return view('pengaturan.system_update.index', compact('version', 'app', 'page', 'subpage'));
     }
     
     /**
