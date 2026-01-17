@@ -1,0 +1,104 @@
+version: '3.8'
+
+# ============================================
+# ESIMKO Production Docker Compose (No NPM)
+# Optimized for production with separate DB
+# ============================================
+
+services:
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: esimko-redis
+    restart: always
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - esimko-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # MySQL Database (Separate Container)
+  db:
+    image: mysql:8.0
+    container_name: esimko-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password_123}
+      MYSQL_DATABASE: esimko
+      MYSQL_USER: esimko
+      MYSQL_PASSWORD: ${DB_PASSWORD:-esimko_password_123}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
+    networks:
+      - esimko-network
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max_connections=500
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_password_123}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Esimko Laravel Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: esimko-app
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Application
+      - APP_NAME=eSIMKO
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=${APP_URL:-http://localhost:8080}
+
+      # Database (External Container)
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=esimko
+      - DB_USERNAME=esimko
+      - DB_PASSWORD=${DB_PASSWORD:-esimko_password_123}
+
+      # Cache & Session (Use Redis for production)
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=null
+    volumes:
+      # Mount project files
+      - .:/var/www/html
+      # Persist storage
+      - app_storage:/var/www/html/storage/app
+      - app_framework:/var/www/html/storage/framework
+    networks:
+      - esimko-network
+    # Direct access ports
+    ports:
+      - "${APP_PORT:-8080}:80"
+      - "${APP_SSL_PORT:-8443}:443"
+
+networks:
+  esimko-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  app_storage:
+  app_framework:
