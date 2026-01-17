@@ -25,10 +25,7 @@ use App\GajiPokok;
 use App\VerifikasiTransaksi;
 use App\SetoranBerkala;
 use App\Pengaturan;
-<<<<<<< HEAD
 use Illuminate\Support\Facades\Cache;
-=======
->>>>>>> 8ad334fda (Add loan interest configuration feature with audit trail and password confirmation)
 use DateTime;
 use Session;
 
@@ -933,7 +930,6 @@ class GlobalHelper
         }
         return false;
     }
-<<<<<<< HEAD
 
     /**
      * Clear otoritas cache when permissions are updated
@@ -1084,7 +1080,5 @@ class GlobalHelper
 
         return $sisa;
     }
-=======
->>>>>>> 8ad334fda (Add loan interest configuration feature with audit trail and password confirmation)
 }
 
