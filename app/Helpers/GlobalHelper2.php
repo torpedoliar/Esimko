@@ -581,7 +581,7 @@ class GlobalHelper2 {
             $return_pembelian=ItemReturPembelian::where('fid_produk',$id)->where('metode','Kembali Uang')->sum('jumlah');
             $item_penjualan=ItemPenjualan::join('penjualan','penjualan.id','item_penjualan.fid_penjualan')
                 ->where('item_penjualan.fid_produk',$id)
-                ->where('penjualan.fid_status', 2);
+                ->whereIn('penjualan.fid_status', [2, 4, 6]); // Status 2=Proses, 4=Selesai, 6=Lunas (exclude 3=Batal, 5=Hold)
             $penyesuaian = StokOpname::where('fid_produk', $id)->sum('jumlah');
             if($penjualan!='all'){
                 $terjual=$item_penjualan->where('item_penjualan.fid_penjualan','<>',$penjualan)->sum('item_penjualan.jumlah');
