@@ -635,6 +635,15 @@
                             @endif
                         </li>
                     @endforeach
+                    
+                    {{-- System Update Menu (Static) --}}
+                    <li class="menu-title">Pengaturan Sistem</li>
+                    <li>
+                        <a href="{{url('pengaturan/system-update')}}" class="waves-effect @if(isset($page) && $page=='System Update') active @endif">
+                            <i class="bx bx-refresh"></i>
+                            <span>System Update</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>

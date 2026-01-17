@@ -68,3 +68,8 @@ Route::get('mobile/belanja/angsuran', 'MobileController@angsuran_belanja');
 Route::get('mobile/belanja/retur', 'MobileController@retur_barang');
 
 Route::post('mobile/upload_avatar', 'MobileController@upload_avatar');
+
+//----------------------------------------VERSION API--------------------------------------------//
+
+Route::get('version', 'Api\VersionController@index');
+Route::get('version/check', 'Api\VersionController@checkUpdate');

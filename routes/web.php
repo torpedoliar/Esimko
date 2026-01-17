@@ -47,6 +47,11 @@ Route::post('auth/login/proses','AuthController@proses_login');
 
 Route::group(['middleware' => ['ceklogin']],function(){
     Route::get('dashboard', 'HomeController@dashboard');
+    
+    // System Update Routes
+    Route::get('pengaturan/system-update', 'SystemUpdateController@index')->name('system-update');
+    Route::get('pengaturan/system-update/check', 'SystemUpdateController@checkUpdate')->name('system-update.check');
+    
     Route::prefix('main')->group(function () {
 
         Route::get('dashboard', 'HomeController@main_dashboard');

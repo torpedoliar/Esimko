@@ -1,0 +1,14 @@
+{
+    "version": "1.0.0",
+    "releaseDate": "2026-01-17",
+    "minDatabaseVersion": "1.0.0",
+    "changelog": [
+        "Initial release with versioning system",
+        "Feature: Docker development environment with separate DB",
+        "Feature: Production deployment without NPM",
+        "Fix: Stock calculation for Lunas transactions (status 6)",
+        "Fix: Windows-Docker config cache sync issue"
+    ],
+    "repository": "https://github.com/torpedoliar/Esimko",
+    "branch": "main"
+}
