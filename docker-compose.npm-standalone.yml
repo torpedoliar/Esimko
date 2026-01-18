@@ -1,0 +1,49 @@
+version: '3.8'
+
+# ============================================
+# Nginx Proxy Manager - Standalone Container
+# For local development with SSL/proxy support
+# ============================================
+#
+# Usage:
+#   docker-compose -f docker-compose.npm-standalone.yml up -d
+#
+# Access:
+#   Admin UI: http://localhost:8500
+#   HTTP:     http://localhost:8000
+#   HTTPS:    https://localhost:4443
+#
+# Default Login:
+#   Email:    admin@example.com
+#   Password: changeme
+#
+# ============================================
+
+services:
+  npm:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: npm-local
+    restart: unless-stopped
+    ports:
+      - '8000:80' # HTTP
+      - '4443:443' # HTTPS
+      - '8500:81' # NPM Admin UI
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      - esimko-network
+    healthcheck:
+      test: [ "CMD", "/bin/check-health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  esimko-network:
+    external: true
+    name: esimko_esimko-network
+
+volumes:
+  npm_data:
+  npm_letsencrypt:
