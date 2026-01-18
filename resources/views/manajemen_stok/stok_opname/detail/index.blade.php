@@ -58,19 +58,19 @@
       <div class="col-lg-6 align-self-center">
         <div class="mt-4 mt-lg-0">
           <div class="row">
-            <div class="col-3">
+            <div class="col-6 col-lg-4">
               <div>
                 <p class="text-muted text-truncate mb-1">Harga Beli </p>
                 <h5 class="mb-0 font-size-15">Rp {{number_format($data['produk']->harga_beli,'0',',','.')}}</h5>
               </div>
             </div>
-            <div class="col-3">
+            <div class="col-6 col-lg-4">
               <div>
                 <p class="text-muted text-truncate mb-1">Margin </p>
                 <h5 class="mb-0 font-size-15">Rp {{number_format($data['produk']->margin_nominal,'0',',','.')}}</h5>
               </div>
             </div>
-            <div class="col-3">
+            <div class="col-6 col-lg-4">
               <div>
                 <p class="text-muted text-truncate mb-1">Harga Jual </p>
                 <h5 class="mb-0 font-size-15">Rp {{number_format($data['produk']->harga_jual,'0',',','.')}}</h5>

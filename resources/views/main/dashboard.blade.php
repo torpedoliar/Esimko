@@ -50,7 +50,7 @@ Dashboard |
     <div class="card">
       <div class="card-body">
         <div class="row">
-          <div class="col-3">
+          <div class="col-6 col-lg-3">
             <div class="media">
               <img src="{{asset('assets/images/icon-page/wallet.png')}}" style="height:70px;margin-right:10px">
               <div class="media-body align-self-center">
@@ -59,7 +59,7 @@ Dashboard |
               </div>
             </div>
           </div>
-          <div class="col-3">
+          <div class="col-6 col-lg-3">
             <div class="media">
               <img src="{{asset('assets/images/icon-page/save-money.png')}}" style="height:70px;margin-right:10px">
               <div class="media-body align-self-center">
@@ -68,7 +68,7 @@ Dashboard |
               </div>
             </div>
           </div>
-          <div class="col-3">
+          <div class="col-6 col-lg-3">
             <div class="media">
               <img src="{{asset('assets/images/icon-page/pay-day.png')}}" style="height:70px;margin-right:10px">
               <div class="media-body align-self-center">
@@ -77,7 +77,7 @@ Dashboard |
               </div>
             </div>
           </div>
-          <div class="col-3">
+          <div class="col-6 col-lg-3">
             <div class="media">
               <img src="{{asset('assets/images/icon-page/shopping-basket.png')}}" style="height:70px;margin-right:10px">
               <div class="media-body align-self-center">

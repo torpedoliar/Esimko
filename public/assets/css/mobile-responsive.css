@@ -1,0 +1,445 @@
+/**
+ * ESIMKO Mobile Responsive CSS
+ * Version: 1.0
+ * Created: 2026-01-18
+ * 
+ * Safe overrides with !important where needed to override inline styles
+ * Rollback: Delete this file and remove CSS links from layouts
+ */
+
+/* ===== GLOBAL RESPONSIVE IMAGES ===== */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ===== MOBILE (< 576px) ===== */
+@media screen and (max-width: 575.98px) {
+
+  /* Page content padding */
+  .page-content {
+    padding: calc(70px + 8px) 8px 20px 8px !important;
+  }
+
+  .container-fluid {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  /* Cards */
+  .card-body {
+    padding: 0.75rem;
+  }
+
+  .card-title {
+    font-size: 13px !important;
+  }
+
+  .card {
+    margin-bottom: 12px;
+  }
+
+  /* Stats images - override inline height:70px */
+  .media img[style*="height:70px"],
+  .media img[style*="height: 70px"] {
+    height: 45px !important;
+    margin-right: 8px !important;
+  }
+
+  /* Text sizing for readability */
+  .font-size-17 {
+    font-size: 13px !important;
+  }
+
+  .font-size-16 {
+    font-size: 12px !important;
+  }
+
+  .font-size-15 {
+    font-size: 12px !important;
+  }
+
+  .font-size-18 {
+    font-size: 14px !important;
+  }
+
+  /* Tables */
+  .table td,
+  .table th {
+    padding: 0.4rem 0.5rem;
+    font-size: 12px;
+  }
+
+  .table-custom td,
+  .table-custom th {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  .table-custom td:first-child,
+  .table-custom th:first-child {
+    padding-left: 0.75rem !important;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 0.35rem 0.5rem;
+    font-size: 12px !important;
+  }
+
+  .btn-block {
+    padding: 0.5rem;
+  }
+
+  /* Forms */
+  .form-control {
+    font-size: 14px !important;
+  }
+
+  .select2-container {
+    width: 100% !important;
+  }
+
+  .form-group {
+    margin-bottom: 0.75rem;
+  }
+
+  /* Modals - override inline 400px width */
+  .modal.right .modal-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .modal.right.fade .modal-dialog {
+    right: -100% !important;
+  }
+
+  .modal.right.fade.show .modal-dialog {
+    right: 0 !important;
+  }
+
+  .modal-dialog {
+    margin: 0.5rem !important;
+  }
+
+  /* Footer hide on mobile */
+  .footer {
+    display: none !important;
+  }
+
+  /* Image wrappers - override fixed 150px */
+  .produk-wrapper,
+  .avatar-wrapper {
+    width: 80px !important;
+    height: 80px !important;
+    margin: 0 8px 8px 0 !important;
+  }
+
+  /* Breadcrumb area */
+  .content-breadcrumb {
+    margin: -15px -8px !important;
+    padding: 15px 8px !important;
+  }
+
+  /* Page title */
+  .page-title-box h4 {
+    font-size: 14px !important;
+  }
+
+  .page-title-box .media-body p {
+    font-size: 11px !important;
+    display: none;
+    /* Hide description on mobile */
+  }
+
+  /* Avatar sizes */
+  .avatar-md {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+
+  .avatar-sm {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  /* Nav pills */
+  .nav-pills .nav-link {
+    padding: 0.4rem 0.6rem;
+    font-size: 12px;
+  }
+
+  /* Dropdown on mobile */
+  .dropdown-menu {
+    max-width: calc(100vw - 20px);
+  }
+
+  /* Header profile text hide */
+  .navbar-header .d-xl-inline-block {
+    display: none !important;
+  }
+}
+
+/* ===== TABLET (576px - 992px) ===== */
+@media screen and (min-width: 576px) and (max-width: 991.98px) {
+  .page-content {
+    padding: calc(70px + 16px) 12px 40px 12px !important;
+  }
+
+  .produk-wrapper,
+  .avatar-wrapper {
+    width: 120px !important;
+    height: 120px !important;
+  }
+
+  .container-fluid {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* ===== AUTH PAGE MOBILE FIX ===== */
+@media screen and (max-width: 1279.98px) {
+  .signin-wrapper .content-left {
+    display: none !important;
+  }
+
+  .signin-wrapper .content-right {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .signin-wrapper .inner {
+    padding: 2rem 1.5rem !important;
+  }
+
+  .signin-wrapper .inner>img {
+    width: 60% !important;
+    max-width: 200px;
+  }
+}
+
+/* ===== MAIN LAYOUT HORIZONTAL NAV FIX ===== */
+@media screen and (max-width: 991.98px) {
+
+  /* Adjust header height for horizontal layout */
+  body[data-layout="horizontal"] .navbar-header {
+    height: 70px !important;
+  }
+
+  body[data-layout="horizontal"] .topnav {
+    margin-top: 70px !important;
+  }
+
+  /* Make topnav scrollable on mobile */
+  body[data-layout="horizontal"] .topnav .navbar-nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-layout="horizontal"] .topnav .nav-link {
+    white-space: nowrap;
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* ===== HELPER: Force responsive tables ===== */
+.table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== UTILITY CLASSES FOR MOBILE ===== */
+@media screen and (max-width: 575.98px) {
+  .d-mobile-none {
+    display: none !important;
+  }
+
+  .text-mobile-center {
+    text-align: center !important;
+  }
+}
+
+/* ===== RESPONSIVE COLUMNS HELPER ===== */
+/* For elements that should stack on mobile but original code uses col-3 */
+@media screen and (max-width: 575.98px) {
+
+  .col-3,
+  .col-4 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+}
+
+@media screen and (max-width: 400px) {
+
+  .col-3,
+  .col-4 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}
+
+/* ===== LANDING PAGE SPECIFIC FIXES ===== */
+@media screen and (max-width: 991.98px) {
+
+  /* Slider - override fixed height */
+  .slider {
+    height: auto !important;
+    min-height: auto !important;
+    padding-bottom: 30px !important;
+  }
+
+  /* Shape backgrounds - hide on mobile to prevent overflow */
+  .shapes-container,
+  .bg-shape {
+    display: none !important;
+  }
+
+  /* Slider container - reduce top padding */
+  .slider .container-fluid {
+    padding-top: 80px !important;
+  }
+
+  /* Slider text column - reduce top margin */
+  .slider .col-md-6[style*="margin-top"] {
+    margin-top: 20px !important;
+  }
+
+  /* Landing page header - reduce height */
+  body[data-layout="horizontal"] .navbar-header {
+    height: 70px !important;
+  }
+
+  body[data-layout="horizontal"] .header-item {
+    height: 70px !important;
+  }
+
+  /* Slider title text - smaller on mobile */
+  .slider [style*="font-size:45px"] {
+    font-size: 28px !important;
+    line-height: 1.2 !important;
+  }
+
+  .desc-slider {
+    font-size: 18px !important;
+    line-height: 24px !important;
+  }
+
+  /* Feature sections */
+  .title-fitur {
+    font-size: 24px !important;
+  }
+
+  .desc-fitur {
+    font-size: 14px !important;
+  }
+
+  .list-fitur li {
+    font-size: 14px !important;
+  }
+
+  .list-fitur li i {
+    font-size: 18px !important;
+  }
+}
+
+@media screen and (max-width: 575.98px) {
+
+  /* Slider - even smaller on phones */
+  .slider .container-fluid {
+    padding-top: 60px !important;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+
+  .slider [style*="font-size:45px"] {
+    font-size: 24px !important;
+  }
+
+  .desc-slider {
+    font-size: 16px !important;
+    line-height: 22px !important;
+  }
+
+  /* Hide slider image on very small screens to save space */
+  .slider .col-md-6:last-child img {
+    display: none !important;
+  }
+
+  /* Feature sections - reduce padding */
+  section.pt-5 {
+    padding-top: 1.5rem !important;
+  }
+
+  section.pb-5 {
+    padding-bottom: 1.5rem !important;
+  }
+
+  /* Feature images - smaller on mobile */
+  section .col-md-4 img {
+    max-width: 200px !important;
+    display: block;
+    margin: 0 auto 20px;
+  }
+
+  /* WhatsApp popup - mobile width */
+  .whatsapp-popup {
+    width: 260px !important;
+    right: 0 !important;
+  }
+
+  .whatsapp-area {
+    right: 10px !important;
+    bottom: 20px !important;
+  }
+}
+
+/* ===== LOGIN PAGE SPECIFIC ===== */
+@media screen and (max-width: 1279.98px) {
+
+  /* Fix login form position on mobile */
+  .signin-wrapper {
+    height: auto !important;
+    min-height: 100vh;
+  }
+
+  .signin-wrapper .content-right {
+    height: auto !important;
+    min-height: 100vh;
+  }
+
+  .signin-wrapper .content-right>div {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Align form to top instead of center */
+  .signin-wrapper .inner {
+    justify-content: flex-start !important;
+    padding-top: 50px !important;
+    min-height: auto !important;
+  }
+}
+
+@media screen and (max-width: 575.98px) {
+  .signin-wrapper .inner {
+    padding: 30px 1.5rem !important;
+  }
+
+  .signin-wrapper .inner>img,
+  .signin-wrapper .inner img[style*="width:70%"] {
+    width: 50% !important;
+    max-width: 150px !important;
+  }
+
+  .signin-wrapper h4[style*="font-size:25px"] {
+    font-size: 20px !important;
+    margin-top: 1.5rem !important;
+    margin-bottom: 1rem !important;
+  }
+}

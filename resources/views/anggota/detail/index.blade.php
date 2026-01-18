@@ -49,25 +49,25 @@
       <div class="col align-self-center">
         <div class="mt-4 mt-lg-0">
           <div class="row">
-            <div class="col-3">
+            <div class="col-6 col-lg-3">
               <div>
                 <p class="text-muted text-truncate mb-1">Saldo Simpanan</p>
                 <h5 class="mb-0 font-size-15">Rp {{number_format($data['anggota']->total_simpanan,'0',',','.')}}</h5>
               </div>
             </div>
-            <div class="col-3">
+            <div class="col-6 col-lg-3">
               <div>
                 <p class="text-muted text-truncate mb-1">Sisa Pinjaman</p>
                 <h5 class="mb-0 font-size-15">Rp {{number_format($data['anggota']->sisa_pinjaman,'0',',','.')}}</h5>
               </div>
             </div>
-            <div class="col-3">
+            <div class="col-6 col-lg-3">
               <div>
                 <p class="text-muted text-truncate mb-1">Total Angsuran</p>
                 <h5 class="mb-0 font-size-15">Rp {{number_format($data['anggota']->total_angsuran,'0',',','.')}}</h5>
               </div>
             </div>
-            <div class="col-3">
+            <div class="col-6 col-lg-3">
               <div>
                 <p class="text-muted text-truncate mb-1">Kredit Belanja</p>
                 <h5 class="mb-0 font-size-15">Rp {{number_format($data['anggota']->total_angsuran,'0',',','.')}}</h5>

@@ -20,6 +20,7 @@
     <link href="{{asset('assets/css/bootstrap.min.css')}} " id="bootstrap-style" rel="stylesheet" type="text/css" />
     <link href="{{asset('assets/css/icons.min.css')}}" rel="stylesheet" type="text/css" />
     <link href="{{asset('assets/css/app.min.css')}} " id="app-style" rel="stylesheet" type="text/css" />
+    <link href="{{asset('assets/css/mobile-responsive.css')}}" rel="stylesheet" type="text/css" />
 		<style>
     .h1, .h2, .h3, .h4, .h5, .h6,
     h1, h2, h3, h4, h5, h6 {
@@ -633,7 +634,7 @@
               </button>
             </div>
             @else
-            <div class="dropdown d-none d-lg-inline-block ml-1">
+            <div class="dropdown d-inline-block ml-1">
               {{-- <button type="button" class="btn btn-dark mr-2" onclick="location.href='{{url('auth/register')}}';">DAFTAR ANGGOTA</button> --}}
               <button type="button" id="masuk" class="btn btn-success" onclick="location.href='{{url('auth/login')}}';">LOGIN</button>
             </div>

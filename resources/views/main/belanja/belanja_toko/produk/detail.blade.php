@@ -25,13 +25,13 @@
                 <h5 class="mb-0">Rp {{number_format($data['produk']->harga_satuan,0,',','.')}}</h5>
               </div>
             </div>
-            <div class="col-3">
+            <div class="col-4 col-lg-3">
               <div>
                 <p class="text-muted text-truncate mb-2">Terjual</p>
                 <h5 class="mb-0">{{$data['produk']->terjual}} {{$data['produk']->satuan}}</h5>
               </div>
             </div>
-            <div class="col-3">
+            <div class="col-4 col-lg-3">
               <div>
                 <p class="text-muted text-truncate mb-2">Stok</p>
                 <h5 class="mb-0">{{$data['produk']->sisa}} {{$data['produk']->satuan}}</h5>
