@@ -178,6 +178,53 @@ img {
   .navbar-header .d-xl-inline-block {
     display: none !important;
   }
+
+  /* ===== SIDEBAR MOBILE FIX ===== */
+  /* Sidebar full width when open on mobile */
+  .vertical-menu {
+    width: 250px !important;
+    position: fixed !important;
+    z-index: 1005 !important;
+    left: -250px;
+    transition: left 0.3s ease !important;
+  }
+
+  /* When sidebar is enabled (open) */
+  body.sidebar-enable .vertical-menu {
+    left: 0 !important;
+  }
+
+  /* Main content adjustment */
+  body.sidebar-enable .main-content {
+    margin-left: 0 !important;
+  }
+
+  /* Add backdrop overlay when sidebar is open */
+  body.sidebar-enable::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+  }
+
+  /* Page content should not have left margin on mobile */
+  .page-content {
+    margin-left: 0 !important;
+  }
+
+  /* Ensure main-content is full width */
+  .main-content {
+    margin-left: 0 !important;
+  }
+
+  /* Header topbar should be full width */
+  #page-topbar {
+    left: 0 !important;
+  }
 }
 
 /* ===== TABLET (576px - 992px) ===== */
