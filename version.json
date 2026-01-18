@@ -1,13 +1,18 @@
 {
-    "version": "1.0.0",
-    "releaseDate": "2026-01-17",
+    "version": "1.1.0",
+    "releaseDate": "2026-01-18",
     "minDatabaseVersion": "1.0.0",
     "changelog": [
-        "Initial release with versioning system",
-        "Feature: Docker development environment with separate DB",
-        "Feature: Production deployment without NPM",
-        "Fix: Stock calculation for Lunas transactions (status 6)",
-        "Fix: Windows-Docker config cache sync issue"
+        "Feature: Mobile responsive design implementation",
+        "Feature: Sidebar mobile overlay with backdrop",
+        "Feature: Landing page mobile optimization",
+        "Feature: Login page mobile layout fix",
+        "Feature: Responsive column classes for dashboard and detail pages",
+        "Docs: IIS Reverse Proxy setup guide",
+        "Fix: Login button visibility on mobile landing page",
+        "Previous: Initial release with versioning system",
+        "Previous: Docker development environment",
+        "Previous: Stock calculation fix for Lunas transactions"
     ],
     "repository": "https://github.com/torpedoliar/Esimko",
     "branch": "main"
