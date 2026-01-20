@@ -213,7 +213,7 @@ class ProdukController extends Controller
                 }
                 $penjualan = ItemPenjualan::select('item_penjualan.*', 'penjualan.tanggal', 'penjualan.no_transaksi')
                     ->join('penjualan', 'penjualan.id', '=', 'item_penjualan.fid_penjualan')
-                    ->where('penjualan.fid_status', 2)
+                    ->whereIn('penjualan.fid_status', [2, 4, 6]) // Status 2=Proses, 4=Selesai, 6=Lunas (exclude 3=Batal, 5=Hold)
                     ->where('fid_produk', $produk->id)->orderBy('tanggal')->get();
                 foreach ($penjualan as $item) {
                     $mutasi[] = [

@@ -45,7 +45,10 @@ class LaporanMutasiController extends Controller
         $retur_pembelian = ItemReturPembelian::where('fid_produk', $fid_produk);
         $retur_pembelian = $this->filterMutasi2($request, $retur_pembelian, 'retur_pembelian')->get();
 
-        $penjualan = ItemPenjualan::where('fid_produk', $fid_produk);
+        $penjualan = ItemPenjualan::where('fid_produk', $fid_produk)
+            ->whereHas('penjualan', function ($q) {
+                $q->whereIn('fid_status', [2, 4, 6]); // Status 2=Proses, 4=Selesai, 6=Lunas (exclude 3=Batal, 5=Hold)
+            });
         $penjualan = $this->filterMutasi2($request, $penjualan, 'penjualan')->get();
 
         $retur_penjualan = ItemReturPenjualan::where('fid_produk', $fid_produk);
