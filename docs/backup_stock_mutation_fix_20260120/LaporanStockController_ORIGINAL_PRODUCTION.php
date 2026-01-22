@@ -91,70 +91,67 @@ class LaporanStockController extends Controller
 
     public function get_data_stock($list_produk_id, $tanggal_awal, $tanggal_akhir)
     {
-        if (empty($list_produk_id)) {
-            return [
-                'pembelian' => [],
-                'penjualan' => [],
-                'retur_pembelian' => [],
-                'retur_penjualan' => [],
-                'penyesuaian' => [],
-            ];
+        // pembelian
+        $pembelian = ItemPembelian::select('fid_produk', DB::raw('sum(jumlah) as jumlah'))
+            ->whereHas('pembelian', function ($q) {
+                $q->where('status', 1);
+            })
+            ->whereIn('fid_produk', $list_produk_id)->where('fid_pembelian', '<>', 0);
+        if ($tanggal_awal !== '' && $tanggal_akhir !== '') {
+            $pembelian = $pembelian->whereHas('pembelian', function ($pembelian) use ($tanggal_awal, $tanggal_akhir) {
+                if ($tanggal_awal !== '') $pembelian->where('tanggal', '>=', unformat_date($tanggal_awal));
+                if ($tanggal_akhir !== '') $pembelian->where('tanggal', '<=', unformat_date($tanggal_akhir));
+            });
         }
+        $pembelian = $pembelian->groupBy('fid_produk')->get();
+        $mapped_pembelian = [];
+        foreach ($pembelian as $value) $mapped_pembelian[$value->fid_produk] = $value->jumlah;
 
-        // Format dates
-        $tgl_awal = ($tanggal_awal !== '') ? unformat_date($tanggal_awal) : null;
-        $tgl_akhir = ($tanggal_akhir !== '') ? unformat_date($tanggal_akhir) : null;
-
-        // Pembelian - using JOIN instead of whereHas (much faster)
-        $pembelianQuery = ItemPembelian::select('item_pembelian.fid_produk', DB::raw('SUM(item_pembelian.jumlah) as jumlah'))
-            ->join('pembelian', 'item_pembelian.fid_pembelian', '=', 'pembelian.id')
-            ->where('pembelian.status', 1)
-            ->where('item_pembelian.fid_pembelian', '<>', 0)
-            ->whereIn('item_pembelian.fid_produk', $list_produk_id);
-        if ($tgl_awal && $tgl_akhir) {
-            $pembelianQuery->whereBetween('pembelian.tanggal', [$tgl_awal, $tgl_akhir]);
-        }
-        $pembelian = $pembelianQuery->groupBy('item_pembelian.fid_produk')->get();
-        $mapped_pembelian = $pembelian->pluck('jumlah', 'fid_produk')->toArray();
-
-        // Retur Pembelian - using JOIN
-        $returPembelianQuery = ItemReturPembelian::select('item_retur_pembelian.fid_produk', DB::raw('SUM(item_retur_pembelian.jumlah) as jumlah'))
-            ->whereIn('item_retur_pembelian.fid_produk', $list_produk_id);
-        if ($tgl_awal && $tgl_akhir) {
-            $returPembelianQuery->join('retur_pembelian', 'item_retur_pembelian.fid_retur_pembelian', '=', 'retur_pembelian.id')
-                ->whereBetween('retur_pembelian.tanggal', [$tgl_awal, $tgl_akhir]);
-        }
-        $return_pembelian = $returPembelianQuery->groupBy('item_retur_pembelian.fid_produk')->get();
-        $mapped_retur_pembelian = $return_pembelian->pluck('jumlah', 'fid_produk')->toArray();
-
-        // Penjualan - using JOIN
-        $penjualanQuery = ItemPenjualan::select('item_penjualan.fid_produk', DB::raw('SUM(item_penjualan.jumlah) as jumlah'))
-            ->join('penjualan', 'item_penjualan.fid_penjualan', '=', 'penjualan.id')
-            ->whereIn('penjualan.fid_status', [2, 4, 6]) // Status 2=Proses, 4=Selesai, 6=Lunas (exclude 3=Batal, 5=Hold)
-            ->whereIn('item_penjualan.fid_produk', $list_produk_id);
-        if ($tgl_awal && $tgl_akhir) {
-            $penjualanQuery->whereBetween('penjualan.tanggal', [$tgl_awal, $tgl_akhir]);
-        }
-        $penjualan = $penjualanQuery->groupBy('item_penjualan.fid_produk')->get();
-        $mapped_penjualan = $penjualan->pluck('jumlah', 'fid_produk')->toArray();
-
-        // Retur Penjualan - using JOIN
-        $returPenjualanQuery = ItemReturPenjualan::select('item_retur_penjualan.fid_produk', DB::raw('SUM(item_retur_penjualan.jumlah) as jumlah'))
-            ->whereIn('item_retur_penjualan.fid_produk', $list_produk_id);
-        if ($tgl_awal && $tgl_akhir) {
-            $returPenjualanQuery->join('retur_penjualan', 'item_retur_penjualan.fid_retur_penjualan', '=', 'retur_penjualan.id')
-                ->whereBetween('retur_penjualan.tanggal', [$tgl_awal, $tgl_akhir]);
-        }
-        $retur_penjualan = $returPenjualanQuery->groupBy('item_retur_penjualan.fid_produk')->get();
-        $mapped_retur_penjualan = $retur_penjualan->pluck('jumlah', 'fid_produk')->toArray();
-
-        // Penyesuaian (Stok Opname)
-        $penyesuaianQuery = StokOpname::select('fid_produk', DB::raw('SUM(jumlah) as jumlah'))
+        // retur pembelian
+        $return_pembelian = ItemReturPembelian::select('fid_produk', DB::raw('sum(jumlah) as jumlah'))
             ->whereIn('fid_produk', $list_produk_id);
-        if ($tgl_awal) $penyesuaianQuery->where('tanggal', '>=', $tgl_awal);
-        if ($tgl_akhir) $penyesuaianQuery->where('tanggal', '<=', $tgl_akhir);
-        $penyesuaian = $penyesuaianQuery->groupBy('fid_produk')->get();
-        $mapped_penyesuaian = $penyesuaian->pluck('jumlah', 'fid_produk')->toArray();
+        if ($tanggal_awal !== '' && $tanggal_akhir !== '') {
+            $return_pembelian = $return_pembelian->whereHas('retur_pembelian', function ($pembelian) use ($tanggal_awal, $tanggal_akhir) {
+                if ($tanggal_awal !== '') $pembelian->where('tanggal', '>=', unformat_date($tanggal_awal));
+                if ($tanggal_akhir !== '') $pembelian->where('tanggal', '<=', unformat_date($tanggal_akhir));
+            });
+        }
+        $return_pembelian = $return_pembelian->groupBy('fid_produk')->get();
+        $mapped_retur_pembelian = [];
+        foreach ($return_pembelian as $value) $mapped_retur_pembelian[$value->fid_produk] = $value->jumlah;
+
+        // penjualan
+        $penjualan = ItemPenjualan::select('fid_produk', DB::raw('sum(jumlah) as jumlah'))
+            ->whereIn('item_penjualan.fid_produk', $list_produk_id)
+            ->whereHas('penjualan', function ($penjualan) use ($tanggal_awal, $tanggal_akhir) {
+                $penjualan->where('fid_status', 2);
+                if ($tanggal_awal !== '') $penjualan->where('tanggal', '>=', unformat_date($tanggal_awal));
+                if ($tanggal_akhir !== '') $penjualan->where('tanggal', '<=', unformat_date($tanggal_akhir));
+            });
+        $penjualan = $penjualan->groupBy('fid_produk')->get();
+        $mapped_penjualan = [];
+        foreach ($penjualan as $value) $mapped_penjualan[$value->fid_produk] = $value->jumlah;
+
+        // retur penjualan
+        $retur_penjualan = ItemReturPenjualan::select('fid_produk', DB::raw('sum(jumlah) as jumlah'))
+            ->whereIn('fid_produk', $list_produk_id);
+        if ($tanggal_awal !== '' && $tanggal_akhir !== '') {
+            $retur_penjualan = $retur_penjualan->whereHas('retur_penjualan', function ($penjualan) use ($tanggal_awal, $tanggal_akhir) {
+                if ($tanggal_awal !== '') $penjualan->where('tanggal', '>=', unformat_date($tanggal_awal));
+                if ($tanggal_akhir !== '') $penjualan->where('tanggal', '<=', unformat_date($tanggal_akhir));
+            });
+        }
+        $retur_penjualan = $retur_penjualan->groupBy('fid_produk')->get();
+        $mapped_retur_penjualan = [];
+        foreach ($retur_penjualan as $value) $mapped_retur_penjualan[$value->fid_produk] = $value->jumlah;
+
+        // penyesuaian
+        $penyesuaian = StokOpname::select('fid_produk', DB::raw('sum(jumlah) as jumlah'));
+        if ($tanggal_awal !== '') $penyesuaian->where('tanggal', '>=', unformat_date($tanggal_awal));
+        if ($tanggal_akhir !== '') $penyesuaian->where('tanggal', '<=', unformat_date($tanggal_akhir));
+        $penyesuaian = $penyesuaian->whereIn('fid_produk', $list_produk_id)->groupBy('fid_produk')->get();
+        $mapped_penyesuaian = [];
+        foreach ($penyesuaian as $value) $mapped_penyesuaian[$value->fid_produk] = $value->jumlah;
 
         return [
             'pembelian' => $mapped_pembelian,
@@ -199,7 +196,7 @@ class LaporanStockController extends Controller
 
         $terjual = ItemPenjualan::where('item_penjualan.fid_produk',$id)
             ->whereHas('penjualan', function ($penjualan) use ($tanggal_awal, $tanggal_akhir) {
-                $penjualan->whereIn('fid_status', [2, 4, 6]); // Status 2=Proses, 4=Selesai, 6=Lunas (exclude 3=Batal, 5=Hold)
+                $penjualan->where('fid_status', 2);
                 if ($tanggal_awal !== '') $penjualan->where('tanggal', '>=', $tanggal_awal);
                 if ($tanggal_akhir !== '') $penjualan->where('tanggal', '<=', $tanggal_akhir);
             });
