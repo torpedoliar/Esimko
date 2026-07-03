@@ -34,6 +34,7 @@ Route::group(['prefix' => 'mobile'], function () {
 
     // Protected routes
     Route::group(['middleware' => 'mobile.auth'], function () {
+        Route::post('auth/logout', 'MobileController@logout');
         Route::get('anggota/profil', 'MobileController@profil_anggota');
         Route::post('anggota/ubah_password', 'MobileController@ubah_password');
 
