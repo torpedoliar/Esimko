@@ -168,7 +168,7 @@ class MobileController extends Controller
     } else {
       $data = DB::table('jenis_transaksi')->whereIn('id', array(9, 10, 11))->get();
     }
-    return isset($p) ? ApiResponse::success($data, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($data);
+    return ApiResponse::success($data);
   }
 
   public function status_transaksi($modul)
@@ -178,7 +178,7 @@ class MobileController extends Controller
     } else {
       $data = DB::table('status_transaksi')->get();
     }
-    return isset($p) ? ApiResponse::success($data, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($data);
+    return ApiResponse::success($data);
   }
 
   public function transaksi(Request $request, $modul)
@@ -225,12 +225,12 @@ class MobileController extends Controller
     }
 
     $limit = $request->limit ?: 10;
-    if ($request->has('page')) {
-        $result = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->paginate($limit);
-        $items = $result->items();
+    $paginated = $request->has('page');
+    if ($paginated) {
+        $p = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->paginate($limit);
+        $items = $p->items();
     } else {
-        $result = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->limit($limit)->get();
-        $items = $result;
+        $items = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->limit($limit)->get();
     }
 
     // Manual eager load for angsuran is a bit complex, let's keep it N+1 or fix it
@@ -260,7 +260,7 @@ class MobileController extends Controller
         }
       }
     }
-    return isset($p) ? ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($result);
+    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
   }
 
   public function upload_bukti_transaksi(Request $request)
@@ -355,7 +355,7 @@ class MobileController extends Controller
 
       $anggota = Anggota::where('no_anggota', $data->created_by)->first();
       $data->nama_petugas = (!empty($anggota) ? $anggota->nama_lengkap : 'Tidak Diketahui');
-      return isset($p) ? ApiResponse::success($data, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($data);
+      return ApiResponse::success($data);
     } else {
       return ApiResponse::error('Data tidak Ditemukan', 404);
     }
@@ -511,7 +511,7 @@ class MobileController extends Controller
     foreach ($data as $key => $value) {
       $data[$key]->nama_bulan = (!empty($request->id) ? null : GlobalHelper::nama_bulan($value->bulan));
     }
-    return isset($p) ? ApiResponse::success($data, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($data);
+    return ApiResponse::success($data);
   }
 
   public function update_riwayat_gaji($request)
@@ -546,21 +546,25 @@ class MobileController extends Controller
       });
     }
 
-    $p = $query->orderBy('produk.nama_produk', 'DESC')->paginate($request->input('per_page', 20)); $items = $p->items(); foreach ($items as $key => $value) {
+    $p = $query->orderBy('produk.nama_produk', 'DESC')->paginate($request->input('per_page', 20));
+    $items = $p->items();
+    $produk_ids = collect($items)->pluck('id')->toArray();
+    $fotos = FotoProduk::whereIn('fid_produk', $produk_ids)->get()->keyBy('fid_produk');
+    foreach ($items as $value) {
       $foto = $fotos->get($value->id);
-      $result[$key]->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
+      $value->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
       $kategori = explode('.', $value->kode_kategori);
       if ($kategori[0] == 0) {
-        $result[$key]->kelompok = GlobalHelper::detail_kategori_produk($kategori[1]);
-        $result[$key]->kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
-        $result[$key]->sub_kategori = '';
+        $value->kelompok = GlobalHelper::detail_kategori_produk($kategori[1]);
+        $value->kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
+        $value->sub_kategori = '';
       } else {
-        $result[$key]->kelompok = GlobalHelper::detail_kategori_produk($kategori[0]);
-        $result[$key]->kategori = GlobalHelper::detail_kategori_produk($kategori[1]);
-        $result[$key]->sub_kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
+        $value->kelompok = GlobalHelper::detail_kategori_produk($kategori[0]);
+        $value->kategori = GlobalHelper::detail_kategori_produk($kategori[1]);
+        $value->sub_kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
       }
     }
-    return isset($p) ? ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($result);
+    return ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
   }
 
   public function detail_produk(Request $request)
@@ -588,7 +592,7 @@ class MobileController extends Controller
         $data->sub_kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
       }
     }
-    return isset($p) ? ApiResponse::success($data, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($data);
+    return ApiResponse::success($data);
   }
 
   public function keranjang(Request $request)
@@ -606,12 +610,12 @@ class MobileController extends Controller
     $result = $query->orderBy('produk.nama_produk')->get();
     foreach ($result as $key => $value) {
       $foto = FotoProduk::where('fid_produk', $value->fid_produk)->first();
-      $result[$key]->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
+      $value->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
       $barang = MobileHelper::stokBarang($value->fid_produk);
-      $result[$key]->terjual = $barang['terjual'];
-      $result[$key]->sisa = $barang['sisa'];
+      $value->terjual = $barang['terjual'];
+      $value->sisa = $barang['sisa'];
     }
-    return isset($p) ? ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($result);
+    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
   }
 
   public function proses_keranjang(Request $request)
@@ -755,10 +759,10 @@ class MobileController extends Controller
           $items->foto = asset('assets/images/produk-default.jpg');
         }
       }
-      $result[$key]->produk = $items;
-      $result[$key]->jumlah = ItemPenjualan::where('fid_penjualan', $value->id)->sum('item_penjualan.jumlah');
+      $value->produk = $items;
+      $value->jumlah = ItemPenjualan::where('fid_penjualan', $value->id)->sum('item_penjualan.jumlah');
     }
-    return isset($p) ? ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($result);
+    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
   }
 
   public function detail_belanja(Request $request, $jenis)
@@ -871,7 +875,7 @@ class MobileController extends Controller
   //     return $riwayat;
   //   }
   //   else{
-  //     return array('msg'=>'Data tidak Ditemukan');
+  
   //   }
   // }
 
@@ -912,9 +916,9 @@ class MobileController extends Controller
     $p = $query->orderBy('retur_penjualan.tanggal')->paginate($request->input('per_page', 20)); $result = $p->items();
     foreach ($result as $key => $value) {
       $foto = FotoProduk::where('fid_produk', $value->fid_produk)->first();
-      $result[$key]->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
+      $value->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
     }
-    return isset($p) ? ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($result);
+    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
   }
 
   public function batalkan_belanja(Request $request)
@@ -938,10 +942,10 @@ class MobileController extends Controller
     }
     $p = $query->orderBy('created_at')->paginate($request->input('per_page', 20)); $result = $p->items();
     foreach ($result as $key => $value) {
-      $result[$key]->jumlah_attachment = AttachmentBerita::where('fid_berita', $value->id)->count();
-      $result[$key]->gambar = (!empty($value->gambar) ? asset('storage/' . $value->gambar) : asset('assets/images/produk-default.jpg'));
+      $value->jumlah_attachment = AttachmentBerita::where('fid_berita', $value->id)->count();
+      $value->gambar = (!empty($value->gambar) ? asset('storage/' . $value->gambar) : asset('assets/images/produk-default.jpg'));
     }
-    return isset($p) ? ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($result);
+    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
   }
 
   public function detail_berita(Request $request)
@@ -979,7 +983,7 @@ class MobileController extends Controller
         return ApiResponse::error('File kosong');
       }
     } else {
-      return array('msg' => 'Anggota tidak ditemukan');
+      return ApiResponse::error('Anggota tidak ditemukan', 404);
     }
   }
 }
