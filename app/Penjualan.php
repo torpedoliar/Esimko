@@ -65,4 +65,9 @@ class Penjualan extends Model
     {
         return $this->belongsTo(RekeningPembayaran::class, 'fid_metode_pembayaran');
     }
+
+    public function angsuran_belanja()
+    {
+        return $this->hasMany(AngsuranBelanja::class, 'fid_penjualan');
+    }
 }

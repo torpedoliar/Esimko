@@ -51,13 +51,26 @@ class PenjualanBaruController extends Controller
         }
         if ($request->has('fid_metode_pembayaran')) {
             if ($request->input('fid_metode_pembayaran') == 3) {
+                // Fix: Hitung angsuran bulanan (Total / Tenor) agar tidak langsung lunas
+                $total = unformat_number($request->input('total_pembayaran'));
+                $tenor = $request->input('tenor') ?? 1; // Default 1 jika null
+                $angsuran_bulanan = ($tenor > 0) ? ($total / $tenor) : $total;
+
+                // Fix: Simpan ke tabel penjualan agar tidak NULL (Root Cause Fix)
+                $request->merge([
+                    'angsuran' => $angsuran_bulanan,
+                    'tenor' => $tenor
+                ]);
+
                 AngsuranBelanja::updateOrCreate([
                     'fid_penjualan' => $id,
                     'angsuran_ke' => 1,
                     'fid_status' => 3
                 ], [
-                    'total_angsuran' => unformat_number($request->input('total_pembayaran'))
+                    'total_angsuran' => $angsuran_bulanan
                 ]);
+            } else {
+                AngsuranBelanja::where('fid_penjualan', $id)->delete();
             }
         }
         $penjualan = Penjualan::find($id);

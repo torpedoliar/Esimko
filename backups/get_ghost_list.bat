@@ -1,0 +1,2 @@
+@echo off
+mysql -u root -e "SELECT ab.id as ghost_angsuran_id, ab.fid_penjualan, p.no_transaksi, p.tanggal, p.fid_anggota, a.nama_lengkap, ab.total_angsuran, p.total_pembayaran as nilai_transaksi, p.fid_metode_pembayaran as metode_sekarang, p.fid_status as status_penjualan FROM esimko.angsuran_belanja ab JOIN esimko.penjualan p ON ab.fid_penjualan = p.id JOIN esimko.anggota a ON p.fid_anggota = a.no_anggota WHERE ab.fid_status=3 AND (p.fid_metode_pembayaran != 3 OR p.fid_status NOT IN (2,4)) ORDER BY p.tanggal DESC;" > list_ghost.txt

@@ -1,0 +1,11 @@
+--- FIXING FAILED CUTOFF MEMBERS ---
+=> K 0558 : Fixed 0 transactions.
+=> K 1031 : Fixed 0 transactions.
+=> K 1540 : Fixed 0 transactions.
+=> K 1154 : Fixed 0 transactions.
+=> K 1667 : Fixed 0 transactions.
+=> K 2008 : Fixed 0 transactions.
+=> K 1606 : Fixed 0 transactions.
+SUCCESS: All fixes applied.
+= "y"
+

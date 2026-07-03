@@ -1,0 +1,11 @@
+--- REVERTING FIX (TARGET: PRE-FEB 2026 ITEMS) ---
+=> K 0558 : Reverted 0 transactions to Status 6.
+=> K 1031 : Reverted 0 transactions to Status 6.
+=> K 1540 : Reverted 0 transactions to Status 6.
+=> K 1154 : Reverted 0 transactions to Status 6.
+=> K 1667 : Reverted 0 transactions to Status 6.
+=> K 2008 : Reverted 0 transactions to Status 6.
+=> K 1606 : Reverted 0 transactions to Status 6.
+SUCCESS: Revert complete.
+= "y"
+

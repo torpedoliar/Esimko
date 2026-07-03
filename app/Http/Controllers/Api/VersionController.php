@@ -17,25 +17,21 @@ class VersionController extends Controller
         $versionFile = base_path('version.json');
         
         if (!file_exists($versionFile)) {
-            return response()->json([
-                'version' => 'N/A',
-                'releaseDate' => null,
-                'changelog' => [],
-                'error' => 'Version file not found'
-            ], 404);
+            return \App\Support\ApiResponse::error('Version file not found', 404);
         }
         
         $version = json_decode(file_get_contents($versionFile), true);
         
-        return response()->json($version);
+        return \App\Support\ApiResponse::success($version);
     }
     
     /**
      * Check for updates (compare with remote)
      *
+     * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function checkUpdate()
+    public function checkUpdate(Request $request)
     {
         $versionFile = base_path('version.json');
         $currentVersion = null;
@@ -44,13 +40,20 @@ class VersionController extends Controller
             $currentVersion = json_decode(file_get_contents($versionFile), true);
         }
         
-        // For now, just return current version
-        // Future: Check GitHub releases API for newer version
-        return response()->json([
-            'currentVersion' => $currentVersion['version'] ?? 'N/A',
-            'latestVersion' => $currentVersion['version'] ?? 'N/A',
-            'updateAvailable' => false,
-            'message' => 'You are running the latest version'
+        $clientVersion = $request->input('version', '0.0.0');
+        $minVersion = $currentVersion['min_mobile_version'] ?? '1.0.0';
+        $latestVersion = $currentVersion['mobile_version'] ?? ($currentVersion['version'] ?? '1.0.0');
+        
+        $updateAvailable = version_compare($clientVersion, $latestVersion, '<');
+        $forceUpdate = version_compare($clientVersion, $minVersion, '<');
+
+        return \App\Support\ApiResponse::success([
+            'currentVersion' => $clientVersion,
+            'latestVersion' => $latestVersion,
+            'minVersion' => $minVersion,
+            'updateAvailable' => $updateAvailable,
+            'forceUpdate' => $forceUpdate,
+            'message' => $updateAvailable ? 'Update is available' : 'You are running the latest version'
         ]);
     }
 }

@@ -27,47 +27,53 @@ Route::get('check_sisa_pinjaman/{anggota}/{jenis}', 'ApiController@check_sisa_pi
 
 //----------------------------------------MOBILE API--------------------------------------------//
 
-Route::post('mobile/auth/login', 'MobileController@login');
-Route::post('mobile/auth/register', 'MobileController@register');
+Route::group(['prefix' => 'mobile'], function () {
+    // Public routes
+    Route::post('auth/login', 'MobileController@login');
+    Route::post('auth/register', 'MobileController@register');
 
-Route::get('mobile/anggota/profil', 'MobileController@profil_anggota');
-Route::post('mobile/anggota/ubah_password', 'MobileController@ubah_password');
+    // Protected routes
+    Route::group(['middleware' => 'mobile.auth'], function () {
+        Route::get('anggota/profil', 'MobileController@profil_anggota');
+        Route::post('anggota/ubah_password', 'MobileController@ubah_password');
 
-Route::get('mobile/master/jenis_transaksi/{modul}', 'MobileController@jenis_transaksi');
-Route::get('mobile/master/status_transaksi/{modul}', 'MobileController@status_transaksi');
+        Route::get('master/jenis_transaksi/{modul}', 'MobileController@jenis_transaksi');
+        Route::get('master/status_transaksi/{modul}', 'MobileController@status_transaksi');
 
-Route::get('mobile/berita', 'MobileController@berita');
-Route::get('mobile/berita/detail', 'MobileController@detail_berita');
+        Route::get('berita', 'MobileController@berita');
+        Route::get('berita/detail', 'MobileController@detail_berita');
 
-Route::get('mobile/riwayat_transaksi', 'MobileController@riwayat_transaksi');
+        Route::get('riwayat_transaksi', 'MobileController@riwayat_transaksi');
 
-Route::get('mobile/transaksi/{modul}', 'MobileController@transaksi');
-Route::get('mobile/transaksi/{modul}/detail', 'MobileController@detail_transaksi');
+        Route::get('transaksi/{modul}', 'MobileController@transaksi');
+        Route::get('transaksi/{modul}/detail', 'MobileController@detail_transaksi');
 
-Route::get('mobile/gaji_pokok', 'MobileController@gaji_pokok');
+        Route::get('gaji_pokok', 'MobileController@gaji_pokok');
 
-Route::post('mobile/transaksi/{jenis}/proses', 'MobileController@proses_transaksi');
-Route::post('mobile/transaksi/upload_bukti_transaksi', 'MobileController@upload_bukti_transaksi');
-Route::post('mobile/transaksi/batalkan', 'MobileController@batalkan_transaksi');
+        Route::post('transaksi/{jenis}/proses', 'MobileController@proses_transaksi');
+        Route::post('transaksi/upload_bukti_transaksi', 'MobileController@upload_bukti_transaksi');
+        Route::post('transaksi/batalkan', 'MobileController@batalkan_transaksi');
 
-Route::get('mobile/angsuran', 'MobileController@angsuran_pinjaman');
+        Route::get('angsuran', 'MobileController@angsuran_pinjaman');
 
-Route::get('mobile/produk', 'MobileController@produk');
-Route::get('mobile/produk/detail', 'MobileController@detail_produk');
+        Route::get('produk', 'MobileController@produk');
+        Route::get('produk/detail', 'MobileController@detail_produk');
 
-Route::get('mobile/belanja/keranjang', 'MobileController@keranjang');
-Route::post('mobile/belanja/keranjang/proses', 'MobileController@proses_keranjang');
-Route::post('mobile/belanja/keranjang/checkout', 'MobileController@checkout_keranjang');
-Route::post('mobile/belanja/batalkan', 'MobileController@batalkan_belanja');
+        Route::get('belanja/keranjang', 'MobileController@keranjang');
+        Route::post('belanja/keranjang/proses', 'MobileController@proses_keranjang');
+        Route::post('belanja/keranjang/checkout', 'MobileController@checkout_keranjang');
+        Route::post('belanja/batalkan', 'MobileController@batalkan_belanja');
 
-Route::get('mobile/belanja/riwayat/{jenis?}', 'MobileController@belanja');
-Route::get('mobile/belanja/riwayat/{jenis?}/detail', 'MobileController@detail_belanja');
+        Route::get('belanja/riwayat/{jenis?}', 'MobileController@belanja');
+        Route::get('belanja/riwayat/{jenis?}/detail', 'MobileController@detail_belanja');
 
-Route::get('mobile/belanja/angsuran', 'MobileController@angsuran_belanja');
+        Route::get('belanja/angsuran', 'MobileController@angsuran_belanja');
 
-Route::get('mobile/belanja/retur', 'MobileController@retur_barang');
+        Route::get('belanja/retur', 'MobileController@retur_barang');
 
-Route::post('mobile/upload_avatar', 'MobileController@upload_avatar');
+        Route::post('upload_avatar', 'MobileController@upload_avatar');
+    });
+});
 
 //----------------------------------------VERSION API--------------------------------------------//
 

@@ -254,98 +254,112 @@ class PenjualanController extends Controller
                 return Redirect::back();
             }
         }
-        $penjualan=Penjualan::find($request->id);
+        
         $actionZ = $request->action;
-        if ($actionZ === 'hold') {
-            $penjualan->fid_status = 5;
-            $penjualan->save();
-        }
-        if(!empty($penjualan) && ($actionZ !== 'hold')){
-            $this->proses_all_items($penjualan->id,$request);
+        
+        // --- ANTI-ZOMBIE FIX: WRAP IN TRANSACTION ---
+        try {
+            return DB::transaction(function () use ($request, $id, $actionZ) {
+                $penjualan=Penjualan::find($request->id);
+                
+                if ($actionZ === 'hold') {
+                    $penjualan->fid_status = 5;
+                    $penjualan->save();
+                }
+                if(!empty($penjualan) && ($actionZ !== 'hold')){
+                    $this->proses_all_items($penjualan->id,$request);
 
-            $field=$penjualan;
-            $field->updated_at=date('Y-m-d H:i:s');
-            $field->kasir=Session::get('useractive')->no_anggota;
-            $field->no_transaksi=$request->no_transaksi;
-            $field->fid_anggota=(!empty($request->fid_anggota) ? $request->fid_anggota : null);
-            if($request->metode_pembayaran == 3 && $request->fid_anggota == '') {
-                return Redirect::back()
-                    ->with('message','Transaksi kredit / angsuran hanya untuk anggota !')
-                    ->with('message_type','error');
+                    $field=$penjualan;
+                    $field->updated_at=date('Y-m-d H:i:s');
+                    $field->kasir=Session::get('useractive')->no_anggota;
+                    $field->no_transaksi=$request->no_transaksi;
+                    $field->fid_anggota=(!empty($request->fid_anggota) ? $request->fid_anggota : null);
+                    if($request->metode_pembayaran == 3 && $request->fid_anggota == '') {
+                        return Redirect::back()
+                            ->with('message','Transaksi kredit / angsuran hanya untuk anggota !')
+                            ->with('message_type','error');
 
-            } else {
-                $field->fid_metode_pembayaran = $request->metode_pembayaran;
-            }
-            $field->diskon=$request->diskon;
-            $field->total_pembayaran=str_replace('.','',$request->total_pembayaran);
-            $pembayaran=DB::table('rekening_pembayaran')->find($field->fid_metode_pembayaran);
-            if(!empty($pembayaran)){
-                if($pembayaran->fid_metode_pembayaran!=3){
-                    $field->tipe_voucher=$request->voucher_type;
-                    if($field->tipe_voucher=='persen'){
-                        $field->voucher_persen=$request->voucher_nominal;
-                        $field->voucher_nominal=round($field->voucher_persen*$field->total_pembayaran/100,0);
+                    } else {
+                        $field->fid_metode_pembayaran = $request->metode_pembayaran;
+                    }
+                    $field->diskon=$request->diskon;
+                    $field->total_pembayaran=str_replace('.','',$request->total_pembayaran);
+                    $pembayaran=DB::table('rekening_pembayaran')->find($field->fid_metode_pembayaran);
+                    if(!empty($pembayaran)){
+                        if($pembayaran->fid_metode_pembayaran!=3){
+                            $field->tipe_voucher=$request->voucher_type;
+                            if($field->tipe_voucher=='persen'){
+                                $field->voucher_persen=$request->voucher_nominal;
+                                $field->voucher_nominal=round($field->voucher_persen*$field->total_pembayaran/100,0);
+                            }
+                            else{
+                                $field->voucher_persen=0;
+                                $field->voucher_nominal=str_replace('.','',$request->voucher_nominal);
+                            }
+                            $field->kode_voucher=$request->kode_voucher;
+                        }
+                        else{
+                            $field->tipe_voucher=null;
+                            $field->voucher_persen=null;
+                            $field->voucher_nominal=null;
+                            $field->kode_voucher=null;
+                        }
+                        $field->tunai=($pembayaran->fid_metode_pembayaran==1 ? str_replace('.','',$request->tunai) : null);
+                        $field->kembali=($pembayaran->fid_metode_pembayaran==1 ? str_replace('.','',$request->kembali) : null);
+                        $field->tenor=($pembayaran->fid_metode_pembayaran==3 ? 1 : null);
+                        $field->angsuran=($pembayaran->fid_metode_pembayaran==3 ? str_replace('.','',$request->total_pembayaran) : null);
+                        $field->no_debit_card=($pembayaran->fid_metode_pembayaran==5 ? $request->no_debit_card : null );
+                        $field->account_number=($pembayaran->fid_metode_pembayaran==7 ? $request->account_number : null);
                     }
                     else{
-                        $field->voucher_persen=0;
-                        $field->voucher_nominal=str_replace('.','',$request->voucher_nominal);
+                        $field->tunai=null;
+                        $field->kembali=null;
+                        $field->tenor=null;
+                        $field->angsuran=null;
+                        $field->no_debit_card=null;
+                        $field->account_number=null;
                     }
-                    $field->kode_voucher=$request->kode_voucher;
+                    $field->fid_anggota=$request->fid_anggota;
+                    if ($actionZ === 'hold') {
+                        $field->fid_status=5;
+                    } else {
+                        $field->fid_status=($request->action=='bayar' ? 2 : 1 );
+                    }
+        //            dd($field->total_pembayaran);
+                    $field->save();
+
+
+        //            if($pembayaran->fid_metode_pembayaran==3){
+        //                $this->update_riwayat_gaji($request);
+        //            }
+                    AngsuranBelanja::where('fid_penjualan',$field->id)->delete();
+                    if($field->fid_status==1){
+                        return redirect('pos/penjualan/form?id='.$field->id);
+                    }
+                    else{
+                        GlobalHelper::add_verifikasi_transaksi('penjualan',$field->id,'Proses pembayaran dilakukan oleh',null);
+                        if($pembayaran->fid_metode_pembayaran==3){
+                            $this->proses_angsuran($field->id,$request);
+                        }
+                        return redirect('pos/penjualan/detail?id='.$field->id);
+                    }
                 }
                 else{
-                    $field->tipe_voucher=null;
-                    $field->voucher_persen=null;
-                    $field->voucher_nominal=null;
-                    $field->kode_voucher=null;
+                    if ($actionZ === 'hold') return redirect('pos/penjualan');
+                    if($id == null){
+                        return Redirect::back();
+                    }
+                    else{
+                        return redirect('pos/penjualan/form?id='.$id);
+                    }
                 }
-                $field->tunai=($pembayaran->fid_metode_pembayaran==1 ? str_replace('.','',$request->tunai) : null);
-                $field->kembali=($pembayaran->fid_metode_pembayaran==1 ? str_replace('.','',$request->kembali) : null);
-                $field->tenor=($pembayaran->fid_metode_pembayaran==3 ? 1 : null);
-                $field->angsuran=($pembayaran->fid_metode_pembayaran==3 ? str_replace('.','',$request->total_pembayaran) : null);
-                $field->no_debit_card=($pembayaran->fid_metode_pembayaran==5 ? $request->no_debit_card : null );
-                $field->account_number=($pembayaran->fid_metode_pembayaran==7 ? $request->account_number : null);
-            }
-            else{
-                $field->tunai=null;
-                $field->kembali=null;
-                $field->tenor=null;
-                $field->angsuran=null;
-                $field->no_debit_card=null;
-                $field->account_number=null;
-            }
-            $field->fid_anggota=$request->fid_anggota;
-            if ($actionZ === 'hold') {
-                $field->fid_status=5;
-            } else {
-                $field->fid_status=($request->action=='bayar' ? 2 : 1 );
-            }
-//            dd($field->total_pembayaran);
-            $field->save();
-
-
-//            if($pembayaran->fid_metode_pembayaran==3){
-//                $this->update_riwayat_gaji($request);
-//            }
-            AngsuranBelanja::where('fid_penjualan',$field->id)->delete();
-            if($field->fid_status==1){
-                return redirect('pos/penjualan/form?id='.$field->id);
-            }
-            else{
-                GlobalHelper::add_verifikasi_transaksi('penjualan',$field->id,'Proses pembayaran dilakukan oleh',null);
-                if($pembayaran->fid_metode_pembayaran==3){
-                    $this->proses_angsuran($field->id,$request);
-                }
-                return redirect('pos/penjualan/detail?id='.$field->id);
-            }
-        }
-        else{
-            if ($actionZ === 'hold') return redirect('pos/penjualan');
-            if($id == null){
-                return Redirect::back();
-            }
-            else{
-                return redirect('pos/penjualan/form?id='.$id);
-            }
+            }); // End Transaction
+        } catch (\Exception $e) {
+            // Rollback happens automatically via DB::transaction
+            // Log error optional
+             return Redirect::back()
+                ->with('message','Gagal memproses transaksi: ' . substr($e->getMessage(), 0, 100))
+                ->with('message_type','error');
         }
     }
 
@@ -369,6 +383,14 @@ class PenjualanController extends Controller
 
         if(!empty($produk)){
             $barang=GlobalHelper::stok_barang($produk->id);
+
+            // Cek stok habis sebelum proses apapun
+            if($barang['sisa'] <= 0){
+                return Redirect::back()
+                    ->with('message','Stok ' . $produk->nama_produk . ' habis! (Sisa: 0)')
+                    ->with('message_type','error');
+            }
+
             $items=ItemPenjualan::where('fid_penjualan',$request->id)->where('fid_produk',$produk->id)->first();
             if(!empty($items)){
                 $field=ItemPenjualan::find($items->id);
@@ -392,6 +414,11 @@ class PenjualanController extends Controller
                 $field->total=$field->harga * $field->jumlah;
                 if($field->jumlah <= $barang['sisa']){
                     $field->save();
+                }
+                else{
+                    return Redirect::back()
+                        ->with('message','Stok ' . $produk->nama_produk . ' tidak cukup! (Sisa: ' . intval($barang['sisa']) . ')')
+                        ->with('message_type','error');
                 }
             }
             return $field->fid_penjualan;
@@ -465,6 +492,15 @@ class PenjualanController extends Controller
                         ->with('message_type','error');
 
                 $field->jumlah=($request->kode == $value->kode ? $field->jumlah : $request->jumlah[$value->id]) ;
+
+                // Validasi stok sebelum save
+                $stok = GlobalHelper::stok_barang($field->fid_produk, $id);
+                if($field->jumlah > $stok['sisa']){
+                    return Redirect::back()
+                        ->with('message','Stok ' . $value->kode . ' tidak cukup! Sisa: ' . intval($stok['sisa']))
+                        ->with('message_type','error');
+                }
+
                 $field->diskon=$request->diskon_item[$value->id];
 
 

@@ -47,10 +47,10 @@ services:
       MYSQL_DATABASE: esimko
       MYSQL_USER: esimko
       MYSQL_PASSWORD: esimko_password_123
+    ports:
+      - '3306:3306'
     volumes:
       - mysql_data:/var/lib/mysql
-      # Uncomment to auto-import backup on first run:
-      # - ./esimko_latest_backup.sql:/docker-entrypoint-initdb.d/backup.sql:ro
     networks:
       - esimko-network
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
@@ -74,8 +74,8 @@ services:
         condition: service_healthy
     environment:
       - APP_NAME=eSIMKO
-      - APP_ENV=production
-      - APP_DEBUG=false
+      - APP_ENV=local
+      - APP_DEBUG=true
       - APP_URL=https://esimko.com
 
       # Database

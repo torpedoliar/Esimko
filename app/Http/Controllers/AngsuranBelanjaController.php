@@ -115,18 +115,20 @@ class AngsuranBelanjaController extends Controller
     }
 
     public function reload_payroll($id){
-        $data=AngsuranBelanja::where('fid_payroll',$id)->get();
-        foreach ($data as $key => $value) {
-            $angsuran=AngsuranBelanja::find($value->id);
-            $angsuran->fid_status=3;
-            $angsuran->fid_payroll=null;
-            $angsuran->save();
-        }
+        AngsuranBelanja::where('fid_payroll',$id)
+            ->update([
+                'fid_status' => 3,
+                'fid_payroll' => null
+            ]);
     }
 
     public function proses_angsuran_belanja($id,$request){
+        set_time_limit(600); // Extend execution time
+        ini_set('memory_limit', '512M');
+
         $this->reload_payroll($id);
-        $belanja=Penjualan::select('penjualan.*')
+
+        $belanjaQuery = Penjualan::select('id')
             ->where(function ($a){
                 $a->where(function ($i){
                     $i->where('jenis_belanja','toko')
@@ -137,21 +139,32 @@ class AngsuranBelanjaController extends Controller
                 });
             })
             ->where('fid_metode_pembayaran',3)
-            ->where('tanggal', '<=', date('Y-m-d'))
-            ->get();
+            ->where('tanggal', '<=', date('Y-m-d'));
 
-        foreach ($belanja as $key => $value) {
-            $angsuran=AngsuranBelanja::where('fid_penjualan',$value->id)
-                ->where('fid_status',3)
-                ->orderBy('angsuran_ke','ASC')
-                ->first();
-            if(!empty($angsuran)){
-                $field=AngsuranBelanja::find($angsuran->id);
-                $field->fid_payroll=$id;
-                $field->fid_status=6;
-                $field->save();
+        // Process in chunks to avoid memory exhaustion and N+1 queries
+        $belanjaQuery->chunk(1000, function ($sales) use ($id) {
+            $salesIds = $sales->pluck('id')->toArray();
+            
+            if (!empty($salesIds)) {
+                // Find oldest pending installment ID for each sale
+                // Equivalent to: SELECT MIN(id) FROM angsuran_belanja WHERE ... GROUP BY fid_penjualan
+                $idsToUpdate = AngsuranBelanja::select(DB::raw('MIN(id) as id'))
+                    ->whereIn('fid_penjualan', $salesIds)
+                    ->where('fid_status', 3)
+                    ->groupBy('fid_penjualan')
+                    ->pluck('id')
+                    ->toArray();
+
+                if (!empty($idsToUpdate)) {
+                    // Mass update
+                    AngsuranBelanja::whereIn('id', $idsToUpdate)
+                        ->update([
+                            'fid_payroll' => $id,
+                            'fid_status' => 6
+                        ]);
+                }
             }
-        }
+        });
     }
 
     public function verifikasi(Request $request){
@@ -174,11 +187,9 @@ class AngsuranBelanjaController extends Controller
     }
 
     public function update_status_angsuran($id,$status){
-        $angsuran=AngsuranBelanja::where('fid_payroll',$id)->get();
-        foreach ($angsuran as $key => $value) {
-            $field=AngsuranBelanja::find($value->id);
-            $field->fid_status=$status;
-            $field->save();
-        }
+        // Optimized: mass update instead of N+1 loop
+        // Safe karena AngsuranBelanja tidak punya observer/event & timestamps=false
+        AngsuranBelanja::where('fid_payroll',$id)
+            ->update(['fid_status' => $status]);
     }
 }

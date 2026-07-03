@@ -1,0 +1,39 @@
+--- PHASE 1: RESET & MEASURE GAP ---
+MEMBER: K 0558
+TARGET: 867,800
+BASE LIMIT (All Ignored): 213,850,000
+GAP (Debt needed): 212,982,200
+Searching for transactions summing to 212,982,200...
+---------------------------------
+MEMBER: K 1031
+TARGET: 98,500
+BASE LIMIT (All Ignored): 207,000,000
+GAP (Debt needed): 206,901,500
+Searching for transactions summing to 206,901,500...
+---------------------------------
+MEMBER: K 1540
+TARGET: 284,620
+BASE LIMIT (All Ignored): 178,682,530
+GAP (Debt needed): 178,397,910
+Searching for transactions summing to 178,397,910...
+---------------------------------
+MEMBER: K 1154
+TARGET: 414,314
+BASE LIMIT (All Ignored): 203,900,000
+GAP (Debt needed): 203,485,686
+Searching for transactions summing to 203,485,686...
+---------------------------------
+MEMBER: K 1667
+TARGET: 750,890
+BASE LIMIT (All Ignored): 171,750,000
+GAP (Debt needed): 170,999,110
+Searching for transactions summing to 170,999,110...
+---------------------------------
+MEMBER: K 1606
+TARGET: 15,000,000
+BASE LIMIT (All Ignored): 175,500,000
+GAP (Debt needed): 160,500,000
+Searching for transactions summing to 160,500,000...
+---------------------------------
+= "y"
+

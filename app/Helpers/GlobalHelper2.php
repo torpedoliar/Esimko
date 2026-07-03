@@ -783,26 +783,30 @@ class GlobalHelper2 {
     public static function limitKaryawan($anggota_id)
     {
         $limit = 1500000;
-        $list_id = Penjualan::where('fid_anggota', $anggota_id)->where('fid_metode_pembayaran', 3)->select('id')->get()->pluck('id')->toArray();
-        $angsuran = AngsuranBelanja::select(DB::raw('a.*'))
-            ->whereIn('a.fid_penjualan', $list_id)
-            ->from(DB::raw('(SELECT * FROM angsuran_belanja where fid_status = 3 ORDER BY angsuran_ke ASC) a'))
-            ->groupBy('a.fid_penjualan')
+
+        // Get credit penjualan yang MASIH punya angsuran pending (fid_status=3)
+        $penjualan_with_debt = Penjualan::where('fid_anggota', $anggota_id)
+            ->where('fid_metode_pembayaran', 3)
+            ->whereIn('fid_status', [2, 4])
+            ->whereHas('angsuran_belanja', function ($q) {
+                $q->where('fid_status', 3);
+            })
             ->get();
-        $angsuran2 = DB::select("select * from angsuran_belanja where fid_penjualan in ( select id from penjualan where fid_anggota = '". $anggota_id ."' and fid_metode_pembayaran = 3) and fid_payroll is null GROUP BY fid_penjualan having angsuran_ke = min(angsuran_ke)");
-        $total_angsuran = array_sum(array_column($angsuran2, 'total_angsuran'));
 
+        // Gunakan penjualan.angsuran (cicilan per bulan yang benar)
+        $total_hutang = $penjualan_with_debt->sum('angsuran');
+        $list_penjualan_id = $penjualan_with_debt->pluck('id')->toArray();
 
-        $list_penjualan_id = $angsuran->pluck('fid_penjualan')->toArray();
+        // Hitung retur (pengembalian barang mengurangi hutang)
         $item_retur = ItemReturPenjualan::whereHas('retur_penjualan', function ($retur) use ($anggota_id, $list_penjualan_id) {
             $retur->where('fid_anggota', $anggota_id)->whereIn('fid_penjualan', $list_penjualan_id);
         })->with(['produk'])->get();
-        $total_retur = $item_retur->sum('produk.harga_jual') * $item_retur->sum('jumlah');
 
-//        dd($limit, $angsuran->sum('total_angsuran'), $total_retur);
+        $total_retur = 0;
+        foreach ($item_retur as $item) {
+            $total_retur += ($item->produk->harga_jual * $item->jumlah);
+        }
 
-
-//        return $limit - $angsuran->sum('total_angsuran') + $total_retur;
-        return $limit - $total_angsuran + $total_retur;
+        return $limit - $total_hutang + $total_retur;
     }
 }

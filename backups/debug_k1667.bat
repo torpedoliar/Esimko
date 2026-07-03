@@ -1,0 +1,3 @@
+@echo off
+cd /d C:\IIS\Esimko
+php artisan tinker --execute="$id='K 1667'; $list_id = App\Penjualan::where('fid_anggota',$id)->where('fid_metode_pembayaran',3)->whereIn('fid_status',[2,4])->pluck('id')->toArray(); echo 'total_penj: '.count($list_id).PHP_EOL; $angsuran = App\AngsuranBelanja::select(DB::raw('a.*'))->whereIn('a.fid_penjualan',$list_id)->from(DB::raw('(SELECT * FROM angsuran_belanja where fid_status = 3 ORDER BY angsuran_ke ASC) a'))->groupBy('a.fid_penjualan')->get(); echo 'group_count: '.$angsuran->count().PHP_EOL; echo 'sum_total_angsuran: '.$angsuran->sum('total_angsuran').PHP_EOL; foreach($angsuran as $a){ echo 'PJ:'.$a->fid_penjualan.' ke:'.$a->angsuran_ke.' val:'.$a->total_angsuran.PHP_EOL; }"

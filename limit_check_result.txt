@@ -1,0 +1,15 @@
+--- REALTIME LIMIT CHECK (MANUAL CALC) ---
+MEMBER: K 1540
+PLAFON SYSTEM : 0
+TOTAL HUTANG (Raw Sum of Active Tx): 47,431,715
+EST SISA LIMIT (if all counted): -47,431,715
+STATS : St3(Pending)= | St6(Lunas/Ignored)=
+--------------------------
+MEMBER: K 0558
+PLAFON SYSTEM : 0
+TOTAL HUTANG (Raw Sum of Active Tx): 30,616,187
+EST SISA LIMIT (if all counted): -30,616,187
+STATS : St3(Pending)= | St6(Lunas/Ignored)=
+--------------------------
+= "y"
+

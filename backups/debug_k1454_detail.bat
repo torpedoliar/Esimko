@@ -1,0 +1,3 @@
+@echo off
+cd /d C:\IIS\Esimko
+php artisan tinker --execute="$p = App\Penjualan::where('fid_anggota','K 1454')->where('fid_metode_pembayaran',3)->whereIn('fid_status',[2,4])->whereHas('angsuran_belanja', function($q){ $q->where('fid_status',3); })->get(['id','angsuran','total_pembayaran','tanggal','fid_status']); foreach($p as $r){ echo 'ID:' . $r->id . ' ang:' . var_export($r->angsuran,true) . ' total:' . $r->total_pembayaran . ' date:' . $r->tanggal . ' status:' . $r->fid_status . PHP_EOL; $ab = App\AngsuranBelanja::where('fid_penjualan',$r->id)->where('fid_status',3)->get(); echo '  pending_angsuran: ' . $ab->count() . ' sum: ' . $ab->sum('total_angsuran') . PHP_EOL; }"

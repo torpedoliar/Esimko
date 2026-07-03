@@ -32,10 +32,12 @@ RUN apt-get update && apt-get install -y \
     unzip \
     zip \
     curl \
+    gnupg2 \
     && apt-get clean
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
 
 # Configure PHP-FPM
 RUN sed -i 's/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/' /etc/php/7.4/fpm/php.ini

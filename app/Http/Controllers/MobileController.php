@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use App\Helpers\GlobalHelper;
+use App\Helpers\MobileHelper;
+use App\Support\ApiResponse;
 use App\Anggota;
 use App\Transaksi;
 use App\Angsuran;
@@ -53,7 +55,7 @@ class MobileController extends Controller
     } else {
       $return = array('msg' => 'Anggota tidak Ditemukan');
     }
-    return $return;
+    return ApiResponse::success($return);
   }
 
   public function register(Request $request)
@@ -82,7 +84,7 @@ class MobileController extends Controller
     $field->tanggal_bekerja = (!empty($request->id_karyawan) ? GlobalHelper::bulan_bekerja($request->id_karyawan) : date('Y-m-d'));
     $field->tanggal_bergabung = date('Y-m-d');
     $field->save();
-    return array('data' => $field);
+    return ApiResponse::success(['data' => $field]);
   }
 
   public function profil_anggota(Request $request)
@@ -96,11 +98,11 @@ class MobileController extends Controller
       $tab = (!empty($request->tab) ? $request->tab : 'profil');
       $anggota->avatar = (!empty($anggota->avatar) ? asset('storage/' . $anggota->avatar) : asset('assets/images/user-avatar-placeholder.png'));
 
-      $anggota->total_saldo_simpanan = GlobalHelper::saldo_tabungan($anggota->no_anggota, 'Total Simpanan'); //Total Simpanan
-      $anggota->saldo_simpanan_pokok = GlobalHelper::saldo_tabungan($anggota->no_anggota, 1); //Simpanan Pokok
-      $anggota->saldo_simpanan_wajib = GlobalHelper::saldo_tabungan($anggota->no_anggota, 2); //Simpanan Wajib
-      $anggota->saldo_simpanan_sukarela = GlobalHelper::saldo_tabungan($anggota->no_anggota, 'Simpanan Sukarela'); //Simpanan Hari Raya
-      $anggota->saldo_simpanan_hari_raya = GlobalHelper::saldo_tabungan($anggota->no_anggota, 'Simpanan Hari Raya'); //Simpanan Sukarela
+      $anggota->total_saldo_simpanan = MobileHelper::saldoTabungan($anggota->no_anggota, 'Total Simpanan'); //Total Simpanan
+      $anggota->saldo_simpanan_pokok = MobileHelper::saldoTabungan($anggota->no_anggota, 1); //Simpanan Pokok
+      $anggota->saldo_simpanan_wajib = MobileHelper::saldoTabungan($anggota->no_anggota, 2); //Simpanan Wajib
+      $anggota->saldo_simpanan_sukarela = MobileHelper::saldoTabungan($anggota->no_anggota, 'Simpanan Sukarela'); //Simpanan Hari Raya
+      $anggota->saldo_simpanan_hari_raya = MobileHelper::saldoTabungan($anggota->no_anggota, 'Simpanan Hari Raya'); //Simpanan Sukarela
 
 
       $anggota->bunga_pinjaman = intval($anggota->sisa_pinjaman * GlobalHelper::getBungaPinjaman()); //Bunga Semua Pinjaman
@@ -110,7 +112,7 @@ class MobileController extends Controller
       $anggota->angsuran_barang = GlobalHelper::sisa_pinjaman($anggota->no_anggota, 11); //Sisa Barangx
 
         $anggota->sisa_pinjaman = $anggota->angsuran_jangka_panjang + $anggota->angsuran_jangka_pendek + $anggota->angsuran_barang;
-        $anggota->total_angsuran_pinjaman = GlobalHelper::angsuran_pinjaman($anggota->no_anggota, 'all'); //Total Angsuran Pinjaman
+        $anggota->total_angsuran_pinjaman = MobileHelper::angsuranPinjamanSafe($anggota->no_anggota, 'all'); //Total Angsuran Pinjaman
 
       $anggota->total_angsuran_belanja = GlobalHelper::total_angsuran_belanja($anggota->no_anggota); //Total Angsuran Belanja
       $anggota->angsuran_belanja_toko = GlobalHelper::angsuran_belanja($anggota->no_anggota, 'toko'); //Total Angsuran Belanja Toko
@@ -120,9 +122,9 @@ class MobileController extends Controller
       $anggota->setoran_berkala = GlobalHelper::setoran_berkala($anggota->no_anggota); //Setoran Berkala
       $anggota->setoran_simpanan_anggota = 350000;
 
-      return $anggota;
+      return ApiResponse::success($anggota);
     } else {
-      return array('msg' => 'Anggota tidak Ditemukan');
+      return ApiResponse::error('Anggota tidak Ditemukan', 404);
     }
   }
 
@@ -145,7 +147,7 @@ class MobileController extends Controller
     } else {
       $msg = 'Anggota tidak ditemukan';
     }
-    return array('msg' => $msg);
+    return $msg === 'Password baru berhasil diubah' ? ApiResponse::success(null, $msg) : ApiResponse::error($msg);
   }
 
   public function jenis_transaksi($modul)
@@ -155,7 +157,7 @@ class MobileController extends Controller
     } else {
       $data = DB::table('jenis_transaksi')->whereIn('id', array(9, 10, 11))->get();
     }
-    return $data;
+    return ApiResponse::success($data);
   }
 
   public function status_transaksi($modul)
@@ -165,7 +167,7 @@ class MobileController extends Controller
     } else {
       $data = DB::table('status_transaksi')->get();
     }
-    return $data;
+    return ApiResponse::success($data);
   }
 
   public function transaksi(Request $request, $modul)
@@ -211,22 +213,31 @@ class MobileController extends Controller
       $query = $query->whereBetween('transaksi.tanggal', [GlobalHelper::dateFormat($request->tanggal_mulai, 'Y-m-d'), GlobalHelper::dateFormat($request->tanggal_akhir, 'Y-m-d')]);
     }
 
-    $result = $query->orderBy('transaksi.tanggal', 'DESC')
-      ->orderBy('transaksi.created_at', 'DESC')
-      ->limit($request->limit)
-      ->get();
+    $limit = $request->limit ?: 10;
+    if ($request->has('page')) {
+        $result = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->paginate($limit);
+        $items = $result->items();
+    } else {
+        $result = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->limit($limit)->get();
+        $items = $result;
+    }
 
+    // Manual eager load for angsuran is a bit complex, let's keep it N+1 or fix it
+    // Transaksi query is already optimized? Angsuran lookup:
+    $transaksi_ids = collect($items)->pluck('id')->toArray();
+    $angsurans = Angsuran::whereIn('fid_transaksi', $transaksi_ids)->get()->groupBy('fid_transaksi');
 
-    foreach ($result as $key => $value) {
+    foreach ($items as $key => $value) {
       $nominal = str_replace('-', '', $value->nominal);
       if ($modul == 'pinjaman') {
-        $angsuran = Angsuran::where('fid_transaksi', $value->id)->first();
+        $trans_angsurans = $angsurans->get($value->id, collect());
+        $angsuran = $trans_angsurans->first();
         if (!empty($angsuran)) {
-          $result[$key]->total_angsuran = $angsuran->angsuran_pokok + $angsuran->angsuran_bunga;
-          $sisa_pinjaman = Angsuran::where('fid_transaksi', $value->id)->where('fid_status', '!=', 6)->first();
-          $result[$key]->sisa_pinjaman = (!empty($sisa_pinjaman) ? $sisa_pinjaman->sisa_hutang  : 0);
-          $result[$key]->sisa_tenor = Angsuran::where('fid_transaksi', $value->id)->where('fid_status', '!=', 6)->count();
-          $result[$key]->nominal_tampil = 'Rp ' . number_format($nominal, 0, ',', '.');
+          $value->total_angsuran = $angsuran->angsuran_pokok + $angsuran->angsuran_bunga;
+          $sisa_pinjaman = $trans_angsurans->where('fid_status', '!=', 6)->first();
+          $value->sisa_pinjaman = (!empty($sisa_pinjaman) ? $sisa_pinjaman->sisa_hutang  : 0);
+          $value->sisa_tenor = $trans_angsurans->where('fid_status', '!=', 6)->count();
+          $value->nominal_tampil = 'Rp ' . number_format($nominal, 0, ',', '.');
         }
       } else {
         $penarikan = array(6, 7, 8);
@@ -238,7 +249,7 @@ class MobileController extends Controller
         }
       }
     }
-    return $result;
+    return ApiResponse::success($result);
   }
 
   public function upload_bukti_transaksi(Request $request)
@@ -247,18 +258,18 @@ class MobileController extends Controller
     if (!empty($field)) {
       if ($request->hasFile('bukti_transaksi')) {
         if (!empty($field->bukti_transaksi)) {
-          unlink(storage_path('app/' . $field->bukti_transaksi));
+          @unlink(storage_path('app/public/' . $field->bukti_transaksi));
         }
         $uploadedFile = $request->file('bukti_transaksi');
-        $path = $uploadedFile->store('bukti_transaksi');
+        $path = $uploadedFile->store('bukti_transaksi', 'public');
         $field->bukti_transaksi = $path;
         $field->save();
-        return array('msg' => 'success');
+        return ApiResponse::success(null, 'success');
       } else {
-        return array('msg' => 'file tidak ditemukan');
+        return ApiResponse::error('file tidak ditemukan');
       }
     } else {
-      return array('msg' => 'transaksi tidak ditemukan');
+      return ApiResponse::error('transaksi tidak ditemukan', 404);
     }
   }
 
@@ -281,9 +292,9 @@ class MobileController extends Controller
       $field->fid_status = 5;
       $field->save();
       $this->add_riwayat_transaksi('transaksi', $field->id, 'Transaksi dibatalkan oleh', $request->no_anggota);
-      return array('msg' => 'success');
+      return ApiResponse::success(null, 'success');
     } else {
-      return array('msg' => 'not found');
+      return ApiResponse::error('not found', 404);
     }
   }
 
@@ -333,9 +344,9 @@ class MobileController extends Controller
 
       $anggota = Anggota::where('no_anggota', $data->created_by)->first();
       $data->nama_petugas = (!empty($anggota) ? $anggota->nama_lengkap : 'Tidak Diketahui');
-      return $data;
+      return ApiResponse::success($data);
     } else {
-      return array('msg' => 'Data tidak Ditemukan');
+      return ApiResponse::error('Data tidak Ditemukan', 404);
     }
   }
 
@@ -394,7 +405,7 @@ class MobileController extends Controller
   {
     $data = GajiPokok::where('fid_anggota', $request->no_anggota)->get();
     $gaji_pokok = GlobalHelper::gaji_pokok($request->no_anggota);
-    return array('data' => $data, 'bulan' => $gaji_pokok[0], 'gaji_pokok' => $gaji_pokok[1]);
+    return ApiResponse::success(['data' => $data, 'bulan' => $gaji_pokok[0], 'gaji_pokok' => $gaji_pokok[1]]);
   }
 
   public function proses_transaksi(Request $request, $jenis)
@@ -413,7 +424,7 @@ class MobileController extends Controller
 
       if ($request->action == 'delete') {
         $field->delete();
-        return array('msg' => $validasi);
+        return $validasi === 'success' ? ApiResponse::success(null, $validasi) : ApiResponse::error($validasi);
       } else {
         $field->fid_anggota = $request->no_anggota;
         $field->keterangan = $request->keterangan;
@@ -437,10 +448,10 @@ class MobileController extends Controller
           $this->update_riwayat_gaji($request);
           $this->proses_angsuran($field->id, $request);
         }
-        return array('id' => $field->id);
+        return ApiResponse::success(['id' => $field->id]);
       }
     } else {
-      return array('msg' => $validasi);
+      return $validasi === 'success' ? ApiResponse::success(null, $validasi) : ApiResponse::error($validasi);
     }
   }
 
@@ -489,7 +500,7 @@ class MobileController extends Controller
     foreach ($data as $key => $value) {
       $data[$key]->nama_bulan = (!empty($request->id) ? null : GlobalHelper::nama_bulan($value->bulan));
     }
-    return $data;
+    return ApiResponse::success($data);
   }
 
   public function update_riwayat_gaji($request)
@@ -524,11 +535,20 @@ class MobileController extends Controller
       });
     }
 
-    $result = $query->orderBy('produk.nama_produk', 'DESC')
-      ->limit($request->limit)
-      ->get();
-    foreach ($result as $key => $value) {
-      $foto = FotoProduk::where('fid_produk', $value->id)->first();
+    $limit = $request->limit ?: 10;
+    if ($request->has('page')) {
+        $result = $query->orderBy('produk.nama_produk', 'DESC')->paginate($limit);
+        $items = $result->items();
+    } else {
+        $result = $query->orderBy('produk.nama_produk', 'DESC')->limit($limit)->get();
+        $items = $result;
+    }
+
+    $produk_ids = collect($items)->pluck('id')->toArray();
+    $fotos = FotoProduk::whereIn('fid_produk', $produk_ids)->get()->keyBy('fid_produk');
+
+    foreach ($items as $key => $value) {
+      $foto = $fotos->get($value->id);
       $result[$key]->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
       $kategori = explode('.', $value->kode_kategori);
       if ($kategori[0] == 0) {
@@ -541,7 +561,7 @@ class MobileController extends Controller
         $result[$key]->sub_kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
       }
     }
-    return $result;
+    return ApiResponse::success($result);
   }
 
   public function detail_produk(Request $request)
@@ -554,7 +574,7 @@ class MobileController extends Controller
       $foto = FotoProduk::where('fid_produk', $data->id)->first();
       $data->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
 
-      $stok = GlobalHelper::stok_barang($data->id);
+      $stok = MobileHelper::stokBarang($data->id);
       $data->terjual = $stok['terjual'];
       $data->sisa = $stok['sisa'];
 
@@ -569,7 +589,7 @@ class MobileController extends Controller
         $data->sub_kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
       }
     }
-    return $data;
+    return ApiResponse::success($data);
   }
 
   public function keranjang(Request $request)
@@ -588,18 +608,18 @@ class MobileController extends Controller
     foreach ($result as $key => $value) {
       $foto = FotoProduk::where('fid_produk', $value->fid_produk)->first();
       $result[$key]->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
-      $barang = GlobalHelper::stok_barang($value->fid_produk);
+      $barang = MobileHelper::stokBarang($value->fid_produk);
       $result[$key]->terjual = $barang['terjual'];
       $result[$key]->sisa = $barang['sisa'];
     }
-    return $result;
+    return ApiResponse::success($result);
   }
 
   public function proses_keranjang(Request $request)
   {
     $produk = Produk::find($request->id);
     if (!empty($produk)) {
-      $stok = GlobalHelper::stok_barang($produk->id);
+      $stok = MobileHelper::stokBarang($produk->id);
       $cek_keranjang = KeranjangBelanja::where('fid_produk', $request->id)->where('fid_anggota', $request->no_anggota)->first();
       if (!empty($cek_keranjang)) {
         $field = KeranjangBelanja::find($cek_keranjang->id);
@@ -614,19 +634,19 @@ class MobileController extends Controller
       }
       if ($request->action == 'delete') {
         $field->delete();
-        return array('msg' => 'success');
+        return ApiResponse::success(null, 'success');
       } else {
         $field->harga = $produk->harga_jual;
         $field->total = $field->jumlah * $field->harga;
         if ($field->jumlah <= $stok['sisa']) {
           $field->save();
-          return array('msg' => 'success');
+          return ApiResponse::success(null, 'success');
         } else {
-          return array('msg' => 'Jumlah melebih stok');
+          return ApiResponse::error('Jumlah melebih stok');
         }
       }
     } else {
-      return array('msg' => 'Produk not Found');
+      return ApiResponse::error('Produk not Found', 404);
     }
   }
 
@@ -647,6 +667,10 @@ class MobileController extends Controller
 
   public function checkout_keranjang(Request $request)
   {
+    if (empty($request->barang) || !is_array($request->barang) || count($request->barang) == 0) {
+        return ApiResponse::error('Keranjang kosong');
+    }
+
     $id = $this->add_penjualan($request->no_anggota);
     $total = 0;
     foreach ($request->barang as $key => $keranjang_id) {
@@ -655,7 +679,7 @@ class MobileController extends Controller
         ->where('keranjang_belanja.id', $keranjang_id)
         ->first();
       if (!empty($keranjang)) {
-        $stok = GlobalHelper::stok_barang($keranjang->fid_produk);
+        $stok = MobileHelper::stokBarang($keranjang->fid_produk);
         $field = new ItemPenjualan;
         $field->fid_penjualan = $id;
         $field->fid_produk = $keranjang->fid_produk;
@@ -679,7 +703,7 @@ class MobileController extends Controller
       $this->update_total_pembayaran($id, $total);
       $this->hapus_keranjang($id);
     }
-    return array('msg' => 'success');
+    return ApiResponse::success(null, 'success');
   }
 
   public function update_total_pembayaran($id, $total)
@@ -727,12 +751,14 @@ class MobileController extends Controller
         }
       } else {
         $items = ItemPenjualan::select('item_penjualan.*')->where('item_penjualan.fid_penjualan', $value->id)->first();
-        $items->foto = asset('assets/images/produk-default.jpg');
+        if (!empty($items)) {
+          $items->foto = asset('assets/images/produk-default.jpg');
+        }
       }
       $result[$key]->produk = $items;
       $result[$key]->jumlah = ItemPenjualan::where('fid_penjualan', $value->id)->sum('item_penjualan.jumlah');
     }
-    return $result;
+    return ApiResponse::success($result);
   }
 
   public function detail_belanja(Request $request, $jenis)
@@ -776,14 +802,20 @@ class MobileController extends Controller
         ->where('fid_status', $penjualan->fid_status)
         ->where('user_page', 'main')
         ->first();
-      $penjualan->label_status = str_replace('Konsinyasi', ucfirst($jenis), $keterangan->label);
-      $penjualan->keterangan_status = str_replace('Konsinyasi', ucfirst($jenis), $keterangan->keterangan);
+      if (!empty($keterangan)) {
+        $penjualan->label_status = str_replace('Konsinyasi', ucfirst($jenis), $keterangan->label);
+        $penjualan->keterangan_status = str_replace('Konsinyasi', ucfirst($jenis), $keterangan->keterangan);
+      } else {
+        $penjualan->label_status = '';
+        $penjualan->keterangan_status = '';
+      }
     }
-    return $penjualan;
+    return ApiResponse::success($penjualan);
   }
 
   public function riwayat_transaksi(Request $request)
   {
+    $transaksi = collect();
     if ($request->jenis == 'transaksi') {
       $transaksi = Transaksi::selectRaw("transaksi.created_at,concat('Transaksi dibuat oleh') as caption,anggota.no_anggota,anggota.nama_lengkap")
         ->join('anggota', 'anggota.no_anggota', '=', 'transaksi.created_by')
@@ -802,7 +834,7 @@ class MobileController extends Controller
       ->get();
     $collection = collect($transaksi);
     $merged = $collection->merge($data);
-    return $merged->all();
+    return ApiResponse::success($merged->all());
   }
 
   // public function riwayat_transaksi(Request $request){
@@ -859,7 +891,7 @@ class MobileController extends Controller
     foreach ($data as $key => $value) {
       $data[$key]->nama_bulan = (!empty($request->id) ? null : GlobalHelper::nama_bulan($value->bulan));
     }
-    return $data;
+    return ApiResponse::success($data);
   }
 
   public function retur_barang(Request $request)
@@ -882,7 +914,7 @@ class MobileController extends Controller
       $foto = FotoProduk::where('fid_produk', $value->fid_produk)->first();
       $result[$key]->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
     }
-    return $result;
+    return ApiResponse::success($result);
   }
 
   public function batalkan_belanja(Request $request)
@@ -892,9 +924,9 @@ class MobileController extends Controller
       $field->fid_status = ($request->jenis == 'toko' ? 3 : 5);
       $field->save();
       $this->add_riwayat_transaksi('penjualan', $field->id, 'Transaksi dibatalkan oleh', $request->no_anggota);
-      return array('msg' => 'success');
+      return ApiResponse::success(null, 'success');
     } else {
-      return array('msg' => 'not found');
+      return ApiResponse::error('not found', 404);
     }
   }
 
@@ -909,7 +941,7 @@ class MobileController extends Controller
       $result[$key]->jumlah_attachment = AttachmentBerita::where('fid_berita', $value->id)->count();
       $result[$key]->gambar = (!empty($value->gambar) ? asset('storage/' . $value->gambar) : asset('assets/images/produk-default.jpg'));
     }
-    return $result;
+    return ApiResponse::success($result);
   }
 
   public function detail_berita(Request $request)
@@ -922,9 +954,9 @@ class MobileController extends Controller
       }
       $berita->attachment = $attachment;
       $berita->gambar = (!empty($berita->gambar) ? asset('storage/' . $berita->gambar) : asset('assets/images/produk-default.jpg'));
-      return $berita;
+      return ApiResponse::success($berita);
     } else {
-      return array('msg' => 'Berita tidak ditemukan');
+      return ApiResponse::error('Berita tidak ditemukan', 404);
     }
   }
 
@@ -936,15 +968,15 @@ class MobileController extends Controller
     if (!empty($field)) {
       if ($request->hasFile('avatar')) {
         if (!empty($field->avatar)) {
-          unlink(storage_path('app/' . $field->avatar));
+          @unlink(storage_path('app/public/' . $field->avatar));
         }
         $uploadedFile = $request->file('avatar');
-        $path = $uploadedFile->store('avatar');
+        $path = $uploadedFile->store('avatar', 'public');
         $field->avatar = $path;
         $field->save();
-        return array('msg' => 'success');
+        return ApiResponse::success(null, 'success');
       } else {
-        return array('msg' => 'File kosong');
+        return ApiResponse::error('File kosong');
       }
     } else {
       return array('msg' => 'Anggota tidak ditemukan');

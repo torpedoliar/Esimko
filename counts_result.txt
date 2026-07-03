@@ -1,0 +1,7 @@
+--- CHECK STATUS COUNTS FOR K 1540 ---
+Active Sales (Unpaid Header): 171
+Angsuran Status 3 (Pending/Counted): 16
+Angsuran Status 6 (Lunas/Ignored): 222
+CONCLUSION: Revert SUCCESSFUL (Many items are Ignored).
+= "y"
+
