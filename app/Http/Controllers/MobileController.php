@@ -534,37 +534,44 @@ class MobileController extends Controller
     $field->save();
   }
 
-  public function produk(Request $request)
+    public function produk(Request $request)
   {
-    $query = Produk::select('produk.*', 'satuan_barang.satuan')
-      ->join('satuan_barang', 'satuan_barang.id', '=', 'produk.fid_satuan');
-    if (!empty($request->search)) {
-      $search = $request->search;
-      $query = $query->where(function ($i) use ($search) {
-        $i->where('produk.nama_produk', 'like', "%{$search}%")
-          ->orWhere('produk.kode', 'like', "%{$search}%");
-      });
-    }
-
-    $p = $query->orderBy('produk.nama_produk', 'DESC')->paginate($request->input('per_page', 20));
-    $items = $p->items();
-    $produk_ids = collect($items)->pluck('id')->toArray();
-    $fotos = FotoProduk::whereIn('fid_produk', $produk_ids)->get()->keyBy('fid_produk');
-    foreach ($items as $value) {
-      $foto = $fotos->get($value->id);
-      $value->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
-      $kategori = explode('.', $value->kode_kategori);
-      if ($kategori[0] == 0) {
-        $value->kelompok = GlobalHelper::detail_kategori_produk($kategori[1]);
-        $value->kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
-        $value->sub_kategori = '';
-      } else {
-        $value->kelompok = GlobalHelper::detail_kategori_produk($kategori[0]);
-        $value->kategori = GlobalHelper::detail_kategori_produk($kategori[1]);
-        $value->sub_kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
+      $query = Produk::select('produk.*', 'satuan_barang.satuan')
+          ->join('satuan_barang', 'satuan_barang.id', '=', 'produk.fid_satuan');
+      if (!empty($request->search)) {
+          $search = $request->search;
+          $query = $query->where(function ($i) use ($search) {
+              $i->where('produk.nama_produk', 'like', "%{$search}%")
+                ->orWhere('produk.kode', 'like', "%{$search}%");
+          });
       }
-    }
-    return ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
+
+      $p = $query->orderBy('produk.nama_produk', 'DESC')->paginate($request->input('per_page', 20));
+      $items = $p->items();
+      $produk_ids = collect($items)->pluck('id')->toArray();
+      $fotos = FotoProduk::whereIn('fid_produk', $produk_ids)->get()->keyBy('fid_produk');
+
+      foreach ($items as $value) {
+          $foto = $fotos->get($value->id);
+          $value->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
+          $kategori = explode('.', $value->kode_kategori);
+          if ($kategori[0] == 0) {
+              $value->kelompok = GlobalHelper::detail_kategori_produk($kategori[1]);
+              $value->kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
+              $value->sub_kategori = '';
+          } else {
+              $value->kelompok = GlobalHelper::detail_kategori_produk($kategori[0]);
+              $value->kategori = GlobalHelper::detail_kategori_produk($kategori[1]);
+              $value->sub_kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
+          }
+      }
+
+      return ApiResponse::success($items, 'OK', [
+          'page' => $p->currentPage(),
+          'per_page' => $p->perPage(),
+          'total' => $p->total(),
+          'last_page' => $p->lastPage(),
+      ]);
   }
 
   public function detail_produk(Request $request)
@@ -964,26 +971,27 @@ class MobileController extends Controller
     }
   }
 
-  public function upload_avatar(Request $request)
+    public function upload_avatar(Request $request)
   {
+      $field = Anggota::where("no_anggota", $request->no_anggota)->first();
 
-    $field = Anggota::where("no_anggota", $request->no_anggota)->first();
-
-    if (!empty($field)) {
-      if ($request->hasFile('avatar')) {
-        if (!empty($field->avatar)) {
-          if (file_exists(storage_path('app/public/' . $field->avatar))) { unlink(storage_path('app/public/' . $field->avatar)); }
-        }
-        $uploadedFile = $request->file('avatar');
-        $path = $uploadedFile->store('avatar', 'public');
-        $field->avatar = $path;
-        $field->save();
-        return ApiResponse::success(null, 'success');
+      if (!empty($field)) {
+          if ($request->hasFile('avatar')) {
+              if (!empty($field->avatar)) {
+                  if (file_exists(storage_path('app/public/' . $field->avatar))) {
+                      unlink(storage_path('app/public/' . $field->avatar));
+                  }
+              }
+              $uploadedFile = $request->file('avatar');
+              $path = $uploadedFile->store('avatar', 'public');
+              $field->avatar = $path;
+              $field->save();
+              return ApiResponse::success(null, 'success');
+          } else {
+              return ApiResponse::error('File kosong');
+          }
       } else {
-        return ApiResponse::error('File kosong');
+          return ApiResponse::error('Anggota tidak ditemukan', 404);
       }
-    } else {
-      return ApiResponse::error('Anggota tidak ditemukan', 404);
-    }
   }
 }
