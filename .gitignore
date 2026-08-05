@@ -25,3 +25,9 @@ mysql_data/
 
 # HTML folder (copied from server, might have large files)
 /html/
+
+# EsimkoMobile Android build artifacts
+EsimkoMobile/.gradle/
+EsimkoMobile/**/build/
+EsimkoMobile/local.properties
+EsimkoMobile/app/build/

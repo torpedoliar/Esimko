@@ -1,0 +1,51 @@
+package com.esimko.mobile.data.repository
+
+import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.data.remote.api.MasterApi
+import com.esimko.mobile.domain.model.TransactionType
+import com.esimko.mobile.domain.model.TransactionStatus
+import com.esimko.mobile.domain.repository.MasterRepository
+import javax.inject.Inject
+
+class MasterRepositoryImpl @Inject constructor(
+    private val api: MasterApi
+) : MasterRepository {
+
+    override suspend fun getTransactionTypes(modul: String): Result<List<TransactionType>> {
+        return try {
+            val response = api.getTransactionTypes(modul)
+            if (response.success && response.data != null) {
+                Result.Success(response.data.map { dto ->
+                    TransactionType(
+                        id = dto.id,
+                        nama = dto.nama ?: dto.jenisTransaksi.orEmpty(),
+                        kode = dto.kode.orEmpty()
+                    )
+                })
+            } else {
+                Result.Error(response.message ?: "Failed to load transaction types")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun getTransactionStatuses(modul: String): Result<List<TransactionStatus>> {
+        return try {
+            val response = api.getTransactionStatuses(modul)
+            if (response.success && response.data != null) {
+                Result.Success(response.data.map { dto ->
+                    TransactionStatus(
+                        id = dto.id,
+                        nama = dto.nama ?: dto.statusTransaksi.orEmpty(),
+                        kode = dto.kode.orEmpty()
+                    )
+                })
+            } else {
+                Result.Error(response.message ?: "Failed to load transaction statuses")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+}
