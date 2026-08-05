@@ -109,8 +109,8 @@ data class PurchaseItemResponse(
     @Json(name = "nama") val nama: String? = null,
     @Json(name = "nama_produk") val namaProduk: String? = null,
     @Json(name = "harga") val harga: Long? = 0,
-    @Json(name = "qty") val qty: Int? = 0,
-    @Json(name = "subtotal") val subtotal: Long? = 0
+    @Json(name = "jumlah") val qty: Int? = 0,
+    @Json(name = "total") val subtotal: Long? = 0
 )
 
 @JsonClass(generateAdapter = true)
