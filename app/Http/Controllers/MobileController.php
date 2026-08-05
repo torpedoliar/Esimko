@@ -49,7 +49,12 @@ class MobileController extends Controller
         $anggota->token = $token;
         $anggota->login_at = date('Y-m-d H:i:s');
         $anggota->save();
-        $return = array('token' => $anggota->token, 'no_anggota' => $anggota->no_anggota);
+        $return = array(
+          'token' => $anggota->token,
+          'no_anggota' => $anggota->no_anggota,
+          'nama' => $anggota->nama_lengkap,
+          'avatar' => $anggota->foto ?? null
+        );
       } else {
         $return = array('msg' => 'Password yang anda masukkan salah');
       }
@@ -622,7 +627,7 @@ class MobileController extends Controller
       $value->terjual = $barang['terjual'];
       $value->sisa = $barang['sisa'];
     }
-    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
+    return ApiResponse::success($result);
   }
 
   public function proses_keranjang(Request $request)
@@ -769,7 +774,7 @@ class MobileController extends Controller
       $value->produk = $items;
       $value->jumlah = ItemPenjualan::where('fid_penjualan', $value->id)->sum('item_penjualan.jumlah');
     }
-    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
+    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
   }
 
   public function detail_belanja(Request $request, $jenis)
@@ -925,7 +930,7 @@ class MobileController extends Controller
       $foto = FotoProduk::where('fid_produk', $value->fid_produk)->first();
       $value->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
     }
-    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
+    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
   }
 
   public function batalkan_belanja(Request $request)
@@ -952,7 +957,7 @@ class MobileController extends Controller
       $value->jumlah_attachment = AttachmentBerita::where('fid_berita', $value->id)->count();
       $value->gambar = (!empty($value->gambar) ? asset('storage/' . $value->gambar) : asset('assets/images/produk-default.jpg'));
     }
-    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
+    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
   }
 
   public function detail_berita(Request $request)
