@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-05T00:00:00Z",
+  "title": "Design System: eSIMKO Mobile",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Hijau Koperasi", "canonical": "#118334", "tonalRamp": ["#0A3B1E", "#0F5228", "#118334", "#1F9243", "#3D9E5B", "#5FB47A", "#80CD98", "#B0EAC2"] },
+      "background": { "role": "neutral", "displayName": "Hijau Putih", "canonical": "#F6FBF4", "tonalRamp": ["#17231A", "#2A3A2F", "#4C5D51", "#6F7A71", "#9AA59B", "#BFCAC0", "#DCE7DE", "#F6FBF4"] },
+      "on-surface": { "role": "neutral", "displayName": "Tinta", "canonical": "#17231A", "tonalRamp": ["#0B120D", "#17231A", "#2A3A2F", "#4C5D51", "#6F7A71", "#9AA59B", "#BFCAC0", "#DCE7DE"] },
+      "tertiary": { "role": "tertiary", "displayName": "Emas Koperasi", "canonical": "#7A5E1F", "tonalRamp": ["#3F2E00", "#5A4400", "#7A5E1F", "#97752F", "#B59240", "#D4B055", "#F0C94F", "#FFE4A5"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Brand mark login hanya." },
+      "headline": { "displayName": "Headline", "purpose": "Judul layar, angka saldo besar." },
+      "title": { "displayName": "Title", "purpose": "Judul kartu, item list." },
+      "body": { "displayName": "Body", "purpose": "Konten, deskripsi. Max 65-75ch." },
+      "label": { "displayName": "Label", "purpose": "Tombol, chip, caption." }
+    },
+    "shadows": [
+      { "name": "elevated-card", "value": "0 4dp 8dp rgba(11,18,13,0.12)", "purpose": "Kartu hero/saldo yang perlu diangkat." },
+      { "name": "dialog-sheet", "value": "0 8dp 16dp rgba(11,18,13,0.16)", "purpose": "Modal, bottom sheet." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default M3 easing, 150-250ms state transitions." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Satu per layar — aksi utama (Login, Daftar, Ajukan).",
+      "html": "<button class=\"ds-btn-primary\">Login</button>",
+      "css": ".ds-btn-primary { background: #118334; color: #fff; height: 52px; padding: 0 24px; border: none; border-radius: 14px; font: 500 14px/20px Roboto, system-ui; letter-spacing: 0.1px; transition: background 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { background: #0F5228; } .ds-btn-primary:focus-visible { outline: 2px solid #0A3B1E; outline-offset: 2px; } .ds-btn-primary:active { background: #0A3B1E; }"
+    },
+    {
+      "name": "Tonal Button",
+      "kind": "button",
+      "refersTo": "button-tonal",
+      "description": "Aksi sekunder (Setoran/Penarikan).",
+      "html": "<button class=\"ds-btn-tonal\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\"><path d=\"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z\" fill=\"#123521\"/></svg> Setoran</button>",
+      "css": ".ds-btn-tonal { background: #D8EADB; color: #123521; height: 48px; padding: 0 24px; border: none; border-radius: 14px; font: 500 14px/20px Roboto, system-ui; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-tonal:hover { background: #C0D8C5; } .ds-btn-tonal:focus-visible { outline: 2px solid #3D5E48; outline-offset: 2px; }"
+    },
+    {
+      "name": "Saldo Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Lembar keuangan — angka terbesar, kontras tertinggi.",
+      "html": "<div class=\"ds-card-saldo\"><div class=\"ds-label\">Saldo Simpanan</div><div class=\"ds-amount\">Rp 41.252.161</div><div class=\"ds-sub\">Pokok: Rp 0 · Wajib: Rp 0</div></div>",
+      "css": ".ds-card-saldo { background: #118334; color: #fff; border-radius: 20px; padding: 20px; box-shadow: 0 4px 8px rgba(11,18,13,0.12); } .ds-label { font: 400 14px/20px Roboto, system-ui; opacity: 0.85; } .ds-amount { font: 700 28px/36px Roboto, system-ui; margin-top: 8px; } .ds-sub { font: 400 12px/16px Roboto, system-ui; opacity: 0.85; margin-top: 8px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Outlined M3, fokus hijau.",
+      "html": "<input class=\"ds-input\" placeholder=\"No. Anggota\">",
+      "css": ".ds-input { background: #F6FBF4; border: 1px solid #6F7A71; border-radius: 10px; height: 56px; padding: 0 16px; font: 400 16px/24px Roboto, system-ui; color: #17231A; transition: border-color 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-input::placeholder { color: #3F4A42; } .ds-input:focus { outline: none; border: 2px solid #118334; } .ds-input:disabled { opacity: 0.38; }"
+    },
+    {
+      "name": "Navigation Bar",
+      "kind": "nav",
+      "refersTo": "button-primary",
+      "description": "5 destinasi M3; active = hijau koperasi.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-active\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path d=\"M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z\" fill=\"currentColor\"/></svg><span>Home</span></a><a class=\"ds-nav-item\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path d=\"M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zm-4.5-9L2 6v2h19V6l-9.5-5z\" fill=\"currentColor\"/></svg><span>Simpanan</span></a></nav>",
+      "css": ".ds-nav { display: flex; background: #F6FBF4; border-top: 1px solid #DCE7DE; padding: 8px 0; } .ds-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #3F4A42; font: 500 12px/16px Roboto, system-ui; text-decoration: none; padding: 8px 0; min-height: 48px; } .ds-nav-item.ds-active { color: #118334; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Lembar Keuangan yang Tenang",
+    "overview": "Sistem ini adalah buku kas koperasi yang terbuka: setiap angka jelas, setiap tindakan bisa dipegang, dan tidak ada yang berteriak. Hijau koperasi membawa ketenangan; putih-hijau membawa keterbacaan; satu accent warna dipakai hanya untuk keputusan (tombol utama, status aktif). Anggota dari semua usia harus merasa aplikasi ini tenang seperti melihat saldo mereka di kasir — tapi bisa dipegang sendiri kapan saja.",
+    "keyCharacteristics": [
+      "Satu brand color hijau carry permukaan utama (drenched pada hero/saldo card), sisanya tenang.",
+      "Elevasi hybrid: tonal layering sebagai struktur, shadow tipis hanya pada kartu elevated.",
+      "Komponen tegas & terkendali: sudut medium (14–20dp), tombol tinggi 52dp, tidak ada dekorasi.",
+      "Konsistensi absolut antar layar: satu pola tombol, satu pola kartu, satu pola input.",
+      "Angka keuangan selalu eksplisit (format Rupiah, status berwarna, tidak ambigu)."
+    ],
+    "rules": [
+      { "name": "The Quiet Ledger Rule", "body": "Teks sekunder tidak pernah lebih terang dari #3F4A42 di atas background. Keterbacaan adalah fitur utama; 'abu-abu elegan' adalah kegagalan.", "section": "colors" },
+      { "name": "The Rarity Rule", "body": "Accent gold dipakai ≤5% layar. Kelangkaannya yang membuatnya berarti.", "section": "colors" },
+      { "name": "The Weight Rule", "body": "Judul dibedakan dengan weight, bukan ukuran ekstrem.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Kartu biasa datar. Shadow muncul hanya sebagai respons state atau untuk elemen yang benar-benar perlu diangkat.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do pakai hijau koperasi (#118334) sebagai satu-satunya warna permukaan utama.",
+      "Do tampilkan angka keuangan eksplisit dengan format Rupiah, bold, kontras ≥4.5:1.",
+      "Do jaga target sentuh ≥48dp dan jarak antar elemen ≥8dp.",
+      "Do gunakan shadow hanya pada kartu hero (4dp) dan dialog (8dp).",
+      "Do konsisten: tombol primary satu per layar, pola kartu sama di semua tab.",
+      "Do hormati Reduce Motion sistem dan sediakan dark theme penuh."
+    ],
+    "donts": [
+      "Don't meniru aplikasi fintech komersial — notifikasi agresif, warna mencolok, promosi.",
+      "Don't meniru tampilan admin kantoran — tabel penuh, dense, rasa tool internal.",
+      "Don't pakai warna lain di luar palet hijau kecuali error merah dan gold accent ≤5%.",
+      "Don't pakai abu-abu terang untuk teks sekunder — tetap ≥4.5:1.",
+      "Don't double-kartu (nested cards) — satu kartu satu konten.",
+      "Don't tambahkan shadow tebal/glow — jika tampak seperti 2014 app, kurangi."
+    ]
+  }
+}
