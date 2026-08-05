@@ -667,7 +667,8 @@ class MobileController extends Controller
       $value->terjual = $barang['terjual'];
       $value->sisa = $barang['sisa'];
     }
-    return ApiResponse::success($result);
+    $total = KeranjangBelanja::where('fid_anggota', $request->no_anggota)->sum('total');
+    return ApiResponse::success(['items' => $result, 'total' => intval($total)]);
   }
 
   public function proses_keranjang(Request $request)

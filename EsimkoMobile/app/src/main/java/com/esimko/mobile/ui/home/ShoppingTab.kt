@@ -21,7 +21,7 @@ import com.esimko.mobile.util.AmountFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingTab(
-    onOpenProduct: (Long) -> Unit = {},
+    onOpenProduct: (String) -> Unit = {},
     onOpenCart: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     viewModel: ShoppingViewModel = hiltViewModel()
@@ -93,7 +93,7 @@ fun ShoppingTab(
                     items(state.products) { product ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            onClick = { onOpenProduct(product.id) }
+                            onClick = { onOpenProduct(product.kode) }
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(

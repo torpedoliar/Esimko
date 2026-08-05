@@ -26,7 +26,7 @@ fun HomeScreen(
     onLogout: () -> Unit = {},
     onOpenInstallment: () -> Unit = {},
     onOpenNewsDetail: (Long) -> Unit = {},
-    onOpenProduct: (Long) -> Unit = {},
+    onOpenProduct: (String) -> Unit = {},
     onOpenCart: () -> Unit = {},
     onOpenShoppingHistory: () -> Unit = {},
     onOpenSettings: () -> Unit = {},

@@ -49,7 +49,7 @@ class ShoppingViewModel @Inject constructor(
         }
     }
 
-    fun loadProductDetail(id: Long) {
+    fun loadProductDetail(id: String) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             when (val result = shoppingRepository.getProductDetail(id)) {

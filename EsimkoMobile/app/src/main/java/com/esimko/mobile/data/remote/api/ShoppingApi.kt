@@ -22,7 +22,7 @@ interface ShoppingApi {
     ): ApiResponse<List<ProductResponse>>
 
     @GET("mobile/produk/detail")
-    suspend fun getProductDetail(@Query("id") id: Long): ApiResponse<ProductDetailResponse>
+    suspend fun getProductDetail(@Query("id") id: String): ApiResponse<ProductDetailResponse>
 
     @GET("mobile/belanja/keranjang")
     suspend fun getCart(): ApiResponse<CartResponse>

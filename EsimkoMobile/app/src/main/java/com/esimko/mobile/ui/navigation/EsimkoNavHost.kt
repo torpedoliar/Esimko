@@ -69,8 +69,8 @@ fun EsimkoNavHost(
                 onOpenNewsDetail = { newsId ->
                     navController.navigate("news/$newsId")
                 },
-                onOpenProduct = { productId ->
-                    navController.navigate("shopping_detail/$productId")
+                onOpenProduct = { kode ->
+                    navController.navigate("shopping_detail/$kode")
                 },
                 onOpenCart = {
                     navController.navigate("cart")
@@ -122,12 +122,9 @@ fun EsimkoNavHost(
             )
         }
 
-        composable(
-            route = "shopping_detail/{productId}",
-            arguments = listOf(navArgument("productId") { type = NavType.LongType })
-        ) { entry ->
+        composable("shopping_detail/{kode}") { entry ->
             ShoppingDetailScreen(
-                productId = entry.arguments?.getLong("productId") ?: 0,
+                productKode = entry.arguments?.getString("kode").orEmpty(),
                 onBack = { navController.popBackStack() },
                 onGoToCart = { navController.navigate("cart") }
             )

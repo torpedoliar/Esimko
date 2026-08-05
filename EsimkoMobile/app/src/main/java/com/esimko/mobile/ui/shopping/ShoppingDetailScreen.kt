@@ -25,7 +25,7 @@ import com.esimko.mobile.util.AmountFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingDetailScreen(
-    productId: Long,
+    productKode: String,
     onBack: () -> Unit,
     onGoToCart: () -> Unit,
     viewModel: ShoppingViewModel = hiltViewModel()
@@ -34,9 +34,9 @@ fun ShoppingDetailScreen(
     var qty by remember { mutableStateOf(1) }
     val context = LocalContext.current
 
-    LaunchedEffect(productId) {
-        if (state.selectedProduct?.id != productId) {
-            viewModel.loadProductDetail(productId)
+    LaunchedEffect(productKode) {
+        if (state.selectedProduct?.kode != productKode) {
+            viewModel.loadProductDetail(productKode)
         }
     }
 
@@ -57,7 +57,7 @@ fun ShoppingDetailScreen(
                 LoadingOverlay(isLoading = true)
             }
             state.error?.let { error ->
-                ErrorView(message = error, onRetry = { viewModel.loadProductDetail(productId) })
+                ErrorView(message = error, onRetry = { viewModel.loadProductDetail(productKode) })
             }
             state.selectedProduct?.let { product ->
                 Column(
@@ -138,7 +138,7 @@ fun ShoppingDetailScreen(
                         EsimkoButton(
                             text = "Tambah ke Keranjang",
                             onClick = {
-                                viewModel.addToCart(productId, qty)
+                                viewModel.addToCart(product.id, qty)
                                 onGoToCart()
                             },
                             modifier = Modifier.weight(1f)

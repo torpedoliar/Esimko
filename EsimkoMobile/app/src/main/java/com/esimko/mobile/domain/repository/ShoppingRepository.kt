@@ -5,7 +5,7 @@ import com.esimko.mobile.domain.model.*
 
 interface ShoppingRepository {
     suspend fun getProducts(page: Int, perPage: Int = 20): Result<List<Product>>
-    suspend fun getProductDetail(id: Long): Result<ProductDetail>
+    suspend fun getProductDetail(id: String): Result<ProductDetail>
     suspend fun getCart(): Result<Cart>
     suspend fun updateCart(produkId: Long, qty: Int): Result<Cart>
     suspend fun deleteFromCart(produkId: Long): Result<Cart>

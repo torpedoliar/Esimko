@@ -38,7 +38,7 @@ class ShoppingRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getProductDetail(id: Long): Result<ProductDetail> {
+    override suspend fun getProductDetail(id: String): Result<ProductDetail> {
         return try {
             val response = api.getProductDetail(id)
             if (response.success && response.data != null) {
