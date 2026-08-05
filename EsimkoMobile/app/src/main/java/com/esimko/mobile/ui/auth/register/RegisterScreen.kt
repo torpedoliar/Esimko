@@ -1,9 +1,12 @@
 package com.esimko.mobile.ui.auth.register
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.ui.common.EsimkoButton
 import com.esimko.mobile.ui.common.EsimkoOutlinedButton
+import com.esimko.mobile.ui.theme.Primary
+import com.esimko.mobile.ui.theme.OnPrimary
 
 @Composable
 fun RegisterScreen(
@@ -31,16 +36,49 @@ fun RegisterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Text(
-            text = "Daftar Anggota",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 32.dp, bottom = 24.dp)
-        )
+        // Brand header hijau
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Primary)
+                .padding(top = 16.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            IconButton(
+                onClick = onBackToLogin,
+                enabled = !s.isLoading
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Kembali",
+                    tint = OnPrimary
+                )
+            }
+            Text(
+                text = "Daftar Anggota",
+                style = MaterialTheme.typography.headlineSmall,
+                color = OnPrimary,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Bergabung dengan Koperasi SIMKO",
+                style = MaterialTheme.typography.bodyMedium,
+                color = OnPrimary.copy(alpha = 0.85f),
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+        Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
             value = s.nama,
@@ -116,5 +154,6 @@ fun RegisterScreen(
             onClick = onBackToLogin,
             enabled = !s.isLoading
         )
+        }
     }
 }

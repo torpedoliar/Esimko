@@ -67,12 +67,12 @@ fun SavingsTab(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Saldo header
+            // Saldo header — brand drenched
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Column(
@@ -81,56 +81,56 @@ fun SavingsTab(
                         Text(
                             text = "Saldo Simpanan",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = AmountFormatter.format(state.profile?.saldoSimpanan ?: 0),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text(
                                 text = "Pokok: ${AmountFormatter.format(state.profile?.saldoSimpananPokok ?: 0)}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
                             )
                             Text(
                                 text = "Wajib: ${AmountFormatter.format(state.profile?.saldoSimpananWajib ?: 0)}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
                             )
                         }
                     }
                 }
             }
 
-            // Action buttons
+            // Action buttons — tonal (filled secondary surface)
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = {
                             formJenis = "setoran"
                             nominal = ""
                             viewModel.clearSubmitFeedback()
                             showForm = true
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).height(48.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Setoran")
                     }
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = {
                             formJenis = "penarikan"
                             nominal = ""
                             viewModel.clearSubmitFeedback()
                             showForm = true
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).height(48.dp)
                     ) {
                         Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
