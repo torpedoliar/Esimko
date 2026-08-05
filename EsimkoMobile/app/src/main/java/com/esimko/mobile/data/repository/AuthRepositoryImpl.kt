@@ -2,6 +2,7 @@ package com.esimko.mobile.data.repository
 
 import android.util.Log
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.data.remote.api.AuthApi
 import com.esimko.mobile.data.remote.dto.LoginRequest
@@ -47,7 +48,7 @@ class AuthRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e("AuthRepository", "Login exception: ${e.message}", e)
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -73,7 +74,7 @@ class AuthRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Registrasi gagal")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 

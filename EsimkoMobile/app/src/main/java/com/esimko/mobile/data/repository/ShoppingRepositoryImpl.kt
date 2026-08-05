@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.ShoppingApi
 import com.esimko.mobile.data.remote.dto.CartRequest
 import com.esimko.mobile.data.remote.dto.CancelPurchaseRequest
@@ -34,7 +35,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load products")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -61,7 +62,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load product detail")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -86,7 +87,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load cart")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -100,7 +101,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to update cart")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -110,7 +111,7 @@ class ShoppingRepositoryImpl @Inject constructor(
             api.updateCart(request)
             getCart()
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -127,7 +128,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to checkout")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -141,7 +142,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to cancel purchase")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -162,7 +163,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load purchase history")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -190,7 +191,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load purchase detail")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -212,7 +213,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load shopping installments")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -234,7 +235,7 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load returns")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.VersionApi
 import com.esimko.mobile.domain.model.Version
 import com.esimko.mobile.domain.model.VersionCheck
@@ -26,7 +27,7 @@ class VersionRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load version")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -45,7 +46,7 @@ class VersionRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to check version")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 }

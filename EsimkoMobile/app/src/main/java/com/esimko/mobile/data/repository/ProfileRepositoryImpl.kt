@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.data.remote.api.ProfileApi
 import com.esimko.mobile.data.remote.dto.ChangePasswordRequest
@@ -53,7 +54,7 @@ class ProfileRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load profile")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -66,7 +67,7 @@ class ProfileRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to change password")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -79,7 +80,7 @@ class ProfileRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to upload avatar")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 

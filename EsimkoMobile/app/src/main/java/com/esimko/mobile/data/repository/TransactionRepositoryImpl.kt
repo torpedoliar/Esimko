@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.TransactionApi
 import com.esimko.mobile.data.remote.dto.TransactionRequest
 import com.esimko.mobile.data.remote.dto.CancelRequest
@@ -41,7 +42,7 @@ class TransactionRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load transactions")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -64,7 +65,7 @@ class TransactionRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load transaction detail")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -92,7 +93,7 @@ class TransactionRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to process transaction")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -106,7 +107,7 @@ class TransactionRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to cancel transaction")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -122,7 +123,7 @@ class TransactionRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to upload proof")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 }

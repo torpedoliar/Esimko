@@ -271,7 +271,8 @@ class MobileController extends Controller
         $p = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->paginate($limit);
         $items = $p->items();
     } else {
-        $items = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->limit($limit)->get();
+        // Tanpa page = ambil semua (riwayat lengkap); pagination hanya saat request page
+        $items = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->get();
     }
 
     // Manual eager load for angsuran is a bit complex, let's keep it N+1 or fix it

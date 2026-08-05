@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.MasterApi
 import com.esimko.mobile.domain.model.TransactionType
 import com.esimko.mobile.domain.model.TransactionStatus
@@ -26,7 +27,7 @@ class MasterRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load transaction types")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -45,7 +46,7 @@ class MasterRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load transaction statuses")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 }

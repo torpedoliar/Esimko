@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.TransactionHistoryApi
 import com.esimko.mobile.domain.model.TransactionHistory
 import com.esimko.mobile.domain.repository.TransactionHistoryRepository
@@ -28,7 +29,7 @@ class TransactionHistoryRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load history")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 }

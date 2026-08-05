@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.NewsApi
 import com.esimko.mobile.domain.model.News
 import com.esimko.mobile.domain.model.NewsDetail
@@ -28,7 +29,7 @@ class NewsRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load news")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -48,7 +49,7 @@ class NewsRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load news detail")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 }

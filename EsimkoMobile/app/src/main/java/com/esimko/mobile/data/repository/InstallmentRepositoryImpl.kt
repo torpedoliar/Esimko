@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.InstallmentApi
 import com.esimko.mobile.domain.model.Installment
 import com.esimko.mobile.domain.model.Salary
@@ -30,7 +31,7 @@ class InstallmentRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load installments")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
@@ -43,7 +44,7 @@ class InstallmentRepositoryImpl @Inject constructor(
                 Result.Error(response.message ?: "Failed to load salary")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 }
