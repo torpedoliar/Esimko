@@ -164,6 +164,8 @@ class MobileController extends Controller
       $anggota->setoran_berkala = GlobalHelper::setoran_berkala($anggota->no_anggota); //Setoran Berkala
       $anggota->setoran_simpanan_anggota = 350000;
 
+      unset($anggota->password, $anggota->token); // jangan ekspos secret ke client
+
       return ApiResponse::success($anggota);
     } else {
       return ApiResponse::error('Anggota tidak Ditemukan', 404);
@@ -299,7 +301,7 @@ class MobileController extends Controller
         }
       }
     }
-    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
+    return $paginated ? ApiResponse::success($items, 'OK', ['page'=>$p->currentPage(),'per_page'=>intval($p->perPage()),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($items);
   }
 
   public function upload_bukti_transaksi(Request $request)
@@ -612,7 +614,7 @@ class MobileController extends Controller
 
       return ApiResponse::success($items, 'OK', [
           'page' => $p->currentPage(),
-          'per_page' => $p->perPage(),
+          'per_page' => intval($p->perPage()),
           'total' => $p->total(),
           'last_page' => $p->lastPage(),
       ]);
@@ -815,7 +817,7 @@ class MobileController extends Controller
       $value->produk = $items;
       $value->jumlah = ItemPenjualan::where('fid_penjualan', $value->id)->sum('item_penjualan.jumlah');
     }
-    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
+    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>intval($p->perPage()),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
   }
 
   public function detail_belanja(Request $request, $jenis = 'toko')
@@ -949,7 +951,7 @@ class MobileController extends Controller
     foreach ($data as $key => $value) {
       $data[$key]->nama_bulan = (!empty($request->id) ? null : GlobalHelper::nama_bulan($value->bulan));
     }
-    return isset($p) ? ApiResponse::success($data, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($data);
+    return isset($p) ? ApiResponse::success($data, 'OK', ['page'=>$p->currentPage(),'per_page'=>intval($p->perPage()),'total'=>$p->total(),'last_page'=>$p->lastPage()]) : ApiResponse::success($data);
   }
 
   public function retur_barang(Request $request)
@@ -972,7 +974,7 @@ class MobileController extends Controller
       $foto = FotoProduk::where('fid_produk', $value->fid_produk)->first();
       $value->foto = (!empty($foto) ? asset('storage/' . $foto->foto) : asset('assets/images/produk-default.jpg'));
     }
-    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
+    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>intval($p->perPage()),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
   }
 
   public function batalkan_belanja(Request $request)
@@ -999,7 +1001,7 @@ class MobileController extends Controller
       $value->jumlah_attachment = AttachmentBerita::where('fid_berita', $value->id)->count();
       $value->gambar = (!empty($value->gambar) ? asset('storage/' . $value->gambar) : asset('assets/images/produk-default.jpg'));
     }
-    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
+    return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>intval($p->perPage()),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
   }
 
   public function detail_berita(Request $request)
