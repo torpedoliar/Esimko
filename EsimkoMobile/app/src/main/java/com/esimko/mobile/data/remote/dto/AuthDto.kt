@@ -19,6 +19,18 @@ data class LoginResponse(
 )
 
 @JsonClass(generateAdapter = true)
+data class RegisterRequest(
+    @Json(name = "nama_lengkap") val namaLengkap: String,
+    @Json(name = "no_ktp") val noKtp: String,
+    @Json(name = "no_handphone") val noHandphone: String,
+    @Json(name = "password") val password: String,
+    @Json(name = "ulangi_password") val ulangiPassword: String,
+    @Json(name = "lokasi_kerja") val lokasiKerja: String? = null,
+    @Json(name = "email") val email: String? = null,
+    @Json(name = "alamat") val alamat: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class ChangePasswordRequest(
     @Json(name = "password_lama") val password_lama: String,
     @Json(name = "password_baru") val password_baru: String,

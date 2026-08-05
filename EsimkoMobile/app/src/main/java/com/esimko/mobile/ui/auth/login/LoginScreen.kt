@@ -14,6 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit = {},
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState
@@ -82,6 +83,15 @@ fun LoginScreen(
             } else {
                 Text("Login")
             }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TextButton(
+            onClick = onNavigateToRegister,
+            enabled = !uiState.isLoading
+        ) {
+            Text("Belum punya akun? Daftar")
         }
     }
 }

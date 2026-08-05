@@ -22,7 +22,16 @@ enum class BottomNavItem(val label: String, val icon: ImageVector, val route: St
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onLogout: () -> Unit = {}) {
+fun HomeScreen(
+    onLogout: () -> Unit = {},
+    onOpenInstallment: () -> Unit = {},
+    onOpenNewsDetail: (Long) -> Unit = {},
+    onOpenProduct: (Long) -> Unit = {},
+    onOpenCart: () -> Unit = {},
+    onOpenShoppingHistory: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenTransactionHistory: (Long, String) -> Unit = { _, _ -> }
+) {
     var selectedTab by remember { mutableStateOf(BottomNavItem.HOME) }
 
     Scaffold(
@@ -41,11 +50,18 @@ fun HomeScreen(onLogout: () -> Unit = {}) {
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                BottomNavItem.HOME -> DashboardTab()
-                BottomNavItem.SAVINGS -> SavingsTab()
-                BottomNavItem.SHOPPING -> ShoppingTab()
+                BottomNavItem.HOME -> DashboardTab(
+                    onOpenInstallment = onOpenInstallment,
+                    onOpenNewsDetail = onOpenNewsDetail
+                )
+                BottomNavItem.SAVINGS -> SavingsTab(onOpenHistory = onOpenTransactionHistory)
+                BottomNavItem.SHOPPING -> ShoppingTab(
+                    onOpenProduct = onOpenProduct,
+                    onOpenCart = onOpenCart,
+                    onOpenHistory = onOpenShoppingHistory
+                )
                 BottomNavItem.HISTORY -> com.esimko.mobile.ui.history.HistoryTab()
-                BottomNavItem.PROFILE -> ProfileTab(onLogout = onLogout)
+                BottomNavItem.PROFILE -> ProfileTab(onLogout = onLogout, onOpenSettings = onOpenSettings)
             }
         }
     }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.domain.model.News
+import com.esimko.mobile.domain.model.NewsDetail
 import com.esimko.mobile.domain.repository.NewsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,8 +14,11 @@ import javax.inject.Inject
 
 data class NewsState(
     val news: List<News> = emptyList(),
+    val detail: NewsDetail? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val detailLoading: Boolean = false,
+    val error: String? = null,
+    val detailError: String? = null
 )
 
 @HiltViewModel
@@ -27,6 +31,21 @@ class NewsViewModel @Inject constructor(
 
     init {
         loadNews()
+    }
+
+    fun loadDetail(id: Long) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(detailLoading = true, detailError = null)
+            when (val result = newsRepository.getNewsDetail(id)) {
+                is Result.Success -> {
+                    _state.value = _state.value.copy(detail = result.data, detailLoading = false)
+                }
+                is Result.Error -> {
+                    _state.value = _state.value.copy(detailError = result.message, detailLoading = false)
+                }
+                is Result.Loading -> Unit
+            }
+        }
     }
 
     fun loadNews() {

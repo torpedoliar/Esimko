@@ -75,6 +75,7 @@ class AuthRepositoryImplTest {
 
     @Test
     fun `logout clears token store`() = runTest {
+        coEvery { authApi.logout() } returns ApiResponse(success = true, message = "Logout berhasil", data = null, meta = null)
         repository.logout()
         coVerify { tokenStore.clear() }
     }

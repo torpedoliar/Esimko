@@ -37,6 +37,7 @@ import com.esimko.mobile.util.AmountFormatter
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -215,6 +216,13 @@ fun ProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        OutlinedButton(
+                            onClick = onOpenSettings,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Pengaturan")
+                        }
+
                         EsimkoButton(
                             text = "Ubah Password",
                             onClick = { showPasswordDialog = true }

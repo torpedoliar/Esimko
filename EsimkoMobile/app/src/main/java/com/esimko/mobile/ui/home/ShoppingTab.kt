@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -17,8 +18,12 @@ import com.esimko.mobile.ui.common.ErrorView
 import com.esimko.mobile.ui.shopping.ShoppingViewModel
 import com.esimko.mobile.util.AmountFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingTab(
+    onOpenProduct: (Long) -> Unit = {},
+    onOpenCart: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
     viewModel: ShoppingViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -35,66 +40,87 @@ fun ShoppingTab(
             )
         }
 
-        if (state.products.isEmpty() && !state.isLoading && state.error == null) {
-            Column(
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Cart shortcut bar
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.ShoppingCart,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "Belanja",
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Belum ada produk tersedia",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        if (state.products.isNotEmpty()) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(state.products) { product ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth()
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onOpenHistory) { Text("Riwayat") }
+                    BadgedBox(
+                        badge = { if (state.cart.items.isNotEmpty()) Badge { Text("${state.cart.items.size}") } }
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
+                        IconButton(onClick = onOpenCart) {
+                            Icon(Icons.Default.ShoppingCart, contentDescription = "Keranjang")
+                        }
+                    }
+                }
+            }
+
+            if (state.products.isEmpty() && !state.isLoading && state.error == null) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingCart,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Belum ada produk tersedia",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(state.products) { product ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { onOpenProduct(product.id) }
                         ) {
-                            Text(
-                                text = product.nama,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = AmountFormatter.format(product.harga),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Stok: ${product.stok}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = product.nama,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = AmountFormatter.format(product.harga),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                if (product.stok > 0) {
+                                    Text(
+                                        text = "Stok: ${product.stok}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Stok habis",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
                         }
                     }
                 }

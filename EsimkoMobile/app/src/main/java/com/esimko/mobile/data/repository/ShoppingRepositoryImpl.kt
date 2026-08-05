@@ -94,20 +94,8 @@ class ShoppingRepositoryImpl @Inject constructor(
         return try {
             val request = CartRequest(id = produkId, jumlah = qty, action = "add")
             val response = api.updateCart(request)
-            if (response.success && response.data != null) {
-                Result.Success(Cart(
-                    items = (response.data.items ?: emptyList()).map { item ->
-                        CartItem(
-                            id = item.id,
-                            produkId = item.produkId ?: item.fidProduk ?: 0,
-                            nama = item.nama ?: item.namaProduk.orEmpty(),
-                            harga = item.harga ?: item.hargaJual ?: 0,
-                            qty = item.qty ?: item.jumlah ?: 0,
-                            subtotal = item.subtotal ?: 0
-                        )
-                    },
-                    total = response.data.total ?: 0
-                ))
+            if (response.success) {
+                getCart()
             } else {
                 Result.Error(response.message ?: "Failed to update cart")
             }
@@ -116,10 +104,19 @@ class ShoppingRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun checkout(): Result<Checkout> {
+    override suspend fun deleteFromCart(produkId: Long): Result<Cart> {
         return try {
-            // ponytail: checkout needs cart item ids + quantities from the cart; no UI caller yet (Task 6 wires it).
-            val response = api.checkout(CheckoutRequest(emptyList(), emptyList()))
+            val request = CartRequest(id = produkId, jumlah = 0, action = "delete")
+            api.updateCart(request)
+            getCart()
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun checkout(barang: List<Long>, jumlah: List<Int>): Result<Checkout> {
+        return try {
+            val response = api.checkout(CheckoutRequest(barang, jumlah))
             if (response.success && response.data != null) {
                 Result.Success(Checkout(
                     failedItems = (response.data.failedItems ?: emptyList()).map {

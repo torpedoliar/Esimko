@@ -3,6 +3,8 @@ package com.esimko.mobile.ui.history
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +21,8 @@ import com.esimko.mobile.ui.common.UiState
 @Composable
 fun HistoryTab(
     transactionId: Long = 0L,
+    initialModule: String = "transaksi",
+    onBack: () -> Unit = {},
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -26,13 +30,26 @@ fun HistoryTab(
 
     val modules = listOf("transaksi", "penjualan")
 
-    LaunchedEffect(transactionId) {
+    LaunchedEffect(transactionId, initialModule) {
+        viewModel.selectModule(initialModule)
         if (transactionId > 0L) {
             viewModel.loadHistory(transactionId)
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Riwayat") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+    Column(modifier = Modifier.fillMaxSize().padding(padding)) {
         // Module filter dropdown
         var expanded by remember { mutableStateOf(false) }
 
@@ -111,6 +128,7 @@ fun HistoryTab(
                 }
             }
         }
+    }
     }
 }
 

@@ -82,11 +82,19 @@ class MobileController extends Controller
 
   public function register(Request $request)
   {
+    foreach (['nama_lengkap', 'no_ktp', 'no_handphone'] as $req) {
+      if (empty($request->$req)) {
+        return ApiResponse::error('Field ' . $req . ' wajib diisi', 422);
+      }
+    }
+    if (!empty($request->password) && $request->password != $request->ulangi_password) {
+      return ApiResponse::error('Password dan konfirmasi tidak sama', 422);
+    }
     $field = new Anggota;
     $field->created_at = date('Y-m-d H:i:s');
     $field->no_anggota = GlobalHelper::get_nomor_anggota($request->lokasi_kerja);
     $field->nama_lengkap = $request->nama_lengkap;
-    $field->password = encrypt($field->no_anggota);
+    $field->password = encrypt(!empty($request->password) ? $request->password : Str::random(8));
     $field->tempat_lahir = $request->tempat_lahir;
     $field->tanggal_lahir = GlobalHelper::dateFormat($request->tanggal_lahir, 'Y-m-d');
     $field->jenis_kelamin = $request->jenis_kelamin;

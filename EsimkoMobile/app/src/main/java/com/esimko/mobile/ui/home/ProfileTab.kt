@@ -4,8 +4,12 @@ import androidx.compose.runtime.Composable
 import com.esimko.mobile.ui.profile.ProfileScreen
 
 @Composable
-fun ProfileTab(onLogout: () -> Unit = {}) {
+fun ProfileTab(
+    onLogout: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
+) {
     ProfileScreen(
-        onLogout = onLogout
+        onLogout = onLogout,
+        onOpenSettings = onOpenSettings
     )
 }

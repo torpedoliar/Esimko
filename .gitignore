@@ -31,3 +31,5 @@ EsimkoMobile/.gradle/
 EsimkoMobile/**/build/
 EsimkoMobile/local.properties
 EsimkoMobile/app/build/
+# APK build artifacts
+app-debug*.apk

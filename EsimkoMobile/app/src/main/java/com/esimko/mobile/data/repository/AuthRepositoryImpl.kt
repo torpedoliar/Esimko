@@ -5,6 +5,7 @@ import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.data.remote.api.AuthApi
 import com.esimko.mobile.data.remote.dto.LoginRequest
+import com.esimko.mobile.data.remote.dto.RegisterRequest
 import com.esimko.mobile.domain.model.User
 import com.esimko.mobile.domain.repository.AuthRepository
 import javax.inject.Inject
@@ -46,6 +47,32 @@ class AuthRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e("AuthRepository", "Login exception: ${e.message}", e)
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun register(
+        noKtp: String,
+        telepon: String,
+        password: String,
+        nama: String
+    ): Result<User> {
+        return try {
+            val response = api.register(
+                RegisterRequest(
+                    namaLengkap = nama,
+                    noKtp = noKtp,
+                    noHandphone = telepon,
+                    password = password,
+                    ulangiPassword = password
+                )
+            )
+            if (response.success) {
+                Result.Success(User("", nama, "", null))
+            } else {
+                Result.Error(response.message ?: "Registrasi gagal")
+            }
+        } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
     }
