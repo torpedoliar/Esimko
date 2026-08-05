@@ -6,6 +6,9 @@ import com.esimko.mobile.data.remote.dto.TransactionRequest
 import com.esimko.mobile.data.remote.dto.CancelRequest
 import com.esimko.mobile.domain.model.Transaction
 import com.esimko.mobile.domain.repository.TransactionRepository
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 class TransactionRepositoryImpl @Inject constructor(
@@ -101,6 +104,22 @@ class TransactionRepositoryImpl @Inject constructor(
                 Result.Success(Unit)
             } else {
                 Result.Error(response.message ?: "Failed to cancel transaction")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun uploadTransactionProof(id: Long, fileBytes: ByteArray, mimeType: String): Result<Unit> {
+        return try {
+            val idBody = id.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val fileBody = fileBytes.toRequestBody(mimeType.toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("bukti_transaksi", "bukti.jpg", fileBody)
+            val response = api.uploadTransactionProof(idBody, part)
+            if (response.success) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.message ?: "Failed to upload proof")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

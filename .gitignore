@@ -33,3 +33,7 @@ EsimkoMobile/local.properties
 EsimkoMobile/app/build/
 # APK build artifacts
 app-debug*.apk
+# env secrets (guardrail: jangan commit)
+.env.local
+.env.production.key
+.env.backup.key

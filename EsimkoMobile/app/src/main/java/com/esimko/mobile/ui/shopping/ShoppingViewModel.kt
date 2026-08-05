@@ -22,6 +22,7 @@ data class ShoppingState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val actionError: String? = null,
+    val addSuccess: Boolean = false,
     val checkoutFailedItems: List<FailedItemInfo> = emptyList(),
     val checkedOut: Boolean = false
 )
@@ -73,8 +74,9 @@ class ShoppingViewModel @Inject constructor(
 
     fun addToCart(productId: Long, qty: Int = 1) {
         viewModelScope.launch {
+            _state.value = _state.value.copy(actionError = null, addSuccess = false)
             when (val result = shoppingRepository.updateCart(productId, qty)) {
-                is Result.Success -> _state.value = _state.value.copy(cart = result.data, actionError = null)
+                is Result.Success -> _state.value = _state.value.copy(cart = result.data, actionError = null, addSuccess = true)
                 is Result.Error -> _state.value = _state.value.copy(actionError = result.message)
                 is Result.Loading -> Unit
             }
@@ -109,6 +111,10 @@ class ShoppingViewModel @Inject constructor(
                 is Result.Loading -> Unit
             }
         }
+    }
+
+    fun resetAddSuccess() {
+        _state.value = _state.value.copy(addSuccess = false)
     }
 
     fun resetCheckout() {

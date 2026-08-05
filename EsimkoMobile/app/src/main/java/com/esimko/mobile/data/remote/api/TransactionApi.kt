@@ -35,7 +35,7 @@ interface TransactionApi {
     @POST("mobile/transaksi/upload_bukti_transaksi")
     suspend fun uploadTransactionProof(
         @Part("id") id: RequestBody,
-        @Part bukti: MultipartBody.Part
+        @Part("bukti_transaksi") bukti: MultipartBody.Part
     ): ApiResponse<Any>
 
     @POST("mobile/transaksi/batalkan")

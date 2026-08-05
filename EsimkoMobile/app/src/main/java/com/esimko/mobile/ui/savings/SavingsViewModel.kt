@@ -20,7 +20,8 @@ data class SavingsState(
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val submitError: String? = null,
-    val submitSuccess: String? = null
+    val submitSuccess: String? = null,
+    val lastTransactionId: Long? = null
 )
 
 @HiltViewModel
@@ -76,7 +77,8 @@ class SavingsViewModel @Inject constructor(
                 is Result.Success -> {
                     _state.value = _state.value.copy(
                         isSubmitting = false,
-                        submitSuccess = "${if (jenis == "setoran") "Setoran" else "Penarikan"} berhasil diajukan"
+                        submitSuccess = "${if (jenis == "setoran") "Setoran" else "Penarikan"} berhasil diajukan",
+                        lastTransactionId = result.data.id
                     )
                     load()
                 }
@@ -92,6 +94,24 @@ class SavingsViewModel @Inject constructor(
     }
 
     fun clearSubmitFeedback() {
-        _state.value = _state.value.copy(submitError = null, submitSuccess = null)
+        _state.value = _state.value.copy(submitError = null, submitSuccess = null, lastTransactionId = null)
+    }
+
+    fun uploadProof(bytes: ByteArray, mimeType: String) {
+        val id = _state.value.lastTransactionId ?: return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isSubmitting = true, submitError = null)
+            when (val result = transactionRepository.uploadTransactionProof(id, bytes, mimeType)) {
+                is Result.Success -> _state.value = _state.value.copy(
+                    isSubmitting = false,
+                    submitSuccess = "Bukti transaksi terkirim"
+                )
+                is Result.Error -> _state.value = _state.value.copy(
+                    isSubmitting = false,
+                    submitError = "Bukti gagal dikirim: ${result.message}"
+                )
+                is Result.Loading -> Unit
+            }
+        }
     }
 }

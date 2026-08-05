@@ -40,6 +40,13 @@ fun ShoppingDetailScreen(
         }
     }
 
+    LaunchedEffect(state.addSuccess) {
+        if (state.addSuccess) {
+            viewModel.resetAddSuccess()
+            onGoToCart()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -139,7 +146,6 @@ fun ShoppingDetailScreen(
                             text = "Tambah ke Keranjang",
                             onClick = {
                                 viewModel.addToCart(product.id, qty)
-                                onGoToCart()
                             },
                             modifier = Modifier.weight(1f)
                         )

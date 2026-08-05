@@ -28,6 +28,9 @@ fun ShoppingTab(
 ) {
     val state by viewModel.state.collectAsState()
 
+    // Refresh cart badge setiap tab masuk (checkout/add di layar lain mengubah isi keranjang)
+    LaunchedEffect(Unit) { viewModel.loadCart() }
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (state.isLoading) {
             LoadingOverlay(isLoading = true)

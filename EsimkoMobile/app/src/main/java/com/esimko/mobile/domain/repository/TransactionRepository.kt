@@ -21,4 +21,6 @@ interface TransactionRepository {
     ): Result<Transaction>
 
     suspend fun cancelTransaction(id: Long, alasan: String): Result<Unit>
+
+    suspend fun uploadTransactionProof(id: Long, fileBytes: ByteArray, mimeType: String): Result<Unit>
 }

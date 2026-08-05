@@ -28,7 +28,7 @@ Route::get('check_sisa_pinjaman/{anggota}/{jenis}', 'ApiController@check_sisa_pi
 //----------------------------------------MOBILE API--------------------------------------------//
 
 Route::group(['prefix' => 'mobile'], function () {
-    // Public routes
+    // Public routes — throttle:60,1 global di group 'api' (Kernel.php)
     Route::post('auth/login', 'MobileController@login');
     Route::post('auth/register', 'MobileController@register');
 
