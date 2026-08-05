@@ -18,8 +18,8 @@ class MasterRepositoryImpl @Inject constructor(
                 Result.Success(response.data.map { dto ->
                     TransactionType(
                         id = dto.id,
-                        nama = dto.nama ?: dto.jenisTransaksi.orEmpty(),
-                        kode = dto.kode.orEmpty()
+                        nama = dto.nama.orEmpty(),
+                        kode = dto.group.orEmpty()
                     )
                 })
             } else {
@@ -37,8 +37,8 @@ class MasterRepositoryImpl @Inject constructor(
                 Result.Success(response.data.map { dto ->
                     TransactionStatus(
                         id = dto.id,
-                        nama = dto.nama ?: dto.statusTransaksi.orEmpty(),
-                        kode = dto.kode.orEmpty()
+                        nama = dto.nama.orEmpty(),
+                        kode = dto.caption.orEmpty()
                     )
                 })
             } else {

@@ -203,8 +203,8 @@ class ShoppingRepositoryImpl @Inject constructor(
                         id = dto.id,
                         ke = dto.ke ?: 0,
                         nominal = dto.nominal ?: 0,
-                        tanggalJatuhTempo = dto.tanggalJatuhTempo.orEmpty(),
-                        tanggalBayar = dto.tanggalBayar,
+                        bulan = dto.bulan.orEmpty(),
+                        namaBulan = dto.namaBulan ?: dto.bulan,
                         status = dto.status.orEmpty()
                     )
                 })
@@ -223,10 +223,11 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Success(response.data.map { dto ->
                     Return(
                         id = dto.id,
-                        belanjaId = dto.belanjaId ?: 0,
-                        alasan = dto.alasan.orEmpty(),
-                        tanggal = dto.tanggal.orEmpty(),
-                        status = dto.status.orEmpty()
+                        noRetur = dto.noRetur.orEmpty(),
+                        namaProduk = dto.namaProduk.orEmpty(),
+                        jumlah = dto.jumlah ?: 0,
+                        keterangan = dto.keterangan,
+                        tanggal = dto.tanggal.orEmpty()
                     )
                 })
             } else {

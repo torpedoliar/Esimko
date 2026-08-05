@@ -116,20 +116,24 @@ data class PurchaseItemResponse(
 @JsonClass(generateAdapter = true)
 data class ShoppingInstallmentResponse(
     @Json(name = "id") val id: Long,
-    @Json(name = "ke") val ke: Int? = 0,
-    @Json(name = "nominal") val nominal: Long? = 0,
-    @Json(name = "tanggal_jatuh_tempo") val tanggalJatuhTempo: String? = null,
-    @Json(name = "tanggal_bayar") val tanggalBayar: String? = null,
-    @Json(name = "status") val status: String? = null
+    @Json(name = "no_transaksi") val noTransaksi: String? = null,
+    @Json(name = "bulan") val bulan: String? = null,
+    @Json(name = "nama_bulan") val namaBulan: String? = null,
+    @Json(name = "total_angsuran") val nominal: Long? = 0,
+    @Json(name = "angsuran_ke") val ke: Int? = 0,
+    @Json(name = "status_angsuran") val status: String? = null,
+    @Json(name = "color") val color: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class ReturnResponse(
     @Json(name = "id") val id: Long,
-    @Json(name = "belanja_id") val belanjaId: Long? = null,
-    @Json(name = "alasan") val alasan: String? = null,
+    @Json(name = "no_retur") val noRetur: String? = null,
+    @Json(name = "nama_produk") val namaProduk: String? = null,
+    @Json(name = "jumlah") val jumlah: Int? = 0,
+    @Json(name = "keterangan") val keterangan: String? = null,
     @Json(name = "tanggal") val tanggal: String? = null,
-    @Json(name = "status") val status: String? = null
+    @Json(name = "foto") val foto: String? = null
 )
 
 @JsonClass(generateAdapter = true)

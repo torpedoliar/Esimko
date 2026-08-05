@@ -133,6 +133,10 @@ class ShoppingViewModel @Inject constructor(
         }
     }
 
+    fun resetHistoryDetail() {
+        _state.value = _state.value.copy(historyDetail = null)
+    }
+
     fun loadHistoryDetail(jenis: String, id: Long) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)

@@ -78,15 +78,16 @@ data class ShoppingInstallment(
     val id: Long,
     val ke: Int,
     val nominal: Long,
-    val tanggalJatuhTempo: String,
-    val tanggalBayar: String?,
+    val bulan: String,
+    val namaBulan: String?,
     val status: String
 )
 
 data class Return(
     val id: Long,
-    val belanjaId: Long,
-    val alasan: String,
-    val tanggal: String,
-    val status: String
+    val noRetur: String,
+    val namaProduk: String,
+    val jumlah: Int,
+    val keterangan: String?,
+    val tanggal: String
 )
