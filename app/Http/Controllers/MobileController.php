@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 use App\Helpers\GlobalHelper;
 use App\Helpers\MobileHelper;
@@ -45,10 +46,18 @@ class MobileController extends Controller
       ->whereIn('fid_status', array('2', '3', '5'))
       ->first();
     if (!empty($anggota)) {
-      try {
-        $password_ok = ($request->password == decrypt($anggota->password));
-      } catch (DecryptException $e) {
-        return ApiResponse::error('Kesalahan verifikasi password', 400);
+      $password_ok = Hash::check($request->password, $anggota->password);
+      if (!$password_ok) {
+        // Legacy plaintext-decrypt passwords: verify and re-hash on success
+        try {
+          $password_ok = ($request->password == decrypt($anggota->password));
+          if ($password_ok) {
+            $anggota->password = Hash::make($request->password);
+            $anggota->save();
+          }
+        } catch (DecryptException $e) {
+          $password_ok = false;
+        }
       }
       if ($password_ok) {
         $token = Str::random(32);
@@ -94,7 +103,7 @@ class MobileController extends Controller
     $field->created_at = date('Y-m-d H:i:s');
     $field->no_anggota = GlobalHelper::get_nomor_anggota($request->lokasi_kerja);
     $field->nama_lengkap = $request->nama_lengkap;
-    $field->password = encrypt(!empty($request->password) ? $request->password : Str::random(8));
+    $field->password = Hash::make(!empty($request->password) ? $request->password : Str::random(8));
     $field->tempat_lahir = $request->tempat_lahir;
     $field->tanggal_lahir = GlobalHelper::dateFormat($request->tanggal_lahir, 'Y-m-d');
     $field->jenis_kelamin = $request->jenis_kelamin;
@@ -165,15 +174,18 @@ class MobileController extends Controller
   {
     $anggota = Anggota::where('no_anggota', $request->no_anggota)->first();
     if (!empty($anggota)) {
-      try {
-        $password_lama_ok = ($request->password_lama == decrypt($anggota->password));
-      } catch (DecryptException $e) {
-        return ApiResponse::error('Kesalahan verifikasi password', 400);
+      $password_lama_ok = Hash::check($request->password_lama, $anggota->password);
+      if (!$password_lama_ok) {
+        try {
+          $password_lama_ok = ($request->password_lama == decrypt($anggota->password));
+        } catch (DecryptException $e) {
+          $password_lama_ok = false;
+        }
       }
       if ($password_lama_ok) {
         if ($request->password_baru == $request->ulangi_password_baru) {
           $field = Anggota::find($anggota->id);
-          $field->password = encrypt($request->password_baru);
+          $field->password = Hash::make($request->password_baru);
           $field->save();
           $msg = 'Password baru berhasil diubah';
         } else {

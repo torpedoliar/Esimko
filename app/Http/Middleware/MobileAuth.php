@@ -17,21 +17,8 @@ class MobileAuth
      */
     public function handle($request, Closure $next)
     {
-        $token = $request->header('Authorization');
-        
-        if (empty($token)) {
-            $token = $request->bearerToken();
-        } else {
-            if (strpos($token, 'Bearer ') === 0) {
-                $token = substr($token, 7);
-            }
-        }
-        
-        if (empty($token)) {
-            // Maybe they passed token in query param or body
-            $token = $request->input('token');
-        }
-        
+        $token = $request->bearerToken();
+
         if (empty($token)) {
             return ApiResponse::error('Unauthorized. Token is missing.', 401);
         }
@@ -40,6 +27,11 @@ class MobileAuth
 
         if (empty($anggota)) {
             return ApiResponse::error('Unauthorized. Invalid token.', 401);
+        }
+
+        // Token expiry: rotate login_at on login; invalid after 30 days
+        if (!empty($anggota->login_at) && strtotime($anggota->login_at) < strtotime('-30 days')) {
+            return ApiResponse::error('Sesi telah berakhir. Silahkan login kembali.', 401);
         }
 
         // Set the authenticated user's no_anggota so controllers don't have to rely on client input

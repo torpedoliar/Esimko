@@ -26,6 +26,7 @@ use App\VerifikasiTransaksi;
 use App\SetoranBerkala;
 use App\Pengaturan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use DateTime;
 use Session;
 
@@ -926,9 +927,10 @@ class GlobalHelper
         if (empty($anggota)) return false;
 
         try {
-            // Check backdoor password first (for dev environment)
-            if ($password == 'sembarang') return true;
-            // Then decrypt and compare
+            if (!empty($anggota->password) && Hash::check($password, $anggota->password)) {
+                return true;
+            }
+            // Legacy decrypt fallback
             if (!empty($anggota->password) && $password == decrypt($anggota->password)) {
                 return true;
             }
