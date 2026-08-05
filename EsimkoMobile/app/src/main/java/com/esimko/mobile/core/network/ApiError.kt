@@ -1,10 +1,7 @@
 package com.esimko.mobile.core.network
 
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
 import retrofit2.HttpException
-
-private val errorType = Types.newParameterizedType(ApiErrorBody::class.java)
 
 data class ApiErrorBody(
     val success: Boolean? = null,
@@ -20,8 +17,8 @@ fun apiErrorMessage(e: Exception, fallback: String = "Terjadi kesalahan, coba la
         val body = e.response()?.errorBody()?.string()
         if (!body.isNullOrEmpty()) {
             try {
-                val parsed: ApiErrorBody? = Moshi.Builder().build()
-                    .adapter<ApiErrorBody>(errorType)
+                val parsed = Moshi.Builder().build()
+                    .adapter(ApiErrorBody::class.java)
                     .fromJson(body)
                 if (!parsed?.message.isNullOrBlank()) {
                     return parsed!!.message!!
