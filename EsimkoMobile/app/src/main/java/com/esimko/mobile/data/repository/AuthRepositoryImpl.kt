@@ -39,7 +39,7 @@ class AuthRepositoryImpl @Inject constructor(
                     tokenStore.token = token
                     tokenStore.noAnggota = noAnggota
                     Log.d("AuthRepository", "Token saved to TokenStore successfully")
-                    Result.Success(User(noAnggota, "", token, null))
+                    Result.Success(User(noAnggota, data.nama.orEmpty(), token, data.avatar))
                 }
             } else {
                 Log.e("AuthRepository", "Login failed: ${response.message}")

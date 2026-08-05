@@ -8,7 +8,9 @@ import com.esimko.mobile.data.remote.dto.LoginRequest
 import com.esimko.mobile.data.remote.dto.LoginResponse
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import kotlinx.coroutines.test.runTest
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
@@ -22,6 +24,11 @@ class AuthRepositoryImplTest {
 
     @Before
     fun setup() {
+        // android.util.Log throws "not mocked" in JVM unit tests unless stubbed
+        mockkStatic(android.util.Log::class)
+        every { android.util.Log.d(any(), any()) } returns 0
+        every { android.util.Log.e(any(), any()) } returns 0
+        every { android.util.Log.e(any(), any(), any()) } returns 0
         authApi = mockk()
         tokenStore = mockk(relaxed = true)
         repository = AuthRepositoryImpl(authApi, tokenStore)
