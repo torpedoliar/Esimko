@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.rememberAsyncImagePainter
@@ -127,17 +128,21 @@ fun ShoppingDetailScreen(
                     ) {
                         OutlinedButton(
                             onClick = { if (qty > 1) qty-- },
-                            enabled = qty > 1
+                            enabled = qty > 1,
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Text("-")
                         }
                         Text(
                             text = "$qty",
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.widthIn(min = 32.dp),
+                            textAlign = TextAlign.Center
                         )
                         OutlinedButton(
                             onClick = { qty++ },
-                            enabled = qty < (product.sisa.takeIf { it > 0 } ?: 1)
+                            enabled = qty < (product.sisa.takeIf { it > 0 } ?: 1),
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Text("+")
                         }

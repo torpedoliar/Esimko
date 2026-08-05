@@ -10,11 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.ui.common.LoadingOverlay
 import com.esimko.mobile.ui.common.ErrorView
+import com.esimko.mobile.ui.common.EmptyStateView
 import com.esimko.mobile.ui.shopping.ShoppingViewModel
 import com.esimko.mobile.util.AmountFormatter
 
@@ -70,24 +70,10 @@ fun ShoppingTab(
             }
 
             if (state.products.isEmpty() && !state.isLoading && state.error == null) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Belum ada produk tersedia",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                EmptyStateView(
+                    message = "Belum ada produk tersedia",
+                    icon = Icons.Default.ShoppingCart
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),

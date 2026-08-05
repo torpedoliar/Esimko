@@ -218,7 +218,7 @@ fun ProfileScreen(
                     ) {
                         OutlinedButton(
                             onClick = onOpenSettings,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
                         ) {
                             Text("Pengaturan")
                         }

@@ -54,7 +54,10 @@ fun HistoryTab(
         var expanded by remember { mutableStateOf(false) }
 
         Box(modifier = Modifier.padding(16.dp)) {
-            OutlinedButton(onClick = { expanded = true }) {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.height(48.dp)
+            ) {
                 Text("Jenis: ${selectedModule.replaceFirstChar { it.uppercase() }}")
             }
 

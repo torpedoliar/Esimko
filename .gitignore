@@ -37,3 +37,6 @@ app-debug*.apk
 .env.local
 .env.production.key
 .env.backup.key
+storage/framework/views/
+storage/framework/cache/
+storage/framework/sessions/

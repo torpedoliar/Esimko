@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.domain.model.Return
 import com.esimko.mobile.domain.model.ShoppingInstallment
+import com.esimko.mobile.ui.common.EmptyStateView
 import com.esimko.mobile.ui.common.EsimkoButton
 import com.esimko.mobile.ui.common.ErrorView
 import com.esimko.mobile.ui.common.LoadingOverlay
@@ -108,7 +109,7 @@ private fun InstallmentList(installments: List<ShoppingInstallment>) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (installments.isEmpty()) {
-            item { EmptyMessage("Belum ada angsuran belanja") }
+            item { EmptyStateView(message = "Belum ada angsuran belanja", icon = Icons.Default.Receipt, modifier = Modifier.fillMaxWidth()) }
         }
         items(installments) { inst ->
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -143,7 +144,7 @@ private fun ReturnList(returns: List<Return>) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (returns.isEmpty()) {
-            item { EmptyMessage("Belum ada retur") }
+            item { EmptyStateView(message = "Belum ada retur", icon = Icons.Default.Receipt, modifier = Modifier.fillMaxWidth()) }
         }
         items(returns) { retur ->
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -170,26 +171,6 @@ private fun ReturnList(returns: List<Return>) {
     }
 }
 
-@Composable
-private fun EmptyMessage(message: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            imageVector = Icons.Default.Receipt,
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
 
 @Composable
 private fun HistoryContent(
@@ -239,7 +220,7 @@ private fun HistoryContent(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (state.history.isEmpty() && !state.isLoading && state.error == null) {
-                item { EmptyMessage("Belum ada riwayat belanja") }
+                item { EmptyStateView(message = "Belum ada riwayat belanja", icon = Icons.Default.Receipt, modifier = Modifier.fillMaxWidth()) }
             }
             items(state.history) { item ->
                 Card(

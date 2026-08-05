@@ -37,8 +37,6 @@ fun ErrorView(
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onRetry) {
-            Text("Coba Lagi")
-        }
+        EsimkoButton(text = "Coba Lagi", onClick = onRetry, modifier = Modifier.widthIn(max = 240.dp))
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.ui.common.EsimkoButton
+import com.esimko.mobile.ui.common.EmptyStateView
 import com.esimko.mobile.ui.common.ErrorView
 import com.esimko.mobile.ui.common.LoadingOverlay
 import com.esimko.mobile.util.AmountFormatter
@@ -87,24 +88,10 @@ fun CartScreen(
                     )
                 }
             } else if (state.cart.items.isEmpty() && !state.isLoading && state.error == null) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Keranjang kosong",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                EmptyStateView(
+                    message = "Keranjang kosong",
+                    icon = Icons.Default.ShoppingCart
+                )
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(

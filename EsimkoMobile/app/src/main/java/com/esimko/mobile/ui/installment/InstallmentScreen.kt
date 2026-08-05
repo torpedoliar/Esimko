@@ -8,11 +8,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.InstallMobile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.esimko.mobile.ui.common.EmptyStateView
 import com.esimko.mobile.ui.common.ErrorView
 import com.esimko.mobile.ui.common.LoadingOverlay
 import com.esimko.mobile.util.AmountFormatter
@@ -89,24 +89,11 @@ fun InstallmentScreen(
 
                 if (state.installments.isEmpty() && !state.isLoading && state.error == null) {
                     item {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.InstallMobile,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Belum ada angsuran",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        EmptyStateView(
+                            message = "Belum ada angsuran",
+                            icon = Icons.Default.InstallMobile,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
 

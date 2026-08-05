@@ -67,7 +67,8 @@ fun SettingsScreen(
 
                     OutlinedButton(
                         onClick = { viewModel.checkVersion() },
-                        enabled = !state.checking
+                        enabled = !state.checking,
+                        modifier = Modifier.height(48.dp)
                     ) {
                         Icon(Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))

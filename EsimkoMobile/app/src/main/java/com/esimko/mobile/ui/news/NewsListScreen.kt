@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import com.esimko.mobile.ui.common.EmptyStateView
 import com.esimko.mobile.ui.common.ErrorView
 import com.esimko.mobile.ui.common.LoadingOverlay
 
@@ -50,24 +51,10 @@ fun NewsListScreen(
                 ErrorView(message = error, onRetry = { viewModel.loadNews() })
             }
             if (state.news.isEmpty() && !state.isLoading && state.error == null) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Article,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Belum ada berita",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                EmptyStateView(
+                    message = "Belum ada berita",
+                    icon = Icons.Default.Article
+                )
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
