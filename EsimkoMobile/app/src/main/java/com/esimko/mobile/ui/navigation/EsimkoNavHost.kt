@@ -96,6 +96,7 @@ fun EsimkoNavHost(
         ) { entry ->
             HistoryTab(
                 transactionId = entry.arguments?.getLong("id") ?: 0L,
+                initialModule = entry.arguments?.getString("module") ?: "transaksi",
                 onBack = { navController.popBackStack() }
             )
         }

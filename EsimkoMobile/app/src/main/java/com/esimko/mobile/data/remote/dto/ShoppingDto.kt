@@ -88,7 +88,7 @@ data class CheckoutResponse(
 @JsonClass(generateAdapter = true)
 data class PurchaseHistoryResponse(
     @Json(name = "id") val id: Long,
-    @Json(name = "total") val total: Long? = 0,
+    @Json(name = "total_pembayaran") val total: Long? = 0,
     @Json(name = "tanggal") val tanggal: String? = null,
     @Json(name = "status") val status: String? = null,
     @Json(name = "angsuran") val angsuran: Int? = null
@@ -97,7 +97,7 @@ data class PurchaseHistoryResponse(
 @JsonClass(generateAdapter = true)
 data class PurchaseDetailResponse(
     @Json(name = "id") val id: Long,
-    @Json(name = "total") val total: Long? = 0,
+    @Json(name = "total_pembayaran") val total: Long? = 0,
     @Json(name = "tanggal") val tanggal: String? = null,
     @Json(name = "status") val status: String? = null,
     @Json(name = "items") val items: List<PurchaseItemResponse>? = emptyList()

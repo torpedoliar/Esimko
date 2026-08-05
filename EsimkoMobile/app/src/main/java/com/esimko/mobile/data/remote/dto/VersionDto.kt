@@ -13,8 +13,8 @@ data class VersionResponse(
 
 @JsonClass(generateAdapter = true)
 data class VersionCheckResponse(
-    @Json(name = "update_available") val updateAvailable: Boolean? = false,
-    @Json(name = "force_update") val forceUpdate: Boolean? = false,
+    @Json(name = "updateAvailable") val updateAvailable: Boolean? = false,
+    @Json(name = "forceUpdate") val forceUpdate: Boolean? = false,
     @Json(name = "message") val message: String? = null,
     @Json(name = "url") val url: String? = null
 )

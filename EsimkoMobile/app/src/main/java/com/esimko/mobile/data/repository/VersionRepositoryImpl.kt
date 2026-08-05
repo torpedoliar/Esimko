@@ -32,7 +32,7 @@ class VersionRepositoryImpl @Inject constructor(
 
     override suspend fun checkVersion(): Result<VersionCheck> {
         return try {
-            val response = api.checkVersion()
+            val response = api.checkVersion(com.esimko.mobile.BuildConfig.VERSION_NAME)
             if (response.success && response.data != null) {
                 val dto = response.data
                 Result.Success(VersionCheck(
