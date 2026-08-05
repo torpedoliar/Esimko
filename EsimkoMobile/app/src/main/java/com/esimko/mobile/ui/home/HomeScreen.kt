@@ -22,7 +22,7 @@ enum class BottomNavItem(val label: String, val icon: ImageVector, val route: St
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onLogout: () -> Unit = {}) {
     var selectedTab by remember { mutableStateOf(BottomNavItem.HOME) }
 
     Scaffold(
@@ -45,7 +45,7 @@ fun HomeScreen() {
                 BottomNavItem.SAVINGS -> SavingsTab()
                 BottomNavItem.SHOPPING -> ShoppingTab()
                 BottomNavItem.HISTORY -> com.esimko.mobile.ui.history.HistoryTab()
-                BottomNavItem.PROFILE -> ProfileTab()
+                BottomNavItem.PROFILE -> ProfileTab(onLogout = onLogout)
             }
         }
     }

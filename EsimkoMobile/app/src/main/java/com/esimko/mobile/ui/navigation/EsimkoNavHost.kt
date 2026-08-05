@@ -8,12 +8,15 @@ import com.esimko.mobile.ui.auth.login.LoginScreen
 import com.esimko.mobile.ui.home.HomeScreen
 
 @Composable
-fun EsimkoNavHost() {
+fun EsimkoNavHost(
+    startDestination: String = "login",
+    onLogout: () -> Unit = {}
+) {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = "login"
+        startDestination = startDestination
     ) {
         composable("login") {
             LoginScreen(
@@ -26,7 +29,14 @@ fun EsimkoNavHost() {
         }
 
         composable("home") {
-            HomeScreen()
+            HomeScreen(
+                onLogout = {
+                    onLogout()
+                    navController.navigate("login") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                }
+            )
         }
     }
 }
