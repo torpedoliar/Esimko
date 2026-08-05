@@ -393,10 +393,12 @@ class MobileController extends Controller
       }
     } elseif ($jenis == 'pinjaman') {
       $tenor = array(9 => 50, 10 => 18, 11 => 18);
-      if ($request->tenor > $tenor[$request->jenis_pinjaman]) {
+      if (!array_key_exists($request->jenis_pinjaman, $tenor)) {
+        $msg = 'Jenis pinjaman tidak valid';
+      } elseif ($request->tenor > $tenor[$request->jenis_pinjaman]) {
         $msg = 'Tenor melebihi maksimal yaitu ' . $tenor[$request->jenis_pinjaman] . ' bulan';
       } else {
-        $angsuran_pinjaman = GlobalHelper::angsuran_pinjaman($request->no_anggota, 'all') + str_replace('.', '', $request->total_angsuran);
+        $angsuran_pinjaman = MobileHelper::angsuranPinjamanSafe($request->no_anggota, 'all') + str_replace('.', '', $request->total_angsuran);
         $angsuran_belanja = GlobalHelper::total_angsuran_belanja($request->no_anggota);
         $angsuran_simpanan = GlobalHelper::setoran_berkala($request->no_anggota) + 350000;
         $total_angsuran = $angsuran_pinjaman + $angsuran_belanja + $angsuran_simpanan;
@@ -449,6 +451,9 @@ class MobileController extends Controller
         $field->fid_status = 1;
       } else {
         $field = Transaksi::find($request->id);
+        if (empty($field)) {
+          return ApiResponse::error('Data transaksi tidak ditemukan', 404);
+        }
         $field->updated_at = date('Y-m-d H:i:s');
       }
 
@@ -718,7 +723,7 @@ class MobileController extends Controller
         $field->margin = $keranjang->margin;
         $field->margin_nominal = $keranjang->margin_nominal;
         $field->harga = $keranjang->harga_jual;
-        $field->jumlah = $request->jumlah[$key];
+        $field->jumlah = !empty($request->jumlah[$key]) ? $request->jumlah[$key] : $keranjang->jumlah;
         $field->total = $field->harga * $field->jumlah;
         if ($field->jumlah <= $stok['sisa']) {
           $field->save();
