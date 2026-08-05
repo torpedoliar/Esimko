@@ -26,6 +26,7 @@ use DB;
 use DateTime;
 use Redirect;
 use Illuminate\Support\Str;
+use Illuminate\Contracts\Encryption\DecryptException;
 
 
 class MobileController extends Controller
@@ -44,7 +45,12 @@ class MobileController extends Controller
       ->whereIn('fid_status', array('2', '3', '5'))
       ->first();
     if (!empty($anggota)) {
-      if ($request->password == decrypt($anggota->password)) {
+      try {
+        $password_ok = ($request->password == decrypt($anggota->password));
+      } catch (DecryptException $e) {
+        return ApiResponse::error('Kesalahan verifikasi password', 400);
+      }
+      if ($password_ok) {
         $token = Str::random(32);
         $anggota->token = $token;
         $anggota->login_at = date('Y-m-d H:i:s');
@@ -53,15 +59,15 @@ class MobileController extends Controller
           'token' => $anggota->token,
           'no_anggota' => $anggota->no_anggota,
           'nama' => $anggota->nama_lengkap,
-          'avatar' => $anggota->foto ?? null
+          'avatar' => (!empty($anggota->avatar) ? asset('storage/' . $anggota->avatar) : asset('assets/images/user-avatar-placeholder.png'))
         );
+        return ApiResponse::success($return);
       } else {
-        $return = array('msg' => 'Password yang anda masukkan salah');
+        return ApiResponse::error('Password yang anda masukkan salah', 401);
       }
     } else {
-      $return = array('msg' => 'Anggota tidak Ditemukan');
+      return ApiResponse::error('Anggota tidak Ditemukan', 404);
     }
-    return ApiResponse::success($return);
   }
 
   public function logout(Request $request)
@@ -100,7 +106,10 @@ class MobileController extends Controller
     $field->tanggal_bekerja = (!empty($request->id_karyawan) ? GlobalHelper::bulan_bekerja($request->id_karyawan) : date('Y-m-d'));
     $field->tanggal_bergabung = date('Y-m-d');
     $field->save();
-    return ApiResponse::success(['data' => $field]);
+    $profil = Anggota::where('id', $field->id)
+      ->select('id', 'no_anggota', 'nama_lengkap', 'no_ktp', 'avatar', 'no_handphone', 'email')
+      ->first();
+    return ApiResponse::success($profil);
   }
 
   public function profil_anggota(Request $request)
@@ -148,7 +157,12 @@ class MobileController extends Controller
   {
     $anggota = Anggota::where('no_anggota', $request->no_anggota)->first();
     if (!empty($anggota)) {
-      if ($request->password_lama == decrypt($anggota->password)) {
+      try {
+        $password_lama_ok = ($request->password_lama == decrypt($anggota->password));
+      } catch (DecryptException $e) {
+        return ApiResponse::error('Kesalahan verifikasi password', 400);
+      }
+      if ($password_lama_ok) {
         if ($request->password_baru == $request->ulangi_password_baru) {
           $field = Anggota::find($anggota->id);
           $field->password = encrypt($request->password_baru);
@@ -229,7 +243,7 @@ class MobileController extends Controller
       $query = $query->whereBetween('transaksi.tanggal', [GlobalHelper::dateFormat($request->tanggal_mulai, 'Y-m-d'), GlobalHelper::dateFormat($request->tanggal_akhir, 'Y-m-d')]);
     }
 
-    $limit = $request->limit ?: 10;
+    $limit = $request->input('per_page', 20);
     $paginated = $request->has('page');
     if ($paginated) {
         $p = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->paginate($limit);
@@ -421,7 +435,7 @@ class MobileController extends Controller
   {
     $data = GajiPokok::where('fid_anggota', $request->no_anggota)->get();
     $gaji_pokok = GlobalHelper::gaji_pokok($request->no_anggota);
-    return ApiResponse::success(['data' => $data, 'bulan' => $gaji_pokok[0], 'gaji_pokok' => $gaji_pokok[1]]);
+    return ApiResponse::success(['list' => $data, 'bulan' => $gaji_pokok[0], 'gaji_pokok' => $gaji_pokok[1]]);
   }
 
   public function proses_transaksi(Request $request, $jenis)
@@ -603,8 +617,9 @@ class MobileController extends Controller
         $data->kategori = GlobalHelper::detail_kategori_produk($kategori[1]);
         $data->sub_kategori = GlobalHelper::detail_kategori_produk($kategori[2]);
       }
+      return ApiResponse::success($data);
     }
-    return ApiResponse::success($data);
+    return ApiResponse::error('Produk tidak ditemukan', 404);
   }
 
   public function keranjang(Request $request)
@@ -740,7 +755,7 @@ class MobileController extends Controller
     }
   }
 
-  public function belanja(Request $request, $jenis)
+  public function belanja(Request $request, $jenis = 'toko')
   {
     if ($jenis == 'toko') {
       $query = Penjualan::select('penjualan.*', 'status_belanja.status', 'status_belanja.color', 'metode_pembayaran.metode_pembayaran')
@@ -777,7 +792,7 @@ class MobileController extends Controller
     return ApiResponse::success($result, 'OK', ['page'=>$p->currentPage(),'per_page'=>$p->perPage(),'total'=>$p->total(),'last_page'=>$p->lastPage()]);
   }
 
-  public function detail_belanja(Request $request, $jenis)
+  public function detail_belanja(Request $request, $jenis = 'toko')
   {
     $penjualan = Penjualan::select('penjualan.*', 'status_belanja.icon', 'rekening_pembayaran.keterangan as metode_pembayaran', 'rekening_pembayaran.fid_metode_pembayaran', 'anggota.nama_lengkap', 'anggota.no_anggota', 'anggota.avatar')
       ->leftJoin('anggota', 'anggota.no_anggota', '=', 'penjualan.fid_anggota')
@@ -825,8 +840,9 @@ class MobileController extends Controller
         $penjualan->label_status = '';
         $penjualan->keterangan_status = '';
       }
+      return ApiResponse::success($penjualan);
     }
-    return ApiResponse::success($penjualan);
+    return ApiResponse::error('Belanja tidak ditemukan', 404);
   }
 
   public function riwayat_transaksi(Request $request)
