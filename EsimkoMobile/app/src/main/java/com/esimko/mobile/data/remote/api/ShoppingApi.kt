@@ -5,6 +5,7 @@ import com.esimko.mobile.data.remote.dto.ProductResponse
 import com.esimko.mobile.data.remote.dto.ProductDetailResponse
 import com.esimko.mobile.data.remote.dto.CartResponse
 import com.esimko.mobile.data.remote.dto.CartRequest
+import com.esimko.mobile.data.remote.dto.CheckoutRequest
 import com.esimko.mobile.data.remote.dto.CheckoutResponse
 import com.esimko.mobile.data.remote.dto.PurchaseHistoryResponse
 import com.esimko.mobile.data.remote.dto.PurchaseDetailResponse
@@ -30,7 +31,7 @@ interface ShoppingApi {
     suspend fun updateCart(@Body request: CartRequest): ApiResponse<CartResponse>
 
     @POST("mobile/belanja/keranjang/checkout")
-    suspend fun checkout(): ApiResponse<CheckoutResponse>
+    suspend fun checkout(@Body request: CheckoutRequest): ApiResponse<CheckoutResponse>
 
     @POST("mobile/belanja/batalkan")
     suspend fun cancelPurchase(@Body request: CancelPurchaseRequest): ApiResponse<Any>

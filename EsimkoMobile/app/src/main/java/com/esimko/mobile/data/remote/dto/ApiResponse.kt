@@ -12,7 +12,7 @@ data class ApiResponse<T>(
 
 @JsonClass(generateAdapter = true)
 data class MetaResponse(
-    val current_page: Int?,
+    val page: Int?,
     val last_page: Int?,
     val per_page: Int?,
     val total: Int?

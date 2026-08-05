@@ -21,5 +21,6 @@ data class LoginResponse(
 @JsonClass(generateAdapter = true)
 data class ChangePasswordRequest(
     @Json(name = "password_lama") val password_lama: String,
-    @Json(name = "password_baru") val password_baru: String
+    @Json(name = "password_baru") val password_baru: String,
+    @Json(name = "ulangi_password_baru") val ulangiPasswordBaru: String
 )

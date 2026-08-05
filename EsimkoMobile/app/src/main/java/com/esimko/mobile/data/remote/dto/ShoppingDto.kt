@@ -63,15 +63,26 @@ data class CartItemResponse(
 
 @JsonClass(generateAdapter = true)
 data class CartRequest(
-    @Json(name = "produk_id") val produkId: Long,
-    @Json(name = "qty") val qty: Int
+    @Json(name = "id") val id: Long,
+    @Json(name = "jumlah") val jumlah: Int,
+    @Json(name = "action") val action: String = "add"
+)
+
+@JsonClass(generateAdapter = true)
+data class CheckoutRequest(
+    @Json(name = "barang") val barang: List<Long>,
+    @Json(name = "jumlah") val jumlah: List<Int>
+)
+
+@JsonClass(generateAdapter = true)
+data class FailedItem(
+    @Json(name = "fid_produk") val fidProduk: Long? = null,
+    @Json(name = "nama") val nama: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class CheckoutResponse(
-    @Json(name = "id") val id: Long,
-    @Json(name = "total") val total: Long? = 0,
-    @Json(name = "tanggal") val tanggal: String? = null
+    @Json(name = "failed_items") val failedItems: List<FailedItem>? = emptyList()
 )
 
 @JsonClass(generateAdapter = true)

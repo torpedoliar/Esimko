@@ -71,7 +71,7 @@ class TransactionRepositoryImpl @Inject constructor(
         keterangan: String?
     ): Result<Transaction> {
         return try {
-            val request = TransactionRequest(jenis = jenis, nominal = nominal, keterangan = keterangan)
+            val request = TransactionRequest(action = "add", nominal = nominal, keterangan = keterangan)
             val response = api.processTransaction(jenis, request)
             if (response.success && response.data != null) {
                 val dto = response.data

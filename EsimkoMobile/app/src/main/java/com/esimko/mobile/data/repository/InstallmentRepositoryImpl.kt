@@ -17,14 +17,13 @@ class InstallmentRepositoryImpl @Inject constructor(
             if (response.success && response.data != null) {
                 Result.Success(response.data.map { dto ->
                     Installment(
-                        id = dto.id,
-                        ke = dto.ke ?: 0,
-                        nominal = dto.nominal ?: 0,
-                        bunga = dto.bunga ?: dto.angsuranBunga ?: 0,
-                        pokok = dto.pokok ?: dto.angsuranPokok ?: 0,
-                        tanggalJatuhTempo = dto.tanggalJatuhTempo.orEmpty(),
-                        tanggalBayar = dto.tanggalBayar,
-                        status = dto.status ?: dto.statusAngsuran.orEmpty()
+                        id = dto.id ?: 0,
+                        ke = dto.angsuranKe ?: 0,
+                        pokok = dto.angsuranPokok ?: 0,
+                        bunga = dto.angsuranBunga ?: 0,
+                        status = dto.statusAngsuran.orEmpty(),
+                        jenisTransaksi = dto.jenisTransaksi,
+                        namaBulan = dto.namaBulan
                     )
                 })
             } else {

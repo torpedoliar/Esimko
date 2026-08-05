@@ -13,7 +13,7 @@ interface TransactionApi {
     @GET("mobile/transaksi/{modul}")
     suspend fun getTransactions(
         @Path("modul") modul: String,
-        @Query("tanggal_awal") tanggalAwal: String? = null,
+        @Query("tanggal_mulai") tanggalMulai: String? = null,
         @Query("tanggal_akhir") tanggalAkhir: String? = null,
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null

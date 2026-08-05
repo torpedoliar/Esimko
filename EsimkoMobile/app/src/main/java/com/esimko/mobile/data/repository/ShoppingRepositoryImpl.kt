@@ -4,6 +4,7 @@ import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.data.remote.api.ShoppingApi
 import com.esimko.mobile.data.remote.dto.CartRequest
 import com.esimko.mobile.data.remote.dto.CancelPurchaseRequest
+import com.esimko.mobile.data.remote.dto.CheckoutRequest
 import com.esimko.mobile.domain.model.*
 import com.esimko.mobile.domain.repository.ShoppingRepository
 import javax.inject.Inject
@@ -91,7 +92,7 @@ class ShoppingRepositoryImpl @Inject constructor(
 
     override suspend fun updateCart(produkId: Long, qty: Int): Result<Cart> {
         return try {
-            val request = CartRequest(produkId = produkId, qty = qty)
+            val request = CartRequest(id = produkId, jumlah = qty, action = "add")
             val response = api.updateCart(request)
             if (response.success && response.data != null) {
                 Result.Success(Cart(
@@ -117,12 +118,13 @@ class ShoppingRepositoryImpl @Inject constructor(
 
     override suspend fun checkout(): Result<Checkout> {
         return try {
-            val response = api.checkout()
+            // ponytail: checkout needs cart item ids + quantities from the cart; no UI caller yet (Task 6 wires it).
+            val response = api.checkout(CheckoutRequest(emptyList(), emptyList()))
             if (response.success && response.data != null) {
                 Result.Success(Checkout(
-                    id = response.data.id,
-                    total = response.data.total ?: 0,
-                    tanggal = response.data.tanggal.orEmpty()
+                    failedItems = (response.data.failedItems ?: emptyList()).map {
+                        FailedItemInfo(fidProduk = it.fidProduk, nama = it.nama)
+                    }
                 ))
             } else {
                 Result.Error(response.message ?: "Failed to checkout")

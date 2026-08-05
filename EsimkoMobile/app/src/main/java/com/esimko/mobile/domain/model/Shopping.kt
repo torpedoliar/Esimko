@@ -42,9 +42,12 @@ data class CartItem(
 )
 
 data class Checkout(
-    val id: Long,
-    val total: Long,
-    val tanggal: String
+    val failedItems: List<FailedItemInfo>
+)
+
+data class FailedItemInfo(
+    val fidProduk: Long? = null,
+    val nama: String? = null
 )
 
 data class PurchaseHistory(

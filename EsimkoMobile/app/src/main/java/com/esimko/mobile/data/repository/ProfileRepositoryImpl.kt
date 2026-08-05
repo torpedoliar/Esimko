@@ -59,7 +59,7 @@ class ProfileRepositoryImpl @Inject constructor(
 
     override suspend fun changePassword(oldPassword: String, newPassword: String): Result<Unit> {
         return try {
-            val response = api.changePassword(ChangePasswordRequest(oldPassword, newPassword))
+            val response = api.changePassword(ChangePasswordRequest(oldPassword, newPassword, newPassword))
             if (response.success) {
                 Result.Success(Unit)
             } else {

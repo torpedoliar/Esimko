@@ -33,9 +33,12 @@ data class TransactionDetailResponse(
 
 @JsonClass(generateAdapter = true)
 data class TransactionRequest(
-    @Json(name = "jenis") val jenis: String,
-    @Json(name = "nominal") val nominal: Long,
-    @Json(name = "keterangan") val keterangan: String? = null
+    @Json(name = "action") val action: String = "add",
+    @Json(name = "nominal") val nominal: Long? = null,
+    @Json(name = "keterangan") val keterangan: String? = null,
+    @Json(name = "tenor") val tenor: Int? = null,
+    @Json(name = "jenis_pinjaman") val jenisPinjaman: Int? = null,
+    @Json(name = "gaji_pokok") val gajiPokok: Long? = null
 )
 
 @JsonClass(generateAdapter = true)
