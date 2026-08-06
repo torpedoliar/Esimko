@@ -421,18 +421,24 @@ class MobileController extends Controller
       } elseif ($request->tenor > $tenor[$request->jenis_pinjaman]) {
         $msg = 'Tenor melebihi maksimal yaitu ' . $tenor[$request->jenis_pinjaman] . ' bulan';
       } else {
-        $angsuran_pinjaman = MobileHelper::angsuranPinjamanSafe($request->no_anggota, 'all') + str_replace('.', '', $request->total_angsuran ?? 0);
+        // Angsuran baru = pokok (nominal/tenor) + bunga (bunga% x nominal), sama seperti proses_angsuran
+        $nominal = str_replace('.', '', $request->nominal ?? 0);
+        $tenor = (int)$request->tenor;
+        $angsuran_baru = ($tenor > 0) ? ROUND($nominal / $tenor) + ROUND(GlobalHelper::getBungaPinjaman() * $nominal) : 0;
+
+        $angsuran_pinjaman = MobileHelper::angsuranPinjamanSafe($request->no_anggota, 'all');
         $angsuran_belanja = GlobalHelper::total_angsuran_belanja($request->no_anggota);
         $angsuran_simpanan = GlobalHelper::setoran_berkala($request->no_anggota) + 350000;
-        $total_angsuran = $angsuran_pinjaman + $angsuran_belanja + $angsuran_simpanan;
+        $total_angsuran = $angsuran_pinjaman + $angsuran_belanja + $angsuran_simpanan + $angsuran_baru;
 
-        // $total_angsuran_pinjaman = $angsuran_pinjaman + 350000 + str_replace('.', '', $request->total_angsuran);
-        $total_angsuran_pinjaman = $angsuran_pinjaman + str_replace('.', '', $request->total_angsuran ?? 0);
+        // ponytail: total_angsuran_pinjaman semula = angsuran lama + angsuran baru (50% gaji rule)
+        $total_angsuran_pinjaman = $angsuran_pinjaman + $angsuran_baru;
 
         $sisa_tenor = GlobalHelper::sisa_tenor_pinjaman($request->no_anggota, $request->jenis_pinjaman)['sisa'];
         $sisa_pinjaman = GlobalHelper::sisa_pinjaman($request->no_anggota, $request->jenis_pinjaman);
 
-        $gaji_pokok = str_replace('.', '', $request->gaji_pokok);
+        // Gaji dari DB, bukan dari client (anti-spoof). Gaji bulan lalu; 0 kalau belum diinput admin.
+        $gaji_pokok = GlobalHelper::gaji_pokok($request->no_anggota)[1];
 
         if ($sisa_tenor == 0) {
           if ($total_angsuran <= $gaji_pokok) {
@@ -563,7 +569,8 @@ class MobileController extends Controller
 
   public function update_riwayat_gaji($request)
   {
-    $bulan = GlobalHelper::get_bulan(date('m-Y'))[0];
+    // Gaji diambil dari DB (helper), bukan dari client — anti-spoof. Bulan berjalan.
+    $bulan = date('m-Y');
     $riwayat_gaji = GajiPokok::where('fid_anggota', $request->no_anggota)
       ->where('bulan', $bulan)
       ->first();
@@ -577,7 +584,7 @@ class MobileController extends Controller
       $field->bulan = $bulan;
       $field->fid_anggota = $request->no_anggota;
     }
-    $field->gaji_pokok = str_replace('.', '', $request->gaji_pokok);
+    $field->gaji_pokok = GlobalHelper::gaji_pokok($request->no_anggota)[1];
     $field->save();
   }
 
