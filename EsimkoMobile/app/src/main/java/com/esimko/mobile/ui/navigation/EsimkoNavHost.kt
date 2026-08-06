@@ -1,10 +1,10 @@
 package com.esimko.mobile.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.esimko.mobile.ui.auth.login.LoginScreen
 import com.esimko.mobile.ui.auth.register.RegisterScreen
@@ -21,11 +21,10 @@ import com.esimko.mobile.ui.history.HistoryTab
 
 @Composable
 fun EsimkoNavHost(
+    navController: NavHostController,
     startDestination: String = "login",
     onLogout: () -> Unit = {}
 ) {
-    val navController = rememberNavController()
-
     NavHost(
         navController = navController,
         startDestination = startDestination

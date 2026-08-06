@@ -1,6 +1,7 @@
 package com.esimko.mobile.data.remote.interceptor
 
 import android.util.Log
+import com.esimko.mobile.data.local.AuthEvents
 import com.esimko.mobile.data.local.TokenStore
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -25,6 +26,16 @@ class AuthInterceptor @Inject constructor(
             }
         } ?: Log.w("AuthInterceptor", "Token is null, not adding header for: ${request.url}")
 
-        return chain.proceed(builder.build())
+        val response = chain.proceed(builder.build())
+
+        // 401 dengan token yang dipakai = sesi invalid (expired / direset server).
+        // Bersihkan token + notify agar UI balik ke login. Jangan untuk login/logout request sendiri.
+        if (response.code == 401 && token?.isNotEmpty() == true) {
+            Log.w("AuthInterceptor", "401 on ${request.url} — clearing session")
+            tokenStore.clear()
+            AuthEvents.emitLoggedOut()
+        }
+
+        return response
     }
 }

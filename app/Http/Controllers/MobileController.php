@@ -421,13 +421,13 @@ class MobileController extends Controller
       } elseif ($request->tenor > $tenor[$request->jenis_pinjaman]) {
         $msg = 'Tenor melebihi maksimal yaitu ' . $tenor[$request->jenis_pinjaman] . ' bulan';
       } else {
-        $angsuran_pinjaman = MobileHelper::angsuranPinjamanSafe($request->no_anggota, 'all') + str_replace('.', '', $request->total_angsuran);
+        $angsuran_pinjaman = MobileHelper::angsuranPinjamanSafe($request->no_anggota, 'all') + str_replace('.', '', $request->total_angsuran ?? 0);
         $angsuran_belanja = GlobalHelper::total_angsuran_belanja($request->no_anggota);
         $angsuran_simpanan = GlobalHelper::setoran_berkala($request->no_anggota) + 350000;
         $total_angsuran = $angsuran_pinjaman + $angsuran_belanja + $angsuran_simpanan;
 
         // $total_angsuran_pinjaman = $angsuran_pinjaman + 350000 + str_replace('.', '', $request->total_angsuran);
-        $total_angsuran_pinjaman = $angsuran_pinjaman + str_replace('.', '', $request->total_angsuran);
+        $total_angsuran_pinjaman = $angsuran_pinjaman + str_replace('.', '', $request->total_angsuran ?? 0);
 
         $sisa_tenor = GlobalHelper::sisa_tenor_pinjaman($request->no_anggota, $request->jenis_pinjaman)['sisa'];
         $sisa_pinjaman = GlobalHelper::sisa_pinjaman($request->no_anggota, $request->jenis_pinjaman);
