@@ -318,6 +318,35 @@ class PinjamanController extends Controller
         $field=Transaksi::find($request->id);
         $field->fid_status=($request->status==6 ? 4 : $request->status);
         $field->save();
+        if($request->status==3){
+            // Disetujui → gaji draft (dari app) diresmikan ke tabel gaji_pokok.
+            // Bulk gaji dari admin tetap via form pengajuan (tidak tertimpa).
+            $keterangan=json_decode($field->keterangan,true);
+            if(is_array($keterangan) && !empty($keterangan['gaji'])){
+                $riwayat=GajiPokok::where('fid_anggota',$field->fid_anggota)
+                    ->where('bulan',$field->tanggal ? date('m-Y',strtotime($field->tanggal)) : date('m-Y'))
+                    ->first();
+                if(!empty($riwayat)){
+                    $gaji=GajiPokok::find($riwayat->id);
+                    $gaji->updated_at=date('Y-m-d H:i:s');
+                }
+                else{
+                    $gaji=new GajiPokok;
+                    $gaji->created_at=date('Y-m-d H:i:s');
+                    $gaji->created_by=$field->created_by;
+                    $gaji->bulan=($field->tanggal ? date('m-Y',strtotime($field->tanggal)) : date('m-Y'));
+                    $gaji->fid_anggota=$field->fid_anggota;
+                }
+                $gaji->gaji_pokok=$keterangan['gaji'];
+                if(!empty($keterangan['slip'])){
+                    if(!empty($gaji->attachment) && file_exists(storage_path('app/public/'.$gaji->attachment))){
+                        unlink(storage_path('app/public/'.$gaji->attachment));
+                    }
+                    $gaji->attachment=$keterangan['slip'];
+                }
+                $gaji->save();
+            }
+        }
         if($request->status!=6){
             $this->update_status_angsuran($field->id,$request->status);
             $status=DB::table('status_transaksi')->find($field->fid_status);

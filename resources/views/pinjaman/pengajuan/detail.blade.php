@@ -97,6 +97,27 @@
                                         <th>:</th>
                                         <td>{{(!empty($data['pinjaman']->keterangan) ? $data['pinjaman']->keterangan : 'Tidak ada Keterangan')}}</td>
                                     </tr>
+                                    @php $draft = json_decode($data['pinjaman']->keterangan, true); @endphp
+                                    @if(is_array($draft) && isset($draft['gaji']))
+                                        <tr>
+                                            <th>Gaji Pokok (Pengajuan)</th>
+                                            <th>:</th>
+                                            <td>Rp {{format_number($draft['gaji'])}}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Slip Gaji</th>
+                                            <th>:</th>
+                                            <td>
+                                                @if(!empty($draft['slip']))
+                                                    <a href="{{asset('storage/'.$draft['slip'])}}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-file-image"></i> Lihat Slip Gaji
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted">Tidak ada slip</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endif
                                 </table>
                                 <h5 class="mb-3 mt-4">Riwayat Transaksi</h5>
                                 <ul class="verti-timeline list-unstyled">

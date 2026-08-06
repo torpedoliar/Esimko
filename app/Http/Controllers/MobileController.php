@@ -437,8 +437,12 @@ class MobileController extends Controller
         $sisa_tenor = GlobalHelper::sisa_tenor_pinjaman($request->no_anggota, $request->jenis_pinjaman)['sisa'];
         $sisa_pinjaman = GlobalHelper::sisa_pinjaman($request->no_anggota, $request->jenis_pinjaman);
 
-        // Gaji dari DB, bukan dari client (anti-spoof). Gaji bulan lalu; 0 kalau belum diinput admin.
-        $gaji_pokok = GlobalHelper::gaji_pokok($request->no_anggota)[1];
+        // Gaji kelayakan: draft dari app (user isi + slip, diverifikasi admin sebelum approve)
+        // kalau ada, fallback ke gaji resmi DB bulan lalu. Gaji draft TIDAK ditulis ke tabel
+        // gaji_pokok — hanya dijadikan acuan aturan 50%, diresmikan saat admin approve.
+        $gaji_draft = (float) str_replace('.', '', $request->gaji_pokok ?? 0);
+        $gaji_db = GlobalHelper::gaji_pokok($request->no_anggota)[1];
+        $gaji_pokok = ($gaji_draft > 0) ? $gaji_draft : $gaji_db;
 
         if ($sisa_tenor == 0) {
           if ($total_angsuran <= $gaji_pokok) {
@@ -509,7 +513,9 @@ class MobileController extends Controller
         }
         $field->save();
         if ($jenis == 'pinjaman') {
-          $this->update_riwayat_gaji($request);
+          // Gaji + slip dari app disimpan sebagai DRAFT di keterangan (JSON).
+          // Gaji resmi ditulis ke tabel gaji_pokok hanya saat admin approve (PinjamanController::verifikasi).
+          $this->draft_gaji_pinjaman($field, $request);
           $this->proses_angsuran($field->id, $request);
         }
         return ApiResponse::success(['id' => $field->id]);
@@ -567,25 +573,45 @@ class MobileController extends Controller
     return ApiResponse::success($data);
   }
 
-  public function update_riwayat_gaji($request)
+  // Draft gaji + slip untuk pinjaman baru (Opsi 1): disimpan di transaksi.keterangan
+  // sebagai JSON, belum menyentuh tabel gaji_pokok. Commit resmi terjadi saat
+  // admin menyetujui pinjaman (PinjamanController::verifikasi → status 3).
+  public function draft_gaji_pinjaman($transaksi, $request)
   {
-    // Gaji diambil dari DB (helper), bukan dari client — anti-spoof. Bulan berjalan.
-    $bulan = date('m-Y');
-    $riwayat_gaji = GajiPokok::where('fid_anggota', $request->no_anggota)
-      ->where('bulan', $bulan)
-      ->first();
-    if (!empty($riwayat_gaji)) {
-      $field = GajiPokok::find($riwayat_gaji->id);
-      $field->updated_at = date('Y-m-d H:i:s');
-    } else {
-      $field = new GajiPokok;
-      $field->created_at = date('Y-m-d H:i:s');
-      $field->created_by = $request->no_anggota;
-      $field->bulan = $bulan;
-      $field->fid_anggota = $request->no_anggota;
+    $draft = ['gaji' => (float) str_replace('.', '', $request->gaji_pokok ?? 0)];
+    if (!empty($transaksi->keterangan)) {
+      $keterangan = json_decode($transaksi->keterangan, true);
+      if (!empty($keterangan['slip'])) {
+        $draft['slip'] = $keterangan['slip'];
+      }
     }
-    $field->gaji_pokok = GlobalHelper::gaji_pokok($request->no_anggota)[1];
+    if ($request->hasFile('attachment')) {
+      $draft['slip'] = $request->file('attachment')->store('slip_gaji', 'public');
+    }
+    $transaksi->keterangan = json_encode($draft);
+    $transaksi->save();
+  }
+
+  public function upload_slip_gaji(Request $request)
+  {
+    $field = Transaksi::find($request->id);
+    if (empty($field)) {
+      return ApiResponse::error('transaksi tidak ditemukan', 404);
+    }
+    if (!$request->hasFile('attachment')) {
+      return ApiResponse::error('file tidak ditemukan');
+    }
+    $keterangan = json_decode($field->keterangan, true);
+    if (empty($keterangan)) {
+      $keterangan = [];
+    }
+    if (!empty($keterangan['slip'])) {
+      if (file_exists(storage_path('app/' . $keterangan['slip']))) { unlink(storage_path('app/' . $keterangan['slip'])); }
+    }
+    $keterangan['slip'] = $request->file('attachment')->store('slip_gaji', 'public');
+    $field->keterangan = json_encode($keterangan);
     $field->save();
+    return ApiResponse::success(null, 'success');
   }
 
     public function produk(Request $request)

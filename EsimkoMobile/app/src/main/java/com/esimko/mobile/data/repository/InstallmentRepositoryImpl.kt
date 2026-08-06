@@ -3,10 +3,12 @@ package com.esimko.mobile.data.repository
 import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.InstallmentApi
-import com.esimko.mobile.data.remote.dto.TransactionRequest
 import com.esimko.mobile.domain.model.Installment
 import com.esimko.mobile.domain.model.Salary
 import com.esimko.mobile.domain.repository.InstallmentRepository
+import okhttp3.MultipartBody
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 class InstallmentRepositoryImpl @Inject constructor(
@@ -54,18 +56,27 @@ class InstallmentRepositoryImpl @Inject constructor(
         nominal: Long,
         tenor: Int,
         gajiPokok: Long,
-        keterangan: String?
+        keterangan: String?,
+        slipBytes: ByteArray?,
+        slipMime: String?
     ): Result<Long> {
         return try {
-            val request = TransactionRequest(
-                action = "add",
-                nominal = nominal,
-                tenor = tenor,
-                jenisPinjaman = jenisPinjaman,
-                gajiPokok = gajiPokok,
-                keterangan = keterangan
+            val toPart = { value: String -> value.toRequestBody("text/plain".toMediaType()) }
+            val slipPart = slipBytes?.let { bytes ->
+                MultipartBody.Part.createFormData(
+                    "attachment", "slip_gaji", bytes.toRequestBody(slipMime?.toMediaType() ?: "image/jpeg".toMediaType())
+                )
+            }
+            val response = api.submitLoan(
+                "pinjaman",
+                toPart("add"),
+                toPart(nominal.toString()),
+                toPart(tenor.toString()),
+                toPart(jenisPinjaman.toString()),
+                toPart(gajiPokok.toString()),
+                toPart(keterangan ?: ""),
+                slipPart
             )
-            val response = api.submitLoan("pinjaman", request)
             if (response.success && response.data != null) {
                 Result.Success(response.data.id)
             } else {

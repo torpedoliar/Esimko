@@ -27,7 +27,11 @@ data class LoanApplicationState(
     val submitSuccess: Long? = null,
     val selectedJenis: Int? = null,
     val nominal: String = "",
-    val tenor: String = ""
+    val tenor: String = "",
+    val gajiPokok: String = "",
+    val slipBytes: ByteArray? = null,
+    val slipMime: String? = null,
+    val slipName: String? = null
 )
 
 @HiltViewModel
@@ -80,19 +84,34 @@ class LoanApplicationViewModel @Inject constructor(
         _state.value = _state.value.copy(tenor = value.filter { it.isDigit() }.take(2))
     }
 
+    fun onGajiChange(value: String) {
+        _state.value = _state.value.copy(gajiPokok = value.filter { it.isDigit() })
+    }
+
     fun maxTenor(): Int = MAX_TENOR[_state.value.selectedJenis] ?: 0
+
+    fun onSlipPicked(bytes: ByteArray, mime: String, name: String) {
+        _state.value = _state.value.copy(slipBytes = bytes, slipMime = mime, slipName = name)
+    }
+
+    fun clearSlip() {
+        _state.value = _state.value.copy(slipBytes = null, slipMime = null, slipName = null)
+    }
 
     fun submit() {
         val s = _state.value
         val jenis = s.selectedJenis ?: return
         val nominal = s.nominal.toLongOrNull() ?: 0
         val tenor = s.tenor.toIntOrNull() ?: 0
-        val gaji = s.salary?.gajiPokok ?: 0
-        if (s.isSubmitting || nominal <= 0 || tenor <= 0) return
+        // Gaji diinput user (form) — resmi hanya saat admin approve (Opsi 1)
+        val gaji = s.gajiPokok.toLongOrNull() ?: 0
+        if (s.isSubmitting || nominal <= 0 || tenor <= 0 || gaji <= 0) return
 
         viewModelScope.launch {
             _state.value = _state.value.copy(isSubmitting = true, submitError = null)
-            when (val result = installmentRepository.submitLoan(jenis, nominal, tenor, gaji, null)) {
+            when (val result = installmentRepository.submitLoan(
+                jenis, nominal, tenor, gaji, null, s.slipBytes, s.slipMime
+            )) {
                 is Result.Success -> _state.value = _state.value.copy(
                     isSubmitting = false,
                     submitSuccess = result.data
