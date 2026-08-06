@@ -233,7 +233,7 @@ penting: fondasi lebih dulu, kalau tidak semua layar dikerjakan dua kali.
 | 6. Belanja | Search menempel; chip kategori; grid 2 kolom; tombol + di kartu; bar keranjang; paginasi scroll |
 | 7. Papan informasi | HTML dirender; lampiran (DTO+model+UI); urut terbaru dulu; pencarian; pintu dari Beranda |
 | 8. Akun | Profil + divisi/bagian/status; baris daftar ganti tombol lebar; perbaiki password mismatch yang sekarang diam |
-| 9. Poles | Login/Register pakai logo; skeleton; gerak; sapuan aksesibilitas; cek semua preview dark |
+| 9. Poles | Login/Register pakai logo; skeleton; gerak; hapus `EsimkoCard`/`EsimkoButton` setelah pemakai terakhir hilang; sapuan aksesibilitas; cek semua preview dark |
 
 ### Cacat non-kosmetik yang diperbaiki sambil jalan
 - `HistoryTab.kt:38` — `onBack != {}` membandingkan identitas lambda, selalu `true`
@@ -248,7 +248,7 @@ Sekarang `LoadingOverlay`/`ErrorView`/konten satu `Box` — bisa tampil bersamaa
 | Keadaan | Tampilan |
 |---|---|
 | Muat pertama | Skeleton berbentuk konten aslinya, bukan spinner tengah |
-| Muat ulang | `PullToRefresh`, konten lama tetap tampil |
+| Muat ulang | `PullToRefresh` bila BOM naik, jika tidak tombol "Muat ulang"; konten lama tetap tampil |
 | Sukses kosong | Pesan sesuai konteks + aksi kalau ada |
 | Gagal, ada data lama | Konten lama tetap + banner tipis "Gagal memuat · Coba lagi" |
 | Gagal, tak ada data | Layar penuh: pesan + Coba Lagi |
