@@ -125,7 +125,7 @@ fun DashboardTab(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = AmountFormatter.format(profile.saldoPinjaman),
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -134,24 +134,6 @@ fun DashboardTab(
                             text = "Ketuk untuk lihat angsuran",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
-                }
-
-                // Angsuran Bulan Ini Card
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = "Angsuran Bulan Ini",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = AmountFormatter.format(profile.angsuranBulan),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

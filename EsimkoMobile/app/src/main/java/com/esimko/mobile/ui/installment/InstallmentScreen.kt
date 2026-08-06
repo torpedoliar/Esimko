@@ -21,6 +21,7 @@ import com.esimko.mobile.util.AmountFormatter
 @Composable
 fun InstallmentScreen(
     onBack: () -> Unit,
+    onApplyLoan: () -> Unit = {},
     viewModel: InstallmentViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -75,6 +76,15 @@ fun InstallmentScreen(
                                 )
                             }
                         }
+                    }
+                }
+
+                item {
+                    FilledTonalButton(
+                        onClick = onApplyLoan,
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Text("Ajukan Pinjaman", style = MaterialTheme.typography.labelLarge)
                     }
                 }
 

@@ -3,6 +3,7 @@ package com.esimko.mobile.data.repository
 import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.InstallmentApi
+import com.esimko.mobile.data.remote.dto.TransactionRequest
 import com.esimko.mobile.domain.model.Installment
 import com.esimko.mobile.domain.model.Salary
 import com.esimko.mobile.domain.repository.InstallmentRepository
@@ -42,6 +43,33 @@ class InstallmentRepositoryImpl @Inject constructor(
                 Result.Success(Salary(gajiPokok = response.data.gajiPokok ?: 0))
             } else {
                 Result.Error(response.message ?: "Failed to load salary")
+            }
+        } catch (e: Exception) {
+            Result.Error(apiErrorMessage(e, "Network error"))
+        }
+    }
+
+    override suspend fun submitLoan(
+        jenisPinjaman: Int,
+        nominal: Long,
+        tenor: Int,
+        gajiPokok: Long,
+        keterangan: String?
+    ): Result<Long> {
+        return try {
+            val request = TransactionRequest(
+                action = "add",
+                nominal = nominal,
+                tenor = tenor,
+                jenisPinjaman = jenisPinjaman,
+                gajiPokok = gajiPokok,
+                keterangan = keterangan
+            )
+            val response = api.submitLoan("pinjaman", request)
+            if (response.success && response.data != null) {
+                Result.Success(response.data.id)
+            } else {
+                Result.Error(response.message ?: "Pengajuan pinjaman gagal")
             }
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Network error"))

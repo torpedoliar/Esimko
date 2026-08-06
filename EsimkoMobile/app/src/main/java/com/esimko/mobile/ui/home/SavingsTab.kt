@@ -86,7 +86,7 @@ fun SavingsTab(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = AmountFormatter.format(state.profile?.saldoSimpanan ?: 0),
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimary
                         )

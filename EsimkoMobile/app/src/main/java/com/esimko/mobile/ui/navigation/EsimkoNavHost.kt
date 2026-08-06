@@ -10,6 +10,7 @@ import com.esimko.mobile.ui.auth.login.LoginScreen
 import com.esimko.mobile.ui.auth.register.RegisterScreen
 import com.esimko.mobile.ui.home.HomeScreen
 import com.esimko.mobile.ui.installment.InstallmentScreen
+import com.esimko.mobile.ui.installment.LoanApplicationScreen
 import com.esimko.mobile.ui.news.NewsListScreen
 import com.esimko.mobile.ui.news.NewsDetailScreen
 import com.esimko.mobile.ui.shopping.ShoppingDetailScreen
@@ -109,7 +110,17 @@ fun EsimkoNavHost(
 
         composable("installment") {
             InstallmentScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onApplyLoan = { navController.navigate("installment/apply") }
+            )
+        }
+
+        composable("installment/apply") {
+            LoanApplicationScreen(
+                onBack = { navController.popBackStack() },
+                onSubmitted = {
+                    navController.popBackStack()
+                }
             )
         }
 

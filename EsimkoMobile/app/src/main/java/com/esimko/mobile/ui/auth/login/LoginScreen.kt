@@ -2,7 +2,6 @@ package com.esimko.mobile.ui.auth.login
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
@@ -16,8 +15,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.esimko.mobile.ui.theme.Primary
-import com.esimko.mobile.ui.theme.OnPrimary
 
 @Composable
 fun LoginScreen(
@@ -40,7 +37,7 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Primary)
+                .background(MaterialTheme.colorScheme.primary)
                 .padding(top = 72.dp, bottom = 96.dp, start = 24.dp, end = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -48,13 +45,13 @@ fun LoginScreen(
                 text = "eSIMKO",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
-                color = OnPrimary
+                color = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Koperasi SIMKO",
                 style = MaterialTheme.typography.bodyMedium,
-                color = OnPrimary.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
             )
         }
 
@@ -64,7 +61,7 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .offset(y = (-48).dp),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(

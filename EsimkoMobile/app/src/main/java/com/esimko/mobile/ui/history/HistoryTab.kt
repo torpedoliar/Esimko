@@ -20,7 +20,8 @@ import com.esimko.mobile.ui.common.LoadingOverlay
 import com.esimko.mobile.ui.common.UiState
 import com.esimko.mobile.util.AmountFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val MODULES = listOf("transaksi", "penjualan")
+
 @Composable
 fun HistoryTab(
     transactionId: Long = 0L,
@@ -33,7 +34,6 @@ fun HistoryTab(
     val selectedModule by viewModel.selectedModule.collectAsState()
     val selectedId by viewModel.selectedTransactionId.collectAsState()
 
-    val modules = listOf("transaksi", "penjualan")
     val directMode = transactionId > 0L
     val showBack = onBack != {}
 
@@ -46,72 +46,98 @@ fun HistoryTab(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (directMode) "Riwayat" else "Riwayat Transaksi") },
-                navigationIcon = {
-                    if (showBack) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
-                        }
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Module filter
-            var expanded by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = modules.find { it == selectedModule }?.replaceFirstChar { it.uppercase() } ?: "",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                OutlinedButton(
-                    onClick = { expanded = true },
-                    modifier = Modifier.height(40.dp)
-                ) {
-                    Text("Ganti Jenis")
-                }
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                modules.forEach { module ->
-                    DropdownMenuItem(
-                        text = { Text(module.replaceFirstChar { it.uppercase() }) },
-                        onClick = {
-                            viewModel.selectModule(module)
-                            expanded = false
-                            if (directMode) {
-                                viewModel.loadHistory(transactionId)
-                            } else {
-                                viewModel.loadTransactions()
-                            }
-                        }
-                    )
-                }
-            }
-
-            Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        HeaderRow(
+            title = if (directMode) "Riwayat" else "Riwayat Transaksi",
+            showBack = showBack,
+            onBack = onBack,
+            directMode = directMode,
+            selectedModule = selectedModule,
+            onSelectModule = { module ->
+                viewModel.selectModule(module)
                 if (directMode) {
-                    HistoryDetailContent(uiState = uiState, onRetry = { viewModel.loadHistory(transactionId) })
+                    viewModel.loadHistory(transactionId)
                 } else {
-                    TransactionsListContent(
-                        state = transactionsState,
-                        selectedId = selectedId,
-                        onSelect = { viewModel.selectTransaction(it) },
-                        onBackToList = { viewModel.selectTransaction(-1L) },
-                        onRetry = { viewModel.loadTransactions() }
+                    viewModel.loadTransactions()
+                }
+            }
+        )
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (directMode) {
+                HistoryDetailContent(uiState = uiState, onRetry = { viewModel.loadHistory(transactionId) })
+            } else {
+                TransactionsListContent(
+                    state = transactionsState,
+                    selectedId = selectedId,
+                    onSelect = { viewModel.selectTransaction(it) },
+                    onBackToList = { viewModel.selectTransaction(-1L) },
+                    onRetry = { viewModel.loadTransactions() }
+                )
+            }
+        }
+    }
+}
+
+// Header konsisten antar-tab: title + aksi kanan, tanpa TopAppBar.
+// Pola sama dengan ShoppingTab ("Belanja" + Riwayat + keranjang).
+@Composable
+private fun HeaderRow(
+    title: String,
+    showBack: Boolean,
+    onBack: () -> Unit,
+    directMode: Boolean,
+    selectedModule: String,
+    onSelectModule: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            if (showBack) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                }
+            }
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                if (directMode) {
+                    Text(
+                        text = selectedModule.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
+            }
+        }
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.height(40.dp)
+        ) {
+            Text("Ganti Jenis")
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            MODULES.forEach { module ->
+                DropdownMenuItem(
+                    text = { Text(module.replaceFirstChar { it.uppercase() }) },
+                    onClick = {
+                        onSelectModule(module)
+                        expanded = false
+                    }
+                )
             }
         }
     }

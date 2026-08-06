@@ -12,8 +12,7 @@ fun EsimkoCard(
     content: @Composable () -> Unit
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        modifier = modifier.fillMaxWidth()
     ) {
         content()
     }
