@@ -96,7 +96,9 @@ echo "✓ Migrations applied"
 docker exec esimko-app php artisan config:clear 2>/dev/null
 docker exec esimko-app php artisan cache:clear 2>/dev/null
 docker exec esimko-app php artisan view:clear 2>/dev/null
-docker exec esimko-app php artisan storage:link 2>/dev/null
+# storage:link fails silently if public/storage is a real dir (git-tracked files).
+# ponytail: force-clean then link so new uploads (storage/app/public/*) serve via /storage/*.
+docker exec esimko-app sh -c 'rm -rf /var/www/html/public/storage && php /var/www/html/artisan storage:link' 2>&1
 echo "✓ Caches cleared"
 
 # For production, cache config

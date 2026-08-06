@@ -6,6 +6,7 @@ Homestead.json
 Homestead.yaml
 npm-debug.log
 yarn-error.log
+Cara Backup.txt
 
 # Database backup (large files)
 *.sql
@@ -40,3 +41,7 @@ app-debug*.apk
 storage/framework/views/
 storage/framework/cache/
 storage/framework/sessions/
+
+# public/storage = artisan storage:link symlink -> storage/app/public.
+# ponytail: git tracks real files here = conflicts with symlink, new uploads 404.
+public/storage/
