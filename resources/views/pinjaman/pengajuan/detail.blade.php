@@ -97,7 +97,7 @@
                                         <th>:</th>
                                         <td>{{(!empty($data['pinjaman']->keterangan) ? $data['pinjaman']->keterangan : 'Tidak ada Keterangan')}}</td>
                                     </tr>
-                                    @php $draft = json_decode($data['pinjaman']->keterangan, true); @endphp
+                                    @php $draft = json_decode($data['pinjaman']->draft_pengajuan, true); @endphp
                                     @if(is_array($draft) && isset($draft['gaji']))
                                         <tr>
                                             <th>Gaji Pokok (Pengajuan)</th>

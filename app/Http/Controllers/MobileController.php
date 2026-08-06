@@ -573,22 +573,22 @@ class MobileController extends Controller
     return ApiResponse::success($data);
   }
 
-  // Draft gaji + slip untuk pinjaman baru (Opsi 1): disimpan di transaksi.keterangan
-  // sebagai JSON, belum menyentuh tabel gaji_pokok. Commit resmi terjadi saat
-  // admin menyetujui pinjaman (PinjamanController::verifikasi → status 3).
+  // Draft gaji + slip untuk pinjaman baru (Opsi 1): disimpan di kolom draft_pengajuan
+  // sebagai JSON (bukan keterangan — keterangan masih dipakai untuk teks + dirender di
+  // list transaksi). Commit resmi hanya saat admin approve (PinjamanController::verifikasi → status 3).
   public function draft_gaji_pinjaman($transaksi, $request)
   {
     $draft = ['gaji' => (float) str_replace('.', '', $request->gaji_pokok ?? 0)];
-    if (!empty($transaksi->keterangan)) {
-      $keterangan = json_decode($transaksi->keterangan, true);
-      if (!empty($keterangan['slip'])) {
-        $draft['slip'] = $keterangan['slip'];
+    if (!empty($transaksi->draft_pengajuan)) {
+      $draft_lama = json_decode($transaksi->draft_pengajuan, true);
+      if (!empty($draft_lama['slip'])) {
+        $draft['slip'] = $draft_lama['slip'];
       }
     }
     if ($request->hasFile('attachment')) {
       $draft['slip'] = $request->file('attachment')->store('slip_gaji', 'public');
     }
-    $transaksi->keterangan = json_encode($draft);
+    $transaksi->draft_pengajuan = json_encode($draft);
     $transaksi->save();
   }
 
@@ -601,15 +601,16 @@ class MobileController extends Controller
     if (!$request->hasFile('attachment')) {
       return ApiResponse::error('file tidak ditemukan');
     }
-    $keterangan = json_decode($field->keterangan, true);
-    if (empty($keterangan)) {
-      $keterangan = [];
+    $draft = json_decode($field->draft_pengajuan, true);
+    if (empty($draft)) {
+      $draft = [];
     }
-    if (!empty($keterangan['slip'])) {
-      if (file_exists(storage_path('app/' . $keterangan['slip']))) { unlink(storage_path('app/' . $keterangan['slip'])); }
+    if (!empty($draft['slip'])) {
+      $path = storage_path('app/public/' . $draft['slip']);
+      if (file_exists($path)) { unlink($path); }
     }
-    $keterangan['slip'] = $request->file('attachment')->store('slip_gaji', 'public');
-    $field->keterangan = json_encode($keterangan);
+    $draft['slip'] = $request->file('attachment')->store('slip_gaji', 'public');
+    $field->draft_pengajuan = json_encode($draft);
     $field->save();
     return ApiResponse::success(null, 'success');
   }

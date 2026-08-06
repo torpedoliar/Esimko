@@ -321,7 +321,7 @@ class PinjamanController extends Controller
         if($request->status==3){
             // Disetujui → gaji draft (dari app) diresmikan ke tabel gaji_pokok.
             // Bulk gaji dari admin tetap via form pengajuan (tidak tertimpa).
-            $keterangan=json_decode($field->keterangan,true);
+            $keterangan=json_decode($field->draft_pengajuan,true);
             if(is_array($keterangan) && !empty($keterangan['gaji'])){
                 $riwayat=GajiPokok::where('fid_anggota',$field->fid_anggota)
                     ->where('bulan',$field->tanggal ? date('m-Y',strtotime($field->tanggal)) : date('m-Y'))
