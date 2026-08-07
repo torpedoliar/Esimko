@@ -13,6 +13,8 @@ interface TransactionApi {
     @GET("mobile/transaksi/{modul}")
     suspend fun getTransactions(
         @Path("modul") modul: String,
+        @Query("jenis") jenis: Int? = null,
+        @Query("status") status: Int? = null,
         @Query("tanggal_mulai") tanggalMulai: String? = null,
         @Query("tanggal_akhir") tanggalAkhir: String? = null,
         @Query("page") page: Int? = null,
@@ -35,7 +37,7 @@ interface TransactionApi {
     @POST("mobile/transaksi/upload_bukti_transaksi")
     suspend fun uploadTransactionProof(
         @Part("id") id: RequestBody,
-        @Part("bukti_transaksi") bukti: MultipartBody.Part
+        @Part bukti: MultipartBody.Part
     ): ApiResponse<Any>
 
     @POST("mobile/transaksi/batalkan")

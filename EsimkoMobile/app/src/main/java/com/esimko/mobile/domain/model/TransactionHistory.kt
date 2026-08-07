@@ -5,4 +5,7 @@ data class TransactionHistory(
     val caption: String,
     val noAnggota: String,
     val namaLengkap: String
-)
+) {
+    /** Nama pelaku untuk ditampilkan; kosong = tindakan sistem, bukan anggota. */
+    val pelaku: String get() = namaLengkap.ifBlank { "Sistem" }
+}

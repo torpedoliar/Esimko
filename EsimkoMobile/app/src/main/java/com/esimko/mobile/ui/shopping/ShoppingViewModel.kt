@@ -6,26 +6,49 @@ import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.domain.model.*
 import com.esimko.mobile.domain.repository.ShoppingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val SEARCH_DEBOUNCE_MS = 400L
+
 data class ShoppingState(
+    // produk
     val products: List<Product> = emptyList(),
+    val query: String = "",
+    val kelompokFilter: String? = null,
+    val page: Int = 1,
+    val hasMore: Boolean = false,
+    val isLoadingProducts: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val productsError: String? = null,
+    // detail produk
     val selectedProduct: ProductDetail? = null,
+    val isLoadingDetail: Boolean = false,
+    val detailError: String? = null,
+    // keranjang + checkout
     val cart: Cart = Cart(emptyList(), 0),
-    val history: List<PurchaseHistory> = emptyList(),
-    val historyDetail: PurchaseDetail? = null,
-    val installments: List<ShoppingInstallment> = emptyList(),
-    val returns: List<Return> = emptyList(),
-    val isLoading: Boolean = false,
-    val error: String? = null,
+    val isLoadingCart: Boolean = false,
+    val cartError: String? = null,
     val actionError: String? = null,
     val addSuccess: Boolean = false,
+    val isAdding: Boolean = false,
+    val isCheckingOut: Boolean = false,
     val checkoutFailedItems: List<FailedItemInfo> = emptyList(),
     val checkedOut: Boolean = false
-)
+) {
+    val cartQty: Int get() = cart.items.sumOf { it.qty }
+
+    val kelompokList: List<String>
+        get() = products.map { it.kelompok }.filter { it.isNotBlank() }.distinct().sorted()
+
+    val visibleProducts: List<Product>
+        get() = kelompokFilter?.let { k -> products.filter { it.kelompok == k } } ?: products
+}
 
 @HiltViewModel
 class ShoppingViewModel @Inject constructor(
@@ -33,18 +56,67 @@ class ShoppingViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ShoppingState())
-    val state: StateFlow<ShoppingState> = _state
+    val state: StateFlow<ShoppingState> = _state.asStateFlow()
+
+    private var searchJob: Job? = null
 
     init {
         loadProducts()
     }
 
+    fun onQueryChange(value: String) {
+        _state.value = _state.value.copy(query = value)
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            loadProducts()
+        }
+    }
+
+    fun onKelompokChange(value: String?) {
+        _state.value = _state.value.copy(
+            kelompokFilter = if (_state.value.kelompokFilter == value) null else value
+        )
+    }
+
+    fun retryProducts() = loadProducts()
+
     fun loadProducts() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            when (val result = shoppingRepository.getProducts(1)) {
-                is Result.Success -> _state.value = _state.value.copy(products = result.data, isLoading = false)
-                is Result.Error -> _state.value = _state.value.copy(error = result.message, isLoading = false)
+            _state.value = _state.value.copy(isLoadingProducts = true, productsError = null)
+            when (val result = shoppingRepository.getProducts(page = 1, search = _state.value.query)) {
+                is Result.Success -> _state.value = _state.value.copy(
+                    products = result.data.items,
+                    page = result.data.page,
+                    hasMore = result.data.hasMore,
+                    isLoadingProducts = false
+                )
+                is Result.Error -> _state.value = _state.value.copy(
+                    productsError = result.message,
+                    isLoadingProducts = false
+                )
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
+    fun loadMoreProducts() {
+        val s = _state.value
+        if (s.isLoadingProducts || s.isLoadingMore || !s.hasMore) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoadingMore = true)
+            when (val result = shoppingRepository.getProducts(page = s.page + 1, search = s.query)) {
+                is Result.Success -> _state.value = _state.value.copy(
+                    products = _state.value.products + result.data.items,
+                    page = result.data.page,
+                    hasMore = result.data.hasMore,
+                    isLoadingMore = false
+                )
+                // Gagal muat halaman berikutnya tidak menghapus produk yang sudah tampil.
+                is Result.Error -> _state.value = _state.value.copy(
+                    isLoadingMore = false,
+                    actionError = result.message
+                )
                 is Result.Loading -> Unit
             }
         }
@@ -52,10 +124,14 @@ class ShoppingViewModel @Inject constructor(
 
     fun loadProductDetail(id: String) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            _state.value = _state.value.copy(isLoadingDetail = true, detailError = null)
             when (val result = shoppingRepository.getProductDetail(id)) {
-                is Result.Success -> _state.value = _state.value.copy(selectedProduct = result.data, isLoading = false)
-                is Result.Error -> _state.value = _state.value.copy(error = result.message, isLoading = false)
+                is Result.Success -> _state.value = _state.value.copy(
+                    selectedProduct = result.data, isLoadingDetail = false
+                )
+                is Result.Error -> _state.value = _state.value.copy(
+                    detailError = result.message, isLoadingDetail = false
+                )
                 is Result.Loading -> Unit
             }
         }
@@ -63,21 +139,30 @@ class ShoppingViewModel @Inject constructor(
 
     fun loadCart() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            _state.value = _state.value.copy(isLoadingCart = true, cartError = null)
             when (val result = shoppingRepository.getCart()) {
-                is Result.Success -> _state.value = _state.value.copy(cart = result.data, isLoading = false)
-                is Result.Error -> _state.value = _state.value.copy(error = result.message, isLoading = false)
+                is Result.Success -> _state.value = _state.value.copy(
+                    cart = result.data, isLoadingCart = false
+                )
+                is Result.Error -> _state.value = _state.value.copy(
+                    cartError = result.message, isLoadingCart = false
+                )
                 is Result.Loading -> Unit
             }
         }
     }
 
+    // qty = tambahan, bukan total: proses_keranjang menjumlahkan dengan isi lama.
     fun addToCart(productId: Long, qty: Int = 1) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(actionError = null, addSuccess = false)
+            _state.value = _state.value.copy(isAdding = true, actionError = null, addSuccess = false)
             when (val result = shoppingRepository.updateCart(productId, qty)) {
-                is Result.Success -> _state.value = _state.value.copy(cart = result.data, actionError = null, addSuccess = true)
-                is Result.Error -> _state.value = _state.value.copy(actionError = result.message)
+                is Result.Success -> _state.value = _state.value.copy(
+                    isAdding = false, cart = result.data, actionError = null, addSuccess = true
+                )
+                is Result.Error -> _state.value = _state.value.copy(
+                    isAdding = false, actionError = result.message
+                )
                 is Result.Loading -> Unit
             }
         }
@@ -95,8 +180,9 @@ class ShoppingViewModel @Inject constructor(
 
     fun checkout() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, actionError = null)
+            _state.value = _state.value.copy(isCheckingOut = true, actionError = null)
             val cart = _state.value.cart
+            // it.id = id baris keranjang_belanja (checkout_keranjang mencarinya), bukan id produk.
             val result = shoppingRepository.checkout(
                 cart.items.map { it.id },
                 cart.items.map { it.qty }
@@ -105,9 +191,11 @@ class ShoppingViewModel @Inject constructor(
                 is Result.Success -> _state.value = _state.value.copy(
                     checkoutFailedItems = result.data.failedItems,
                     checkedOut = true,
-                    isLoading = false
+                    isCheckingOut = false
                 )
-                is Result.Error -> _state.value = _state.value.copy(actionError = result.message, isLoading = false)
+                is Result.Error -> _state.value = _state.value.copy(
+                    actionError = result.message, isCheckingOut = false
+                )
                 is Result.Loading -> Unit
             }
         }
@@ -117,56 +205,12 @@ class ShoppingViewModel @Inject constructor(
         _state.value = _state.value.copy(addSuccess = false)
     }
 
+    fun clearActionError() {
+        _state.value = _state.value.copy(actionError = null)
+    }
+
     fun resetCheckout() {
         _state.value = _state.value.copy(checkedOut = false, checkoutFailedItems = emptyList())
         loadCart()
-    }
-
-    fun loadHistory(jenis: String) {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            when (val result = shoppingRepository.getPurchaseHistory(jenis)) {
-                is Result.Success -> _state.value = _state.value.copy(history = result.data, isLoading = false)
-                is Result.Error -> _state.value = _state.value.copy(error = result.message, isLoading = false)
-                is Result.Loading -> Unit
-            }
-        }
-    }
-
-    fun resetHistoryDetail() {
-        _state.value = _state.value.copy(historyDetail = null)
-    }
-
-    fun loadHistoryDetail(jenis: String, id: Long) {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            when (val result = shoppingRepository.getPurchaseDetail(jenis, id)) {
-                is Result.Success -> _state.value = _state.value.copy(historyDetail = result.data, isLoading = false)
-                is Result.Error -> _state.value = _state.value.copy(error = result.message, isLoading = false)
-                is Result.Loading -> Unit
-            }
-        }
-    }
-
-    fun loadInstallments() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            when (val result = shoppingRepository.getShoppingInstallments()) {
-                is Result.Success -> _state.value = _state.value.copy(installments = result.data, isLoading = false)
-                is Result.Error -> _state.value = _state.value.copy(error = result.message, isLoading = false)
-                is Result.Loading -> Unit
-            }
-        }
-    }
-
-    fun loadReturns() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            when (val result = shoppingRepository.getReturns()) {
-                is Result.Success -> _state.value = _state.value.copy(returns = result.data, isLoading = false)
-                is Result.Error -> _state.value = _state.value.copy(error = result.message, isLoading = false)
-                is Result.Loading -> Unit
-            }
-        }
     }
 }

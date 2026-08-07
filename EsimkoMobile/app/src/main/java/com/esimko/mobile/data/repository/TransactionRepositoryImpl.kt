@@ -4,8 +4,11 @@ import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.TransactionApi
 import com.esimko.mobile.data.remote.dto.TransactionRequest
+import com.esimko.mobile.data.remote.dto.TransactionResponse
 import com.esimko.mobile.data.remote.dto.CancelRequest
+import com.esimko.mobile.domain.model.Paged
 import com.esimko.mobile.domain.model.Transaction
+import com.esimko.mobile.domain.model.TransactionDetail
 import com.esimko.mobile.domain.repository.TransactionRepository
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -18,54 +21,72 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun getTransactions(
         modul: String,
+        jenis: Int?,
+        status: Int?,
         tanggalAwal: String?,
         tanggalAkhir: String?,
-        page: Int?,
-        perPage: Int?
-    ): Result<List<Transaction>> {
+        page: Int,
+        perPage: Int
+    ): Result<Paged<Transaction>> {
         return try {
-            val response = api.getTransactions(modul, tanggalAwal, tanggalAkhir, page, perPage)
+            val response = api.getTransactions(
+                modul = modul,
+                jenis = jenis,
+                status = status,
+                tanggalMulai = tanggalAwal,
+                tanggalAkhir = tanggalAkhir,
+                page = page,
+                perPage = perPage
+            )
             if (response.success && response.data != null) {
-                Result.Success(response.data.map { dto ->
-                    Transaction(
-                        id = dto.id,
-                        jenis = dto.jenisTransaksi ?: "",
-                        modul = modul,
-                        nominal = dto.nominal ?: 0L,
-                        tanggal = dto.tanggal ?: "",
-                        status = dto.status ?: "",
-                        statusLabel = dto.status ?: "",
-                        keterangan = dto.keterangan
+                Result.Success(
+                    Paged(
+                        items = response.data.map { it.toDomain(modul) },
+                        page = response.meta?.page ?: page,
+                        // Tanpa meta (backend hanya mengirimnya saat paginasi) anggap satu halaman —
+                        // lebih baik berhenti memuat daripada meminta halaman yang tidak ada.
+                        lastPage = response.meta?.last_page ?: (response.meta?.page ?: page)
                     )
-                })
+                )
             } else {
-                Result.Error(response.message ?: "Failed to load transactions")
+                Result.Error(response.message ?: "Gagal memuat transaksi")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
-    override suspend fun getTransactionDetail(modul: String, id: Long): Result<Transaction> {
+    override suspend fun getTransactionDetail(modul: String, id: Long): Result<TransactionDetail> {
         return try {
+            // `$modul` di path diterima backend tapi tidak dipakai di query (lookup murni by id),
+            // jadi nilai apa pun aman. Tetap dikirim supaya URL sesuai rute.
             val response = api.getTransactionDetail(modul, id)
             if (response.success && response.data != null) {
                 val dto = response.data
-                Result.Success(Transaction(
-                    id = dto.id,
-                    jenis = dto.jenisTransaksi ?: "",
-                    modul = modul,
-                    nominal = dto.nominal ?: 0L,
-                    tanggal = dto.tanggal ?: "",
-                    status = dto.status ?: "",
-                    statusLabel = dto.status ?: "",
-                    keterangan = dto.keterangan
-                ))
+                Result.Success(
+                    TransactionDetail(
+                        id = dto.id,
+                        jenis = dto.jenisTransaksi.orEmpty(),
+                        nominal = dto.nominal ?: 0L,
+                        tanggal = dto.tanggal.orEmpty(),
+                        status = dto.status.orEmpty(),
+                        statusLabel = dto.status.orEmpty(),
+                        keterangan = dto.keterangan,
+                        buktiTransaksi = dto.buktiTransaksi,
+                        items = null,
+                        color = dto.color,
+                        statusKeterangan = dto.statusKeterangan?.takeIf { it.isNotBlank() },
+                        namaPetugas = dto.namaPetugas,
+                        metodePembayaran = dto.metodePembayaran,
+                        noAnggota = dto.noAnggota.orEmpty(),
+                        namaLengkap = dto.namaLengkap.orEmpty()
+                    )
+                )
             } else {
-                Result.Error(response.message ?: "Failed to load transaction detail")
+                Result.Error(response.message ?: "Gagal memuat detail transaksi")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -90,10 +111,10 @@ class TransactionRepositoryImpl @Inject constructor(
                     keterangan = dto.keterangan
                 ))
             } else {
-                Result.Error(response.message ?: "Failed to process transaction")
+                Result.Error(response.message ?: "Gagal mengirim pengajuan")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -104,10 +125,10 @@ class TransactionRepositoryImpl @Inject constructor(
             if (response.success) {
                 Result.Success(Unit)
             } else {
-                Result.Error(response.message ?: "Failed to cancel transaction")
+                Result.Error(response.message ?: "Gagal membatalkan transaksi")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -120,10 +141,31 @@ class TransactionRepositoryImpl @Inject constructor(
             if (response.success) {
                 Result.Success(Unit)
             } else {
-                Result.Error(response.message ?: "Failed to upload proof")
+                Result.Error(response.message ?: "Gagal mengunggah bukti")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 }
+
+/**
+ * DTO → model. Murni, tanpa Android/Retrofit, jadi bisa diuji di JVM.
+ * `nominal_tampil` dibaca hanya untuk tandanya; angkanya diformat MoneyFormatter.
+ */
+fun TransactionResponse.toDomain(modul: String): Transaction = Transaction(
+    id = id,
+    jenis = jenisTransaksi.orEmpty(),
+    modul = modul,
+    nominal = nominal ?: 0L,
+    tanggal = tanggal.orEmpty(),
+    status = status.orEmpty(),
+    statusLabel = status.orEmpty(),
+    keterangan = keterangan,
+    color = color,
+    nominalTampil = nominalTampil,
+    isDebit = nominalTampil?.trimStart()?.startsWith('-') == true,
+    totalAngsuran = totalAngsuran?.let { Math.round(it) },
+    sisaPinjaman = sisaPinjaman?.let { Math.round(it) },
+    sisaTenor = sisaTenor
+)

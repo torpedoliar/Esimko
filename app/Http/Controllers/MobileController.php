@@ -311,10 +311,10 @@ class MobileController extends Controller
     if (!empty($field)) {
       if ($request->hasFile('bukti_transaksi')) {
         if (!empty($field->bukti_transaksi)) {
-          if (file_exists(storage_path('app/public/' . $field->bukti_transaksi))) { unlink(storage_path('app/public/' . $field->bukti_transaksi)); }
+          if (file_exists(storage_path('app/' . $field->bukti_transaksi))) { unlink(storage_path('app/' . $field->bukti_transaksi)); }
         }
         $uploadedFile = $request->file('bukti_transaksi');
-        $path = $uploadedFile->store('bukti_transaksi', 'public');
+        $path = $uploadedFile->store('bukti_transaksi');
         $field->bukti_transaksi = $path;
         $field->save();
         return ApiResponse::success(null, 'success');
@@ -586,7 +586,7 @@ class MobileController extends Controller
       }
     }
     if ($request->hasFile('attachment')) {
-      $draft['slip'] = $request->file('attachment')->store('slip_gaji', 'public');
+      $draft['slip'] = $request->file('attachment')->store('slip_gaji');
     }
     $transaksi->draft_pengajuan = json_encode($draft);
     $transaksi->save();
@@ -606,10 +606,10 @@ class MobileController extends Controller
       $draft = [];
     }
     if (!empty($draft['slip'])) {
-      $path = storage_path('app/public/' . $draft['slip']);
+      $path = storage_path('app/' . $draft['slip']);
       if (file_exists($path)) { unlink($path); }
     }
-    $draft['slip'] = $request->file('attachment')->store('slip_gaji', 'public');
+    $draft['slip'] = $request->file('attachment')->store('slip_gaji');
     $field->draft_pengajuan = json_encode($draft);
     $field->save();
     return ApiResponse::success(null, 'success');
@@ -1062,12 +1062,12 @@ class MobileController extends Controller
       if (!empty($field)) {
           if ($request->hasFile('avatar')) {
               if (!empty($field->avatar)) {
-                  if (file_exists(storage_path('app/public/' . $field->avatar))) {
-                      unlink(storage_path('app/public/' . $field->avatar));
+                  if (file_exists(storage_path('app/' . $field->avatar))) {
+                      unlink(storage_path('app/' . $field->avatar));
                   }
               }
               $uploadedFile = $request->file('avatar');
-              $path = $uploadedFile->store('avatar', 'public');
+              $path = $uploadedFile->store('avatar');
               $field->avatar = $path;
               $field->save();
               return ApiResponse::success(null, 'success');

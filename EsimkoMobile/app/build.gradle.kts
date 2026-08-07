@@ -16,6 +16,9 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
+        // ponytail: soft-lock Belanja mobile. Web app lain yang urus belanja online.
+        // true + rebuild untuk aktifkan kembali tanpa sentuh code lain.
+        buildConfigField("boolean", "ENABLE_BELANJA", "false")
     }
 
     buildTypes {
@@ -50,7 +53,7 @@ android {
 
 dependencies {
     // Compose BOM
-    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
+    val composeBom = platform("androidx.compose:compose-bom:2024.09.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
@@ -60,6 +63,9 @@ dependencies {
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // AndroidX core — HtmlCompat untuk render konten berita (sebelumnya hanya transitif)
+    implementation("androidx.core:core-ktx:1.12.0")
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.50")

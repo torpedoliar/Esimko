@@ -38,7 +38,9 @@ data class CartItem(
     val nama: String,
     val harga: Long,
     val qty: Int,
-    val subtotal: Long
+    val subtotal: Long,
+    val foto: String? = null,   // thumbnail baris keranjang (Task 23)
+    val sisa: Int? = null       // batas tombol + di keranjang (Task 23)
 )
 
 data class Checkout(
@@ -55,7 +57,10 @@ data class PurchaseHistory(
     val total: Long,
     val tanggal: String,
     val status: String,
-    val angsuran: Int?
+    val angsuran: Int?,
+    val color: String? = null,
+    val noTransaksi: String? = null,
+    val jumlah: Int = 0
 )
 
 data class PurchaseDetail(
@@ -63,8 +68,21 @@ data class PurchaseDetail(
     val total: Long,
     val tanggal: String,
     val status: String,
-    val items: List<PurchaseItem>
-)
+    val items: List<PurchaseItem>,
+    val noTransaksi: String = "",
+    /** Label status dari `keterangan_status_transaksi`; `status` teks tidak dikirim endpoint ini. */
+    val labelStatus: String = "",
+    val keteranganStatus: String = "",
+    val metodePembayaran: String = "",
+    val jumlah: Int = 0,
+    val subtotal: Long = 0L,
+    val diskonNominal: Long = 0L,
+    val sisaAngsuran: Long = 0L,
+    val sisaTenor: Int = 0
+) {
+    /** Yang ditampilkan sebagai status: label dulu, `status` teks hanya cadangan. */
+    val statusTampil: String get() = labelStatus.ifBlank { status }
+}
 
 data class PurchaseItem(
     val id: Long,
@@ -78,9 +96,13 @@ data class ShoppingInstallment(
     val id: Long,
     val ke: Int,
     val nominal: Long,
-    val bulan: String,
+    val bulan: String?,
     val namaBulan: String?,
-    val status: String
+    val status: String,
+    val color: String? = null,
+    val noTransaksi: String? = null,
+    /** `penjualan.jenis_belanja` — `toko` | `konsinyasi` | `online`. Menentukan path detail. */
+    val jenisBelanja: String = "toko"
 )
 
 data class Return(
@@ -89,5 +111,8 @@ data class Return(
     val namaProduk: String,
     val jumlah: Int,
     val keterangan: String?,
-    val tanggal: String
+    val tanggal: String,
+    val foto: String? = null,
+    val satuan: String = "",
+    val kode: String = ""
 )

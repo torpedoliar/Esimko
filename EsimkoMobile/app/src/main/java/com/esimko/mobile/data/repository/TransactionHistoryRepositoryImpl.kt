@@ -19,17 +19,17 @@ class TransactionHistoryRepositoryImpl @Inject constructor(
             if (response.success && response.data != null) {
                 Result.Success(response.data.map {
                     TransactionHistory(
-                        createdAt = it.created_at,
-                        caption = it.caption,
-                        noAnggota = it.no_anggota,
-                        namaLengkap = it.nama_lengkap
+                        createdAt = it.created_at.orEmpty(),
+                        caption = it.caption.orEmpty(),
+                        noAnggota = it.no_anggota.orEmpty(),
+                        namaLengkap = it.nama_lengkap.orEmpty()
                     )
                 })
             } else {
-                Result.Error(response.message ?: "Failed to load history")
+                Result.Error(response.message ?: "Gagal memuat riwayat")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 }

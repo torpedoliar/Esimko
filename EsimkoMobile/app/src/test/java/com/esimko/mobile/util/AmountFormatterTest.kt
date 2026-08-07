@@ -30,4 +30,9 @@ class AmountFormatterTest {
         val result = AmountFormatter.formatRupiah(1500000.50)
         assertThat(result).contains("Rp")
     }
+
+    @Test
+    fun `double dipotong ke rupiah utuh`() {
+        assertThat(AmountFormatter.formatRupiah(1500000.50)).isEqualTo("Rp 1.500.000")
+    }
 }

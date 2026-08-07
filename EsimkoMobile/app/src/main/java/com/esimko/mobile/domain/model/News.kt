@@ -5,7 +5,14 @@ data class News(
     val judul: String,
     val ringkasan: String?,
     val gambar: String?,
-    val tanggal: String
+    val tanggal: String,
+    val jumlahAttachment: Int = 0
+)
+
+data class NewsAttachment(
+    val id: Long,
+    val judul: String,
+    val url: String
 )
 
 data class NewsDetail(
@@ -13,5 +20,6 @@ data class NewsDetail(
     val judul: String,
     val konten: String,
     val gambar: String?,
-    val tanggal: String
+    val tanggal: String,
+    val attachments: List<NewsAttachment> = emptyList()
 )

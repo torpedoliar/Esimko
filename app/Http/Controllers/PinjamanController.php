@@ -339,8 +339,8 @@ class PinjamanController extends Controller
                 }
                 $gaji->gaji_pokok=$keterangan['gaji'];
                 if(!empty($keterangan['slip'])){
-                    if(!empty($gaji->attachment) && file_exists(storage_path('app/public/'.$gaji->attachment))){
-                        unlink(storage_path('app/public/'.$gaji->attachment));
+                    if(!empty($gaji->attachment) && file_exists(storage_path('app/'.$gaji->attachment))){
+                        unlink(storage_path('app/'.$gaji->attachment));
                     }
                     $gaji->attachment=$keterangan['slip'];
                 }

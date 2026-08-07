@@ -17,11 +17,7 @@ data class SavingsState(
     val transactions: List<Transaction> = emptyList(),
     val profile: Profile? = null,
     val isLoading: Boolean = false,
-    val isSubmitting: Boolean = false,
-    val error: String? = null,
-    val submitError: String? = null,
-    val submitSuccess: String? = null,
-    val lastTransactionId: Long? = null
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -41,10 +37,10 @@ class SavingsViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             loadProfile()
-            when (val result = transactionRepository.getTransactions("simpanan")) {
+            when (val result = transactionRepository.getTransactions("simpanan", page = 1, perPage = 20)) {
                 is Result.Success -> {
                     _state.value = _state.value.copy(
-                        transactions = result.data,
+                        transactions = result.data.items,
                         isLoading = false
                     )
                 }
@@ -66,52 +62,6 @@ class SavingsViewModel @Inject constructor(
             }
             is Result.Error -> Unit
             is Result.Loading -> Unit
-        }
-    }
-
-    fun submitTransaction(jenis: String, nominal: Long) {
-        if (_state.value.isSubmitting || nominal <= 0) return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isSubmitting = true, submitError = null, submitSuccess = null)
-            when (val result = transactionRepository.processTransaction(jenis, nominal, null)) {
-                is Result.Success -> {
-                    _state.value = _state.value.copy(
-                        isSubmitting = false,
-                        submitSuccess = "${if (jenis == "setoran") "Setoran" else "Penarikan"} berhasil diajukan",
-                        lastTransactionId = result.data.id
-                    )
-                    load()
-                }
-                is Result.Error -> {
-                    _state.value = _state.value.copy(
-                        isSubmitting = false,
-                        submitError = result.message
-                    )
-                }
-                is Result.Loading -> Unit
-            }
-        }
-    }
-
-    fun clearSubmitFeedback() {
-        _state.value = _state.value.copy(submitError = null, submitSuccess = null, lastTransactionId = null)
-    }
-
-    fun uploadProof(bytes: ByteArray, mimeType: String) {
-        val id = _state.value.lastTransactionId ?: return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isSubmitting = true, submitError = null)
-            when (val result = transactionRepository.uploadTransactionProof(id, bytes, mimeType)) {
-                is Result.Success -> _state.value = _state.value.copy(
-                    isSubmitting = false,
-                    submitSuccess = "Bukti transaksi terkirim"
-                )
-                is Result.Error -> _state.value = _state.value.copy(
-                    isSubmitting = false,
-                    submitError = "Bukti gagal dikirim: ${result.message}"
-                )
-                is Result.Loading -> Unit
-            }
         }
     }
 }

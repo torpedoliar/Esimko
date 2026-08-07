@@ -1,0 +1,18 @@
+cd C:\IIS\Esimko
+mysqldump -u root --single-transaction --routines --triggers esimko > esimko_latest_backup.sql
+
+Tanpa -p. Cek hasil:
+
+dir esimko_latest_backup.sql
+
+Verifikasi size > 0 (idealnya >100KB kalau full data):
+
+findstr /C:"CREATE TABLE" esimko_latest_backup.sql | find /c "CREATE TABLE"
+
+Jumlah CREATE TABLE ~50+ = dump sukses. Kalau root password juga ditolak (walau .env kosong, kadang akses pake socket), coba:
+
+mysql -u root -e "SELECT 1"
+
+Karena app konek sukses — Laravel koneksi pass — jadi mysqldump -u root harusnya jalan juga.
+
+File ada di C:\IIS\Esimko\esimko_latest_backup.sql. Selanjutnya download ke lokal + import ke docker.

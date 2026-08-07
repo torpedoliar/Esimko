@@ -10,7 +10,8 @@ interface NewsApi {
     @GET("mobile/berita")
     suspend fun getNews(
         @Query("page") page: Int? = null,
-        @Query("per_page") perPage: Int? = null
+        @Query("per_page") perPage: Int? = null,
+        @Query("search") search: String? = null
     ): ApiResponse<List<NewsResponse>>
 
     @GET("mobile/berita/detail")

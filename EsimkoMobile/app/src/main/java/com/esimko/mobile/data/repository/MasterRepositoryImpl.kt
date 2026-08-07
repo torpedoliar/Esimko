@@ -24,10 +24,10 @@ class MasterRepositoryImpl @Inject constructor(
                     )
                 })
             } else {
-                Result.Error(response.message ?: "Failed to load transaction types")
+                Result.Error(response.message ?: "Gagal memuat jenis transaksi")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -39,14 +39,15 @@ class MasterRepositoryImpl @Inject constructor(
                     TransactionStatus(
                         id = dto.id,
                         nama = dto.nama.orEmpty(),
-                        kode = dto.caption.orEmpty()
+                        kode = dto.caption.orEmpty(),
+                        color = dto.color
                     )
                 })
             } else {
-                Result.Error(response.message ?: "Failed to load transaction statuses")
+                Result.Error(response.message ?: "Gagal memuat status transaksi")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 }

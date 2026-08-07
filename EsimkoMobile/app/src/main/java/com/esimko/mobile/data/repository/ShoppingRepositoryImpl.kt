@@ -14,28 +14,35 @@ class ShoppingRepositoryImpl @Inject constructor(
     private val api: ShoppingApi
 ) : ShoppingRepository {
 
-    override suspend fun getProducts(page: Int, perPage: Int): Result<List<Product>> {
+    override suspend fun getProducts(page: Int, perPage: Int, search: String?): Result<Paged<Product>> {
         return try {
-            val response = api.getProducts(page, perPage)
+            val response = api.getProducts(page, perPage, search?.takeIf { it.isNotBlank() })
             if (response.success && response.data != null) {
-                Result.Success(response.data.map { dto ->
+                val items = response.data.map { dto ->
                     Product(
                         id = dto.id,
                         nama = dto.nama.orEmpty(),
-                        harga = dto.harga ?: 0,
-                        stok = dto.stok ?: 0,
+                        harga = dto.harga?.let { Math.round(it) } ?: 0L,
+                        stok = dto.stok?.let { Math.round(it) } ?: 0,
                         gambar = dto.foto ?: dto.gambar,
                         satuan = dto.satuan.orEmpty(),
                         kode = dto.kode.orEmpty(),
                         kategori = dto.kategori.orEmpty(),
                         kelompok = dto.kelompok.orEmpty()
                     )
-                })
+                }
+                Result.Success(
+                    Paged(
+                        items = items,
+                        page = response.meta?.page ?: page,
+                        lastPage = response.meta?.last_page ?: (response.meta?.page ?: page)
+                    )
+                )
             } else {
-                Result.Error(response.message ?: "Failed to load products")
+                Result.Error(response.message ?: "Gagal memuat produk")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -47,22 +54,22 @@ class ShoppingRepositoryImpl @Inject constructor(
                 Result.Success(ProductDetail(
                     id = dto.id,
                     nama = dto.nama.orEmpty(),
-                    harga = dto.harga ?: 0,
-                    stok = dto.stok ?: 0,
+                    harga = dto.harga?.let { Math.round(it) } ?: 0L,
+                    stok = dto.stok?.let { Math.round(it) } ?: 0,
                     gambar = dto.foto ?: dto.gambar,
                     deskripsi = dto.deskripsi,
                     satuan = dto.satuan.orEmpty(),
                     kode = dto.kode.orEmpty(),
                     kategori = dto.kategori.orEmpty(),
                     kelompok = dto.kelompok.orEmpty(),
-                    terjual = dto.terjual ?: 0,
-                    sisa = dto.sisa ?: 0
+                    terjual = dto.terjual?.let { Math.round(it) } ?: 0,
+                    sisa = dto.sisa?.let { Math.round(it) } ?: 0
                 ))
             } else {
-                Result.Error(response.message ?: "Failed to load product detail")
+                Result.Error(response.message ?: "Gagal memuat detail produk")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -76,18 +83,20 @@ class ShoppingRepositoryImpl @Inject constructor(
                             id = item.id,
                             produkId = item.produkId ?: item.fidProduk ?: 0,
                             nama = item.nama ?: item.namaProduk.orEmpty(),
-                            harga = item.harga ?: item.hargaJual ?: 0,
-                            qty = item.qty ?: item.jumlah ?: 0,
-                            subtotal = item.subtotal ?: 0
+                            harga = (item.harga ?: item.hargaJual)?.let { Math.round(it) } ?: 0L,
+                            qty = (item.qty ?: item.jumlah)?.let { Math.round(it) } ?: 0,
+                            subtotal = item.subtotal?.let { Math.round(it) } ?: 0L,
+                            foto = item.foto,
+                            sisa = item.sisa?.let { Math.round(it) }
                         )
                     },
                     total = response.data.total ?: 0
                 ))
             } else {
-                Result.Error(response.message ?: "Failed to load cart")
+                Result.Error(response.message ?: "Gagal memuat keranjang")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -98,20 +107,26 @@ class ShoppingRepositoryImpl @Inject constructor(
             if (response.success) {
                 getCart()
             } else {
-                Result.Error(response.message ?: "Failed to update cart")
+                // Pesan server termasuk 'Jumlah melebih stok' (typo milik backend, jangan diperbaiki
+                // di client — pesannya diteruskan apa adanya supaya cocok dengan web).
+                Result.Error(response.message ?: "Gagal mengubah keranjang")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
     override suspend fun deleteFromCart(produkId: Long): Result<Cart> {
         return try {
             val request = CartRequest(id = produkId, jumlah = 0, action = "delete")
-            api.updateCart(request)
-            getCart()
+            val response = api.updateCart(request)
+            if (response.success) {
+                getCart()
+            } else {
+                Result.Error(response.message ?: "Gagal menghapus barang dari keranjang")
+            }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -125,45 +140,38 @@ class ShoppingRepositoryImpl @Inject constructor(
                     }
                 ))
             } else {
-                Result.Error(response.message ?: "Failed to checkout")
+                Result.Error(response.message ?: "Gagal checkout")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
-    override suspend fun cancelPurchase(id: Long, alasan: String): Result<Unit> {
-        return try {
-            val request = CancelPurchaseRequest(id = id, alasan = alasan)
-            val response = api.cancelPurchase(request)
-            if (response.success) {
-                Result.Success(Unit)
-            } else {
-                Result.Error(response.message ?: "Failed to cancel purchase")
-            }
-        } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
-        }
-    }
-
-    override suspend fun getPurchaseHistory(jenis: String, page: Int?, perPage: Int?): Result<List<PurchaseHistory>> {
+    override suspend fun getPurchaseHistory(jenis: String, page: Int, perPage: Int): Result<Paged<PurchaseHistory>> {
         return try {
             val response = api.getPurchaseHistory(jenis, page, perPage)
             if (response.success && response.data != null) {
-                Result.Success(response.data.map { dto ->
-                    PurchaseHistory(
-                        id = dto.id,
-                        total = dto.total ?: 0,
-                        tanggal = dto.tanggal.orEmpty(),
-                        status = dto.status.orEmpty(),
-                        angsuran = dto.angsuran
-                    )
-                })
+                Result.Success(Paged(
+                    items = response.data.map { dto ->
+                        PurchaseHistory(
+                            id = dto.id,
+                            total = dto.total?.let { Math.round(it) } ?: 0L,
+                            tanggal = dto.tanggal.orEmpty(),
+                            status = dto.status.orEmpty(),
+                            angsuran = dto.angsuran,
+                            color = dto.color,
+                            noTransaksi = dto.noTransaksi,
+                            jumlah = dto.jumlah?.let { Math.round(it).toInt() } ?: 0
+                        )
+                    },
+                    page = response.meta?.page ?: page,
+                    lastPage = response.meta?.last_page ?: (response.meta?.page ?: page)
+                ))
             } else {
-                Result.Error(response.message ?: "Failed to load purchase history")
+                Result.Error(response.message ?: "Gagal memuat riwayat belanja")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
@@ -172,70 +180,95 @@ class ShoppingRepositoryImpl @Inject constructor(
             val response = api.getPurchaseDetail(jenis, id)
             if (response.success && response.data != null) {
                 val dto = response.data
-                Result.Success(PurchaseDetail(
-                    id = dto.id,
-                    total = dto.total ?: 0,
-                    tanggal = dto.tanggal.orEmpty(),
-                    status = dto.status.orEmpty(),
-                    items = (dto.items ?: emptyList()).map { item ->
-                        PurchaseItem(
-                            id = item.id,
-                            nama = item.nama ?: item.namaProduk.orEmpty(),
-                            harga = item.harga ?: 0,
-                            qty = item.qty ?: 0,
-                            subtotal = item.subtotal ?: 0
+                Result.Success(
+                    PurchaseDetail(
+                        id = dto.id,
+                        total = Math.round(dto.total ?: 0.0),
+                        tanggal = dto.tanggal.orEmpty(),
+                        status = dto.status.orEmpty(),
+                        items = dto.items.orEmpty().map { item ->
+                            PurchaseItem(
+                                id = item.id,
+                                nama = item.nama ?: item.namaProduk.orEmpty(),
+                                harga = item.harga?.let { Math.round(it) } ?: 0L,
+                                qty = item.qty?.let { Math.round(it) } ?: 0,
+                                subtotal = item.subtotal?.let { Math.round(it) } ?: 0L
+                            )
+                        },
+                        noTransaksi = dto.noTransaksi.orEmpty(),
+                        labelStatus = dto.labelStatus.orEmpty(),
+                        keteranganStatus = dto.keteranganStatus.orEmpty(),
+                        metodePembayaran = dto.metodePembayaran.orEmpty(),
+                        jumlah = Math.round(dto.jumlah ?: 0.0).toInt(),
+                        subtotal = Math.round(dto.subtotal ?: 0.0),
+                        diskonNominal = Math.round(dto.diskonNominal ?: 0.0),
+                        sisaAngsuran = Math.round(dto.sisaAngsuran ?: 0.0),
+                        sisaTenor = dto.sisaTenor ?: 0
+                    )
+                )
+            } else {
+                Result.Error(response.message ?: "Gagal memuat detail belanja")
+            }
+        } catch (e: Exception) {
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
+        }
+    }
+
+    override suspend fun getShoppingInstallments(page: Int, perPage: Int): Result<Paged<ShoppingInstallment>> {
+        return try {
+            val response = api.getShoppingInstallments(page, perPage)
+            if (response.success && response.data != null) {
+                Result.Success(Paged(
+                    items = response.data.map { dto ->
+                        ShoppingInstallment(
+                            id = dto.id,
+                            ke = dto.ke ?: 0,
+                            nominal = dto.nominal?.let { Math.round(it) } ?: 0L,
+                            bulan = dto.bulan?.takeIf { it.isNotBlank() },
+                            namaBulan = dto.namaBulan?.takeIf { it.isNotBlank() },
+                            status = dto.status.orEmpty(),
+                            color = dto.color,
+                            noTransaksi = dto.noTransaksi,
+                            jenisBelanja = dto.jenisBelanja?.takeIf { it.isNotBlank() } ?: "toko"
                         )
-                    }
+                    },
+                    page = response.meta?.page ?: page,
+                    lastPage = response.meta?.last_page ?: (response.meta?.page ?: page)
                 ))
             } else {
-                Result.Error(response.message ?: "Failed to load purchase detail")
+                Result.Error(response.message ?: "Gagal memuat angsuran belanja")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
-    override suspend fun getShoppingInstallments(): Result<List<ShoppingInstallment>> {
+    override suspend fun getReturns(search: String?, page: Int, perPage: Int): Result<Paged<Return>> {
         return try {
-            val response = api.getShoppingInstallments()
+            val response = api.getReturns(search?.takeIf { it.isNotBlank() }, page, perPage)
             if (response.success && response.data != null) {
-                Result.Success(response.data.map { dto ->
-                    ShoppingInstallment(
-                        id = dto.id,
-                        ke = dto.ke ?: 0,
-                        nominal = dto.nominal ?: 0,
-                        bulan = dto.bulan.orEmpty(),
-                        namaBulan = dto.namaBulan ?: dto.bulan,
-                        status = dto.status.orEmpty()
-                    )
-                })
+                Result.Success(Paged(
+                    items = response.data.map { dto ->
+                        Return(
+                            id = dto.id,
+                            noRetur = dto.noRetur.orEmpty(),
+                            namaProduk = dto.namaProduk.orEmpty(),
+                            jumlah = dto.jumlah ?: 0,
+                            keterangan = dto.keterangan,
+                            tanggal = dto.tanggal.orEmpty(),
+                            foto = dto.foto,
+                            satuan = dto.satuan.orEmpty(),
+                            kode = dto.kode.orEmpty()
+                        )
+                    },
+                    page = response.meta?.page ?: page,
+                    lastPage = response.meta?.last_page ?: (response.meta?.page ?: page)
+                ))
             } else {
-                Result.Error(response.message ?: "Failed to load shopping installments")
+                Result.Error(response.message ?: "Gagal memuat retur barang")
             }
         } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
-        }
-    }
-
-    override suspend fun getReturns(): Result<List<Return>> {
-        return try {
-            val response = api.getReturns()
-            if (response.success && response.data != null) {
-                Result.Success(response.data.map { dto ->
-                    Return(
-                        id = dto.id,
-                        noRetur = dto.noRetur.orEmpty(),
-                        namaProduk = dto.namaProduk.orEmpty(),
-                        jumlah = dto.jumlah ?: 0,
-                        keterangan = dto.keterangan,
-                        tanggal = dto.tanggal.orEmpty()
-                    )
-                })
-            } else {
-                Result.Error(response.message ?: "Failed to load returns")
-            }
-        } catch (e: Exception) {
-            Result.Error(apiErrorMessage(e, "Network error"))
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 }

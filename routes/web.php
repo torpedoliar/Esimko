@@ -2,19 +2,21 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('storage/{folder}/{filename}', function ($folder, $filename){
-
-    $path = storage_path('app/' . $folder . '/' . $filename);
-    if (!File::exists($path)) {
+Route::get('storage/{path?}', function ($path = null){
+    // ponytail: serve file dari storage/app (disk local). Semua upload konsisten ke sini,
+    // termasuk slip gaji/bukti transaksi/berita. Symlink public/storage tidak dipakai —
+    // route fallback ini menutup IIS production yang baca storage/app/.
+    $full = storage_path('app/' . $path);
+    if (!$path || !File::exists($full)) {
         abort(404);
     }
-    $file = File::get($path);
-    $type = File::mimeType($path);
+    $file = File::get($full);
+    $type = File::mimeType($full);
     $response = Response::make($file, 200);
     $response->header("Content-Type", $type);
     return $response;
 
-});
+})->where('path', '.+');
 
 Route::get('zzzz', function () {
     $list_transaksi = \App\Angsuran::where('angsuran_pokok', '<=', 0)->select('fid_transaksi')->groupBy('fid_transaksi')->get()->pluck('fid_transaksi')->toArray();

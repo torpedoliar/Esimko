@@ -1,67 +1,132 @@
 package com.esimko.mobile.ui.home
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Receipt
+import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.esimko.mobile.BuildConfig
+import com.esimko.mobile.ui.account.AccountTab
+import com.esimko.mobile.ui.activity.ActivityTab
+import com.esimko.mobile.ui.shopping.ShoppingViewModel
 
-enum class BottomNavItem(val label: String, val icon: ImageVector, val route: String) {
-    HOME("Home", Icons.Default.Home, "dashboard"),
-    SAVINGS("Simpanan", Icons.Default.AccountBalance, "savings"),
-    SHOPPING("Belanja", Icons.Default.ShoppingCart, "shopping"),
-    HISTORY("Riwayat", Icons.Default.History, "history"),
-    PROFILE("Profil", Icons.Default.Person, "profile")
+private enum class Tab(val label: String, val icon: ImageVector, val route: String) {
+    BERANDA("Beranda", Icons.Outlined.Home, "beranda"),
+    AKTIVITAS("Aktivitas", Icons.Outlined.Receipt, "aktivitas"),
+    BELANJA("Belanja", Icons.Outlined.Storefront, "belanja"),
+    AKUN("Akun", Icons.Outlined.AccountCircle, "akun")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onLogout: () -> Unit = {},
-    onOpenInstallment: () -> Unit = {},
-    onOpenNewsDetail: (Long) -> Unit = {},
-    onOpenProduct: (String) -> Unit = {},
-    onOpenCart: () -> Unit = {},
-    onOpenShoppingHistory: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
-    onOpenTransactionHistory: (Long, String) -> Unit = { _, _ -> }
+    onNavigateRoot: (String) -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf(BottomNavItem.HOME) }
+    val tabNav = rememberNavController()
+    val entry by tabNav.currentBackStackEntryAsState()
+    // Cocokkan lewat prefix: rute "aktivitas?filter=retur" harus tetap menyorot tab AKTIVITAS
+    val current = entry?.destination?.route?.substringBefore('?')
+
+    // ponytail: satu ShoppingViewModel untuk area tab; CartScreen di NavHost akar tetap punya
+    // instance sendiri dan disinkronkan dengan loadCart() saat Belanja aktif kembali.
+    // Kalau nanti butuh badge yang selalu sinkron lintas NavHost, pindahkan keranjang ke
+    // repository ber-state (StateFlow) — bukan menambah CompositionLocal.
+    // ENABLE_BELANJA=false → VM tidak di-request (Hilt tidak instantiate), tab Belanja hidden.
+    val cartViewModel: ShoppingViewModel? = if (BuildConfig.ENABLE_BELANJA) hiltViewModel() else null
+    val tabs = Tab.values().filter { it != Tab.BELANJA || BuildConfig.ENABLE_BELANJA }
 
     Scaffold(
         bottomBar = {
             NavigationBar {
-                BottomNavItem.entries.forEach { item ->
+                tabs.forEach { tab ->
                     NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label) },
-                        selected = selectedTab == item,
-                        onClick = { selectedTab = item }
+                        selected = current == tab.route,
+                        onClick = {
+                            // ponytail: navigation-compose 2.7.7 — saveState+restoreState+launchSingleTop
+                            // menyorot tab benar tapi kadang tidak recompose isi (entry lama dipertahankan).
+                            // popBackStack ke start lalu navigate polos menjamin tab baru benar-benar tampil.
+                            // State scroll hilang; ditukar dengan keandalan. Balik ke saveState bila versi
+                            // navigation-compose sudah stabil terhadap bug ini.
+                            if (current != tab.route) {
+                                tabNav.popBackStack(
+                                    tabNav.graph.startDestinationId,
+                                    inclusive = false
+                                )
+                                tabNav.navigate(tab.route) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
+                        icon = { Icon(tab.icon, contentDescription = null) },
+                        label = { Text(tab.label) },
+                        alwaysShowLabel = true
                     )
                 }
             }
         }
-    ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {
-            when (selectedTab) {
-                BottomNavItem.HOME -> DashboardTab(
-                    onOpenInstallment = onOpenInstallment,
-                    onOpenNewsDetail = onOpenNewsDetail
+    ) { padding ->
+        NavHost(
+            navController = tabNav,
+            startDestination = Tab.BERANDA.route,
+            modifier = Modifier.padding(bottom = padding.calculateBottomPadding())
+        ) {
+            composable(Tab.BERANDA.route) {
+                DashboardTab(
+                    onNavigate = { route ->
+                        if (route.substringBefore('?') in Tab.values().map { it.route }) {
+                            tabNav.navigate(route) { launchSingleTop = true }
+                        } else {
+                            onNavigateRoot(route)
+                        }
+                    },
+                    onOpenNewsDetail = { id -> onNavigateRoot("news/$id") }
                 )
-                BottomNavItem.SAVINGS -> SavingsTab(onOpenHistory = onOpenTransactionHistory)
-                BottomNavItem.SHOPPING -> ShoppingTab(
-                    onOpenProduct = onOpenProduct,
-                    onOpenCart = onOpenCart,
-                    onOpenHistory = onOpenShoppingHistory
+            }
+            composable(
+                route = "${Tab.AKTIVITAS.route}?filter={filter}",
+                arguments = listOf(navArgument("filter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { e ->
+                ActivityTab(
+                    initialFilter = e.arguments?.getString("filter"),
+                    onOpenDetail = { id, modul -> onNavigateRoot("history/$modul/$id") }
                 )
-                BottomNavItem.HISTORY -> com.esimko.mobile.ui.history.HistoryTab()
-                BottomNavItem.PROFILE -> ProfileTab(onLogout = onLogout, onOpenSettings = onOpenSettings)
+            }
+            if (BuildConfig.ENABLE_BELANJA) {
+                composable(Tab.BELANJA.route) {
+                    // cartViewModel non-null di blok ini (flag true → hiltViewModel dipanggil).
+                    ShoppingTab(
+                        onOpenProduct = { kode -> onNavigateRoot("shopping_detail/$kode") },
+                        onOpenCart = { onNavigateRoot("cart") },
+                        viewModel = cartViewModel!!
+                    )
+                }
+            }
+            composable(Tab.AKUN.route) {
+                AccountTab(
+                    onLogout = onLogout,
+                    onOpenSettings = { onNavigateRoot("settings") }
+                )
             }
         }
     }

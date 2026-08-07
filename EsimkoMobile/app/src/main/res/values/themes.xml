@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.EsimkoMobile" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Edge-to-edge: bar sistem transparan, Compose yang menggambar di belakangnya. -->
+    <style name="Theme.EsimkoMobile" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <!-- API 28: scrim tipis di navigation bar. HP tombol-3 Android 9 butuh ini,
+             tanpanya tombol hitam menempel di konten gelap. -->
+        <item name="android:navigationBarColor">#66000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
 </resources>

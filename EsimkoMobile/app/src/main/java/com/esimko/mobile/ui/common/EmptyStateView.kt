@@ -15,7 +15,9 @@ import androidx.compose.ui.unit.dp
 fun EmptyStateView(
     message: String,
     modifier: Modifier = Modifier,
-    icon: ImageVector = Icons.Outlined.Inbox
+    icon: ImageVector = Icons.Outlined.Inbox,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -37,12 +39,26 @@ fun EmptyStateView(
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "Data belum tersedia, coba lagi nanti atau hubungi kasir.",
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        if (actionLabel != null && onAction != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onAction,
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) {
+                Text(actionLabel, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+}
+
+@LightDarkPreview
+@Composable
+private fun EmptyStateViewPreview() {
+    EsimkoPreview {
+        EmptyStateView(
+            message = "Belum ada pengajuan. Mulai dari Beranda.",
+            actionLabel = "Ke Beranda",
+            onAction = {}
         )
     }
 }

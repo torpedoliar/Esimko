@@ -7,9 +7,11 @@ import com.esimko.mobile.domain.model.Salary
 import com.esimko.mobile.domain.model.TransactionType
 import com.esimko.mobile.domain.repository.InstallmentRepository
 import com.esimko.mobile.domain.repository.MasterRepository
+import com.esimko.mobile.util.LoanMath
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -32,7 +34,26 @@ data class LoanApplicationState(
     val slipBytes: ByteArray? = null,
     val slipMime: String? = null,
     val slipName: String? = null
-)
+) {
+    /** Batas tenor jenis terpilih; 0 = belum ada jenis dipilih. */
+    val maxTenor: Int get() = MAX_TENOR[selectedJenis] ?: 0
+
+    val nominalValue: Long get() = nominal.toLongOrNull() ?: 0L
+    val tenorValue: Int get() = tenor.toIntOrNull() ?: 0
+    val gajiValue: Long get() = gajiPokok.toLongOrNull() ?: 0L
+
+    val tenorValid: Boolean get() = tenorValue in 1..maxTenor
+
+    /** Estimasi, bukan angka resmi — backend tidak mengirim bunga per jenis. Lihat `LoanMath`. */
+    val estimasiAngsuran: Long get() = LoanMath.angsuranPerBulan(nominalValue, tenorValue)
+
+    val bisaKirim: Boolean
+        get() = !isSubmitting && selectedJenis != null && nominalValue > 0L &&
+            tenorValid && gajiValue > 0L && slipBytes != null
+
+    /** Konten form sudah bisa digambar (jenis pinjaman termuat). */
+    val hasContent: Boolean get() = loanTypes.isNotEmpty()
+}
 
 @HiltViewModel
 class LoanApplicationViewModel @Inject constructor(
@@ -41,7 +62,7 @@ class LoanApplicationViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LoanApplicationState())
-    val state: StateFlow<LoanApplicationState> = _state
+    val state: StateFlow<LoanApplicationState> = _state.asStateFlow()
 
     init {
         load()
@@ -88,8 +109,6 @@ class LoanApplicationViewModel @Inject constructor(
         _state.value = _state.value.copy(gajiPokok = value.filter { it.isDigit() })
     }
 
-    fun maxTenor(): Int = MAX_TENOR[_state.value.selectedJenis] ?: 0
-
     fun onSlipPicked(bytes: ByteArray, mime: String, name: String) {
         _state.value = _state.value.copy(slipBytes = bytes, slipMime = mime, slipName = name)
     }
@@ -101,16 +120,12 @@ class LoanApplicationViewModel @Inject constructor(
     fun submit() {
         val s = _state.value
         val jenis = s.selectedJenis ?: return
-        val nominal = s.nominal.toLongOrNull() ?: 0
-        val tenor = s.tenor.toIntOrNull() ?: 0
-        // Gaji diinput user (form) — resmi hanya saat admin approve (Opsi 1)
-        val gaji = s.gajiPokok.toLongOrNull() ?: 0
-        if (s.isSubmitting || nominal <= 0 || tenor <= 0 || gaji <= 0) return
+        if (!s.bisaKirim) return
 
         viewModelScope.launch {
             _state.value = _state.value.copy(isSubmitting = true, submitError = null)
             when (val result = installmentRepository.submitLoan(
-                jenis, nominal, tenor, gaji, null, s.slipBytes, s.slipMime
+                jenis, s.nominalValue, s.tenorValue, s.gajiValue, null, s.slipBytes, s.slipMime
             )) {
                 is Result.Success -> _state.value = _state.value.copy(
                     isSubmitting = false,

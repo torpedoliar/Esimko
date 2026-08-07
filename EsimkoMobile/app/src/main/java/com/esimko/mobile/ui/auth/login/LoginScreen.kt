@@ -1,20 +1,43 @@
 package com.esimko.mobile.ui.auth.login
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.esimko.mobile.R
+import com.esimko.mobile.ui.common.EsimkoPreview
+import com.esimko.mobile.ui.common.LightDarkPreview
+import com.esimko.mobile.ui.common.heroBackground
+import com.esimko.mobile.ui.theme.OnHero
 
 @Composable
 fun LoginScreen(
@@ -24,38 +47,33 @@ fun LoginScreen(
 ) {
     val uiState = viewModel.uiState
 
-    if (uiState.isLoggedIn) {
-        onLoginSuccess()
+    // Navigasi aman: LaunchedEffect, bukan panggilan langsung di compose (mencegah recoil berulang).
+    LaunchedEffect(uiState.isLoggedIn) {
+        if (uiState.isLoggedIn) onLoginSuccess()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        // Brand header — hijau koperasi
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // Hero header hijau pekat + wordmark putih
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.primary)
+                .background(heroBackground())
                 .padding(top = 72.dp, bottom = 96.dp, start = 24.dp, end = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "eSIMKO",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary
+            Image(
+                painter = painterResource(R.drawable.logo_esimko_wordmark_light),
+                contentDescription = "esimko",
+                modifier = Modifier.height(28.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 text = "Koperasi SIMKO",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+                color = OnHero.copy(alpha = 0.85f)
             )
         }
-
-        // Form card — overlap header hijau
+        // Form card — overlap header, hanya warna token dirombak
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -64,22 +82,15 @@ fun LoginScreen(
             shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp)
-            ) {
+            Column(Modifier.padding(24.dp)) {
+                Text("Masuk", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Masuk",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Masukkan No. Anggota dan password Anda",
+                    "Masukkan No. Anggota dan password Anda",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(24.dp))
-
+                Spacer(Modifier.height(24.dp))
                 OutlinedTextField(
                     value = uiState.username,
                     onValueChange = viewModel::onUsernameChange,
@@ -90,9 +101,7 @@ fun LoginScreen(
                     enabled = !uiState.isLoading,
                     singleLine = true
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
+                Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = uiState.password,
                     onValueChange = viewModel::onPasswordChange,
@@ -104,18 +113,15 @@ fun LoginScreen(
                     enabled = !uiState.isLoading,
                     singleLine = true
                 )
-
                 uiState.error?.let { error ->
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = error,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
+                Spacer(Modifier.height(24.dp))
                 Button(
                     onClick = viewModel::login,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -123,16 +129,14 @@ fun LoginScreen(
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
+                            Modifier.size(24.dp),
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
                         Text("Login", style = MaterialTheme.typography.labelLarge)
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
+                Spacer(Modifier.height(12.dp))
                 TextButton(
                     onClick = onNavigateToRegister,
                     enabled = !uiState.isLoading,
@@ -141,6 +145,32 @@ fun LoginScreen(
                     Text("Belum punya akun? Daftar")
                 }
             }
+        }
+    }
+}
+
+@LightDarkPreview
+@Composable
+private fun LoginBrandHeaderPreview() {
+    EsimkoPreview {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(heroBackground())
+                .padding(top = 72.dp, bottom = 96.dp, start = 24.dp, end = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                painter = painterResource(R.drawable.logo_esimko_wordmark_light),
+                contentDescription = "esimko",
+                modifier = Modifier.height(28.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Koperasi SIMKO",
+                style = MaterialTheme.typography.bodyMedium,
+                color = OnHero.copy(alpha = 0.85f)
+            )
         }
     }
 }

@@ -15,9 +15,10 @@ import com.esimko.mobile.ui.news.NewsListScreen
 import com.esimko.mobile.ui.news.NewsDetailScreen
 import com.esimko.mobile.ui.shopping.ShoppingDetailScreen
 import com.esimko.mobile.ui.shopping.CartScreen
-import com.esimko.mobile.ui.shopping.ShoppingHistoryScreen
 import com.esimko.mobile.ui.settings.SettingsScreen
-import com.esimko.mobile.ui.history.HistoryTab
+import com.esimko.mobile.ui.activity.ActivityDetailScreen
+import com.esimko.mobile.ui.home.SavingsTab
+import com.esimko.mobile.ui.savings.SavingsFormScreen
 
 @Composable
 fun EsimkoNavHost(
@@ -63,27 +64,24 @@ fun EsimkoNavHost(
                         popUpTo("home") { inclusive = true }
                     }
                 },
-                onOpenInstallment = {
-                    navController.navigate("installment")
-                },
-                onOpenNewsDetail = { newsId ->
-                    navController.navigate("news/$newsId")
-                },
-                onOpenProduct = { kode ->
-                    navController.navigate("shopping_detail/$kode")
-                },
-                onOpenCart = {
-                    navController.navigate("cart")
-                },
-                onOpenShoppingHistory = {
-                    navController.navigate("shopping_history")
-                },
-                onOpenSettings = {
-                    navController.navigate("settings")
-                },
-                onOpenTransactionHistory = { id, module ->
-                    navController.navigate("history/$module/$id")
-                }
+                onNavigateRoot = { route -> navController.navigate(route) }
+            )
+        }
+
+        composable("savings") {
+            SavingsTab(
+                onOpenHistory = { id, modul -> navController.navigate("history/$modul/$id") },
+                onOpenForm = { jenis -> navController.navigate("savings_form/$jenis") }
+            )
+        }
+        composable(
+            route = "savings_form/{jenis}",
+            arguments = listOf(navArgument("jenis") { type = NavType.StringType })
+        ) { entry ->
+            SavingsFormScreen(
+                jenis = entry.arguments?.getString("jenis") ?: "setoran",
+                onBack = { navController.popBackStack() },
+                onDone = { navController.popBackStack() }
             )
         }
 
@@ -94,9 +92,9 @@ fun EsimkoNavHost(
                 navArgument("id") { type = NavType.LongType }
             )
         ) { entry ->
-            HistoryTab(
+            ActivityDetailScreen(
                 transactionId = entry.arguments?.getLong("id") ?: 0L,
-                initialModule = entry.arguments?.getString("module") ?: "transaksi",
+                modul = entry.arguments?.getString("module") ?: "transaksi",
                 onBack = { navController.popBackStack() }
             )
         }
@@ -142,12 +140,6 @@ fun EsimkoNavHost(
 
         composable("cart") {
             CartScreen(
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("shopping_history") {
-            ShoppingHistoryScreen(
                 onBack = { navController.popBackStack() }
             )
         }

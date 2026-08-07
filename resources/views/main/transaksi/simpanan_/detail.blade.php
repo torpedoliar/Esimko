@@ -127,7 +127,7 @@ Simpanan |
             @endif
             <button class="btn btn-{{(!empty($data['simpanan']->bukti_transaksi) ? 'primary' : 'warning')}}" data-target="#modal-upload" data-toggle="modal">Upload Bukti Pembayaran</button>
             @if(!empty($data['simpanan']->bukti_transaksi))
-            <a href="{{url('')}}" class="btn btn-secondary">Lihat Bukti Transaksi</a>
+            <a href="{{asset('storage/'.$data['simpanan']->bukti_transaksi)}}" target="_blank" class="btn btn-secondary">Lihat Bukti Transaksi</a>
             @endif
           </div>
           @endif

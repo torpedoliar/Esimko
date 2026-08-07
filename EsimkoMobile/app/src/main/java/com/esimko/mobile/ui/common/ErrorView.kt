@@ -37,6 +37,22 @@ fun ErrorView(
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(24.dp))
-        EsimkoButton(text = "Coba Lagi", onClick = onRetry, modifier = Modifier.widthIn(max = 240.dp))
+        Button(
+            onClick = onRetry,
+            modifier = Modifier.heightIn(min = 48.dp).widthIn(min = 160.dp)
+        ) {
+            Text("Coba Lagi", style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+@LightDarkPreview
+@Composable
+private fun ErrorViewPreview() {
+    EsimkoPreview {
+        ErrorView(
+            message = "Tidak ada koneksi. Periksa jaringan.",
+            onRetry = {}
+        )
     }
 }

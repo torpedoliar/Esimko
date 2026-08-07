@@ -9,5 +9,6 @@ data class TransactionType(
 data class TransactionStatus(
     val id: Int,
     val nama: String,
-    val kode: String
+    val kode: String,
+    val color: String? = null
 )
