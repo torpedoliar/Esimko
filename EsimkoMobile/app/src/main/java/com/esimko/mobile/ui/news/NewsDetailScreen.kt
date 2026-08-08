@@ -7,6 +7,7 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -318,8 +319,8 @@ private fun PdfPages(bitmaps: List<Bitmap>) {
         return
     }
     Column(Modifier.fillMaxSize()) {
-        AsyncImage(
-            model = current.asImageBitmap(),
+        Image(
+            bitmap = current.asImageBitmap(),
             contentDescription = "Halaman ${index + 1}",
             contentScale = ContentScale.Fit,
             modifier = Modifier.weight(1f).fillMaxWidth()

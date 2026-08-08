@@ -23,7 +23,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", "\"http://10.10.6.9:8080/api/\"")
+            buildConfigField("String", "BASE_URL", "\"https://esimko.aegis-shinryu.my.id/api/\"")
         }
         release {
             isMinifyEnabled = false
