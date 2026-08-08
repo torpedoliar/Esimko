@@ -9,6 +9,9 @@ import com.esimko.mobile.domain.repository.InstallmentRepository
 import com.esimko.mobile.domain.repository.MasterRepository
 import com.esimko.mobile.util.LoanMath
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -124,8 +127,16 @@ class LoanApplicationViewModel @Inject constructor(
 
         viewModelScope.launch {
             _state.value = _state.value.copy(isSubmitting = true, submitError = null)
+            val jenisLabel = when (jenis) {
+                9 -> "Pinjaman Jangka Panjang"
+                10 -> "Pinjaman Jangka Pendek"
+                11 -> "Pinjaman Barang"
+                else -> "Pinjaman"
+            }
+            val ts = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
+            val keterangan = "Pengajuan $jenisLabel dari Esimko Mobile App $ts"
             when (val result = installmentRepository.submitLoan(
-                jenis, s.nominalValue, s.tenorValue, s.gajiValue, null, s.slipBytes, s.slipMime
+                jenis, s.nominalValue, s.tenorValue, s.gajiValue, keterangan, s.slipBytes, s.slipMime
             )) {
                 is Result.Success -> _state.value = _state.value.copy(
                     isSubmitting = false,

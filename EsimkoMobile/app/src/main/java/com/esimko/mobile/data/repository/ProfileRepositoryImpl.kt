@@ -7,6 +7,7 @@ import com.esimko.mobile.data.remote.api.ProfileApi
 import com.esimko.mobile.data.remote.dto.ChangePasswordRequest
 import com.esimko.mobile.domain.model.Profile
 import com.esimko.mobile.domain.repository.ProfileRepository
+import com.esimko.mobile.util.roundL
 import okhttp3.MultipartBody
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,20 +32,20 @@ class ProfileRepositoryImpl @Inject constructor(
                         telepon = data.noHandphone.orEmpty(),
                         email = data.email,
                         avatar = data.avatar,
-                        saldoSimpanan = data.totalSaldoSimpanan ?: 0,
-                        saldoPinjaman = data.sisaPinjaman ?: 0,
-                        angsuranBulan = data.totalAngsuranPinjaman ?: 0,
-                        saldoSimpananPokok = data.saldoSimpananPokok ?: 0,
-                        saldoSimpananWajib = data.saldoSimpananWajib ?: 0,
-                        saldoSimpananSukarela = data.saldoSimpananSukarela ?: 0,
-                        saldoSimpananHariRaya = data.saldoSimpananHariRaya ?: 0,
-                        bungaPinjaman = data.bungaPinjaman ?: 0,
-                        angsuranJangkaPanjang = data.angsuranJangkaPanjang ?: 0,
-                        angsuranJangkaPendek = data.angsuranJangkaPendek ?: 0,
-                        angsuranBarang = data.angsuranBarang ?: 0,
-                        totalAngsuranBelanja = data.totalAngsuranBelanja ?: 0,
-                        setoranBerkala = data.setoranBerkala ?: 0,
-                        setoranSimpananAnggota = data.setoranSimpananAnggota ?: 0,
+                        saldoSimpanan = data.totalSaldoSimpanan.roundL(),
+                        saldoPinjaman = data.sisaPinjaman.roundL(),
+                        angsuranBulan = data.totalAngsuranPinjaman.roundL(),
+                        saldoSimpananPokok = data.saldoSimpananPokok.roundL(),
+                        saldoSimpananWajib = data.saldoSimpananWajib.roundL(),
+                        saldoSimpananSukarela = data.saldoSimpananSukarela.roundL(),
+                        saldoSimpananHariRaya = data.saldoSimpananHariRaya.roundL(),
+                        bungaPinjaman = data.bungaPinjaman.roundL(),
+                        angsuranJangkaPanjang = data.angsuranJangkaPanjang.roundL(),
+                        angsuranJangkaPendek = data.angsuranJangkaPendek.roundL(),
+                        angsuranBarang = data.angsuranBarang.roundL(),
+                        totalAngsuranBelanja = data.totalAngsuranBelanja.roundL(),
+                        setoranBerkala = data.setoranBerkala.roundL(),
+                        setoranSimpananAnggota = data.setoranSimpananAnggota.roundL(),
                         statusAnggota = data.statusAnggota.orEmpty(),
                         divisi = data.divisi.orEmpty(),
                         bagian = data.bagian.orEmpty()

@@ -1,6 +1,5 @@
 package com.esimko.mobile.ui.installment
 
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,6 +41,7 @@ import com.esimko.mobile.ui.theme.GoldOnHero
 import com.esimko.mobile.ui.theme.MoneyRow
 import com.esimko.mobile.ui.theme.OnHero
 import com.esimko.mobile.util.MoneyFormatter
+import com.esimko.mobile.util.decodeSampled
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -216,7 +216,7 @@ private fun LoanFormBody(
         ) {
             val slipBytes = state.slipBytes
             if (slipBytes != null) {
-                val bitmap = slipBytes.toBitmap()
+                val bitmap = remember(slipBytes) { slipBytes.decodeSampled() }
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
@@ -331,6 +331,3 @@ private fun LoanFormEmptyPreview() {
         )
     }
 }
-
-// ponytail: decode langsung (bitmap full-size). Kalau memori jadi masalah di device kecil, decode dengan inSampleSize.
-private fun ByteArray.toBitmap() = try { BitmapFactory.decodeByteArray(this, 0, size) } catch (e: Exception) { null }

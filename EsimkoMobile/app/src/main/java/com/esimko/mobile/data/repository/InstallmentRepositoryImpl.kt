@@ -23,8 +23,8 @@ class InstallmentRepositoryImpl @Inject constructor(
                     Installment(
                         id = dto.id ?: 0,
                         ke = dto.angsuranKe ?: 0,
-                        pokok = dto.angsuranPokok ?: 0,
-                        bunga = dto.angsuranBunga ?: 0,
+                        pokok = dto.angsuranPokok?.let { Math.round(it) } ?: 0,
+                        bunga = dto.angsuranBunga?.let { Math.round(it) } ?: 0,
                         status = dto.statusAngsuran.orEmpty(),
                         jenisTransaksi = dto.jenisTransaksi,
                         namaBulan = dto.namaBulan
@@ -42,7 +42,7 @@ class InstallmentRepositoryImpl @Inject constructor(
         return try {
             val response = api.getBaseSalary()
             if (response.success && response.data != null) {
-                Result.Success(Salary(gajiPokok = response.data.gajiPokok ?: 0))
+                Result.Success(Salary(gajiPokok = response.data.gajiPokok?.let { Math.round(it) } ?: 0))
             } else {
                 Result.Error(response.message ?: "Failed to load salary")
             }

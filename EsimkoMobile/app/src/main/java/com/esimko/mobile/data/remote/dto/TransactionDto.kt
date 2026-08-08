@@ -7,7 +7,9 @@ import com.squareup.moshi.JsonClass
 data class TransactionResponse(
     @Json(name = "id") val id: Long,
     @Json(name = "jenis_transaksi") val jenisTransaksi: String? = null,
-    @Json(name = "nominal") val nominal: Long? = null,
+    // Double, bukan Long: transaksi.nominal kolom DB double. Moshi menolak
+    // membaca 621.54... sebagai Long. Dibulatkan di mapper.
+    @Json(name = "nominal") val nominal: Double? = null,
     @Json(name = "tanggal") val tanggal: String? = null,
     @Json(name = "status") val status: String? = null,
     @Json(name = "color") val color: String? = null,
@@ -28,7 +30,8 @@ data class TransactionResponse(
 data class TransactionDetailResponse(
     @Json(name = "id") val id: Long,
     @Json(name = "jenis_transaksi") val jenisTransaksi: String? = null,
-    @Json(name = "nominal") val nominal: Long? = null,
+    // Double, bukan Long: transaksi.nominal kolom DB double. Dibulatkan di mapper.
+    @Json(name = "nominal") val nominal: Double? = null,
     @Json(name = "tanggal") val tanggal: String? = null,
     @Json(name = "status") val status: String? = null,
     @Json(name = "color") val color: String? = null,
