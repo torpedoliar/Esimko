@@ -59,6 +59,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.esimko.mobile.domain.model.Profile
 import com.esimko.mobile.ui.common.EsimkoPreview
+import com.esimko.mobile.util.compressForUpload
 import com.esimko.mobile.ui.common.ErrorView
 import com.esimko.mobile.ui.common.LightDarkPreview
 import com.esimko.mobile.ui.common.ListRow
@@ -91,8 +92,11 @@ fun ProfileScreen(
     ) { uri: Uri? ->
         uri?.let {
             context.contentResolver.openInputStream(it)?.use { inputStream ->
-                val bytes = inputStream.readBytes()
-                viewModel.uploadAvatar(bytes, context.contentResolver.getType(uri) ?: "image/jpeg")
+                // Kompres dulu: foto profil kamera HP 3-8MB → ~200KB. Tanpa ini server 413.
+                val compressed = inputStream.readBytes().compressForUpload()
+                if (compressed != null) {
+                    viewModel.uploadAvatar(compressed, "image/jpeg")
+                }
             }
         }
     }

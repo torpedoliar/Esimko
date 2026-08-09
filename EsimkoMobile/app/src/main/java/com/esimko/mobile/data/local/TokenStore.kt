@@ -11,17 +11,28 @@ import javax.inject.Singleton
 class TokenStore @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    // ponytail: EncryptedSharedPreferences butuh Android Keystore. Sebagian HP (ROM OEM
+    // tertentu, kondisi keystore rusak pasca-reset) gagal membangun master key → lempar
+    // GeneralSecurityException di lazy init ini, yang dipicu di frame pertama setContent
+    // (MainViewModel.isLoggedIn). Tanpa try/catch, itu crash blank-putih lalu tertutup.
+    // Fallback ke SharedPreferences biasa: token tak terenkripsi-at-rest, tapi app jalan.
+    // Saat keystore kembali sehat, data lama tetap terbaca (scheme sama bila keystore ada).
     private val prefs by lazy {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            "esimko_secure_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                "esimko_secure_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("TokenStore", "Keystore unavailable, fallback plain prefs", e)
+            context.getSharedPreferences("esimko_secure_prefs", Context.MODE_PRIVATE)
+        }
     }
 
     var token: String?

@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import com.esimko.mobile.util.compressForUpload
 import com.esimko.mobile.util.decodeSampled
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -222,11 +223,15 @@ private fun BuktiStep(
     ) { uri: Uri? ->
         uri?.let {
             context.contentResolver.openInputStream(it)?.use { stream ->
-                onPick(
-                    stream.readBytes(),
-                    context.contentResolver.getType(uri) ?: "image/jpeg",
-                    it.lastPathSegment ?: "bukti"
-                )
+                // Kompres dulu: foto kamera HP 3-8MB → ~200KB. Tanpa ini server 413.
+                val compressed = stream.readBytes().compressForUpload()
+                if (compressed != null) {
+                    onPick(
+                        compressed,
+                        "image/jpeg",
+                        it.lastPathSegment ?: "bukti"
+                    )
+                }
             }
         }
     }

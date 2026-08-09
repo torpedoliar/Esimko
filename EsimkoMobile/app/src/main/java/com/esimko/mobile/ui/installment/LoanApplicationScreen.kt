@@ -41,6 +41,7 @@ import com.esimko.mobile.ui.theme.GoldOnHero
 import com.esimko.mobile.ui.theme.MoneyRow
 import com.esimko.mobile.ui.theme.OnHero
 import com.esimko.mobile.util.MoneyFormatter
+import com.esimko.mobile.util.compressForUpload
 import com.esimko.mobile.util.decodeSampled
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -196,12 +197,15 @@ private fun LoanFormBody(
         ) { uri: Uri? ->
             uri?.let {
                 context.contentResolver.openInputStream(it)?.use { stream ->
-                    val bytes = stream.readBytes()
-                    onSlipPicked(
-                        bytes,
-                        context.contentResolver.getType(uri) ?: "image/jpeg",
-                        it.lastPathSegment ?: "slip_gaji"
-                    )
+                    // Kompres dulu: slip kamera HP 3-8MB → ~200KB. Tanpa ini server 413.
+                    val compressed = stream.readBytes().compressForUpload()
+                    if (compressed != null) {
+                        onSlipPicked(
+                            compressed,
+                            "image/jpeg",
+                            it.lastPathSegment ?: "slip_gaji"
+                        )
+                    }
                 }
             }
         }
