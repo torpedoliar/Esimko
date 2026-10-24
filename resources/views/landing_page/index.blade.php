@@ -132,6 +132,7 @@ Dashboard |
           <span>di Elektronik Sistem Informasi</span><br><span>dan Manajemen Koperasi (esimko)</span>
         </div>
         <div style="font-size:15px;letter-spacing:0.8px;margin-top:10px">Platform digital yang mempermudah anggota dalam melakukan transaksi simpan pinjam, penjualan, dan kredit belanja</div>
+        <a href="{{url('apk')}}" class="btn btn-primary mt-4" style="border-radius:30px;padding:12px 30px"><i class="bx bx-download"></i> Unduh Aplikasi Anggota</a>
       </div>
       <div class="col-md-6">
         <img src="{{asset('assets/images/finance.png')}}" style="width:100%;">
@@ -217,6 +218,23 @@ Dashboard |
           </div>
         </div>
         <a href="{{url('')}}" class="btn btn-primary mt-4">Pelajari Lebih Lanjut</a>
+      </div>
+    </div>
+  </div>
+</section>
+<section style="background:#205072" class="pt-5 pb-5">
+  @php $rilis = \App\RilisApk::terbaru(); @endphp
+  <div class="container-fluid">
+    <div class="row align-items-center">
+      <div class="col-md-8 text-center text-md-left">
+        <h2 style="color:#fff;font-weight:600">Koperasi dalam genggaman Anda</h2>
+        <p style="color:#d5e8da;margin-bottom:6px">Pantau simpanan, ajukan pinjaman lengkap dengan unggah dokumen, dan terima berita koperasi — langsung dari HP Anda.</p>
+        <a href="{{url('apk')}}" class="btn btn-primary btn-lg mt-3" style="border-radius:40px;padding:14px 36px"><i class="bx bx-download"></i> Unduh Aplikasi{{ !empty($rilis) ? ' (v'.$rilis->versi.')' : '' }}</a>
+        <div style="color:#9fbfa9;font-size:13px;margin-top:10px">Android 9 ke atas · gratis untuk anggota · <a href="{{url('apk')}}" style="color:#fff">esimko.com/apk</a></div>
+      </div>
+      <div class="col-md-4 text-center mt-4 mt-md-0">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{url('apk')}}" alt="QR unduh aplikasi" style="background:#fff;padding:10px;border-radius:14px;width:160px;height:160px" onerror="this.style.display='none'">
+        <div style="color:#d5e8da;font-size:12px;margin-top:8px">Scan untuk membuka halaman unduh</div>
       </div>
     </div>
   </div>
