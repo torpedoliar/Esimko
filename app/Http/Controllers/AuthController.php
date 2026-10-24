@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Hash;
 use App\Helpers\GlobalHelper;
 use App\Anggota;
 use App\UserAkses;
@@ -37,7 +38,12 @@ class AuthController extends Controller
                 $passwordValid = true;
             } else {
                 try {
-                    if(!empty($anggota->password) && $request->password == decrypt($anggota->password)) {
+                    // bcrypt: password buatan app mobile (Hash::make saat login/ubah password/register).
+                    // Hash::check pada string non-bcrypt aman — return false, tidak throw.
+                    if(!empty($anggota->password) && Hash::check($request->password, $anggota->password)) {
+                        $passwordValid = true;
+                    } elseif(!empty($anggota->password) && $request->password == decrypt($anggota->password)) {
+                        // legacy encrypt() lama — mayoritas anggota masih memakai ini.
                         $passwordValid = true;
                     }
                 } catch(\Exception $e) {
