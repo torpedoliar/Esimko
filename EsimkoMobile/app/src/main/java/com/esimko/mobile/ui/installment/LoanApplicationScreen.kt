@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +25,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.esimko.mobile.domain.model.DokumenFile
 import com.esimko.mobile.domain.model.Salary
+import com.esimko.mobile.domain.model.SyaratPinjaman
 import com.esimko.mobile.domain.model.TransactionType
 import com.esimko.mobile.ui.common.AmountField
 import com.esimko.mobile.ui.common.ErrorView
@@ -37,12 +40,19 @@ import com.esimko.mobile.ui.common.RowDivider
 import com.esimko.mobile.ui.common.SectionHeader
 import com.esimko.mobile.ui.common.SkeletonListRows
 import com.esimko.mobile.ui.common.StaleBanner
-import com.esimko.mobile.ui.theme.GoldOnHero
 import com.esimko.mobile.ui.theme.MoneyRow
 import com.esimko.mobile.ui.theme.OnHero
+import com.esimko.mobile.util.LoanDocs
 import com.esimko.mobile.util.MoneyFormatter
 import com.esimko.mobile.util.compressForUpload
 import com.esimko.mobile.util.decodeSampled
+
+// Fallback teks persetujuan kalau endpoint syarat gagal dimuat (sama dgn server v1).
+private const val PERSETUJUAN_FALLBACK =
+    "Dokumen yang saya lampirkan (slip gaji, KK, KTP, kartu anggota, ID Card, dan/atau " +
+        "KTP pasangan) adalah data pribadi. Saya menyetujui pengumpulan dan pengolahannya " +
+        "untuk verifikasi pengajuan pinjaman ini saja; dokumen dihapus otomatis bila " +
+        "pengajuan ditolak, sesuai UU No. 27/2022 tentang Pelindungan Data Pribadi."
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,8 +92,9 @@ fun LoanApplicationScreen(
                         onNominalChange = viewModel::onNominalChange,
                         onTenorChange = viewModel::onTenorChange,
                         onSelectJenis = viewModel::selectJenis,
-                        onSlipPicked = viewModel::onSlipPicked,
-                        onClearSlip = viewModel::clearSlip,
+                        onDokumenPicked = viewModel::onDokumenPicked,
+                        onClearDokumen = viewModel::clearDokumen,
+                        onPersetujuanChange = viewModel::onPersetujuanChange,
                         onSubmit = viewModel::submit,
                         onSubmitted = onSubmitted
                     )
@@ -100,11 +111,44 @@ private fun LoanFormBody(
     onNominalChange: (String) -> Unit = {},
     onTenorChange: (String) -> Unit = {},
     onSelectJenis: (Int) -> Unit = {},
-    onSlipPicked: (ByteArray, String, String) -> Unit = { _, _, _ -> },
-    onClearSlip: () -> Unit = {},
+    onDokumenPicked: (String, DokumenFile?) -> Unit = { _, _ -> },
+    onClearDokumen: (String) -> Unit = {},
+    onPersetujuanChange: (Boolean) -> Unit = {},
     onSubmit: () -> Unit = {},
     onSubmitted: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    // Picker bersama untuk semua slot; pickTarget menandai slot yang sedang diisi.
+    var pickTarget by remember { mutableStateOf<String?>(null) }
+    val dokumenPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        val key = pickTarget
+        if (uri != null && key != null) {
+            val mime = context.contentResolver.getType(uri)
+            when {
+                // Foto/gambar: kompres dulu (kamera 3-8MB → ~200KB) supaya aman upload.
+                mime != null && mime.startsWith("image/") -> {
+                    val compressed = context.contentResolver.openInputStream(uri)?.use { stream ->
+                        stream.readBytes().compressForUpload()
+                    }
+                    if (compressed != null) {
+                        onDokumenPicked(key, DokumenFile(compressed, "image/jpeg", uri.lastPathSegment ?: "dokumen.jpg"))
+                    }
+                }
+                // PDF: dikirim apa adanya (sudah < 5 MB dicek ViewModel).
+                mime == "application/pdf" -> {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null) {
+                        onDokumenPicked(key, DokumenFile(bytes, mime, uri.lastPathSegment ?: "dokumen.pdf"))
+                    }
+                }
+                // Tipe tak dikenal: kirim dengan bytes kosong — ViewModel menolak dgn pesan.
+                else -> onDokumenPicked(key, DokumenFile(ByteArray(0), mime ?: "", uri.lastPathSegment ?: ""))
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -189,80 +233,69 @@ private fun LoanFormBody(
             }
         }
 
-        // 6. Slip gaji (wajib) — bukti gaji yang diverifikasi admin.
-        SectionHeader("Slip Gaji", modifier = Modifier.padding(horizontal = 16.dp))
-        val context = LocalContext.current
-        val slipPicker = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent()
-        ) { uri: Uri? ->
-            uri?.let {
-                context.contentResolver.openInputStream(it)?.use { stream ->
-                    // Kompres dulu: slip kamera HP 3-8MB → ~200KB. Tanpa ini server 413.
-                    val compressed = stream.readBytes().compressForUpload()
-                    if (compressed != null) {
-                        onSlipPicked(
-                            compressed,
-                            "image/jpeg",
-                            it.lastPathSegment ?: "slip_gaji"
-                        )
-                    }
+        // 6. Dokumen pengajuan — slip + KK/KTP/kartu, foto atau PDF. Slot KTP-2 hanya
+        //    muncul saat nominal di atas threshold (server yang memutuskan via syarat).
+        SectionHeader("Dokumen Pengajuan", modifier = Modifier.padding(horizontal = 16.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            state.slotDokumen.forEach { key ->
+                val info = when (key) {
+                    LoanDocs.SLIP -> "Unggah slip gaji — foto atau PDF (wajib)"
+                    LoanDocs.KTP2 -> "Wajib untuk pinjaman di atas ${MoneyFormatter.format(state.ktp2Threshold)}"
+                    else -> "Unggah ${LoanDocs.label(key).lowercase()} — foto atau PDF (wajib)"
                 }
+                DokumenSlot(
+                    label = LoanDocs.label(key),
+                    info = info,
+                    file = state.dokumen[key],
+                    enabled = !state.isSubmitting,
+                    onPick = {
+                        pickTarget = key
+                        dokumenPicker.launch("*/*")
+                    },
+                    onClear = { onClearDokumen(key) }
+                )
+            }
+            state.dokumenError?.let { msg ->
+                Text(
+                    text = msg,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
+
+        // 7. Persetujuan data pribadi — gerbang submit (bukti versi+waktu disimpan server).
+        SectionHeader("Persetujuan Data Pribadi", modifier = Modifier.padding(horizontal = 16.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
                 .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val slipBytes = state.slipBytes
-            if (slipBytes != null) {
-                val bitmap = remember(slipBytes) { slipBytes.decodeSampled() }
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "Slip Gaji",
-                        modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
-                        contentScale = ContentScale.Fit
-                    )
-                }
-                Text(
-                    text = state.slipName ?: "Slip Gaji",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Outlined.CloudUpload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Unggah foto slip gaji (wajib)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { slipPicker.launch("image/*") },
+            Text(
+                text = state.syarat?.persetujuanTeks ?: PERSETUJUAN_FALLBACK,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = state.persetujuanSetuju,
+                    onCheckedChange = onPersetujuanChange,
                     enabled = !state.isSubmitting
-                ) {
-                    Text(if (state.slipBytes != null) "Ganti" else "Pilih Foto")
-                }
-                if (state.slipBytes != null) {
-                    TextButton(
-                        onClick = onClearSlip,
-                        enabled = !state.isSubmitting
-                    ) { Text("Hapus") }
-                }
+                )
+                Text(
+                    text = "Saya menyetujui dan melanjutkan pengajuan",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
 
-        // 7. Error kirim.
+        // 8. Error kirim.
         state.submitError?.let { msg ->
             Text(
                 text = msg,
@@ -272,7 +305,7 @@ private fun LoanFormBody(
             )
         }
 
-        // 8. Tombol kirim — enabled = state.bisaKirim (satu ekspresi, bukan lima kondisi).
+        // 9. Tombol kirim — enabled = state.bisaKirim (dokumen lengkap + persetujuan).
         Button(
             onClick = onSubmit,
             enabled = state.bisaKirim,
@@ -303,6 +336,70 @@ private fun LoanFormBody(
     }
 }
 
+/** Satu slot dokumen: preview (gambar) / ikon (PDF), nama file, pilih-ganti-hapus. */
+@Composable
+private fun DokumenSlot(
+    label: String,
+    info: String,
+    file: DokumenFile?,
+    enabled: Boolean,
+    onPick: () -> Unit,
+    onClear: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (file != null) {
+            if (file.isGambar) {
+                val bitmap = remember(file) { file.bytes.decodeSampled() }
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = label,
+                        modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.Description,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            Text(
+                text = file.nama,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.CloudUpload,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = info,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onPick, enabled = enabled) {
+                Text(if (file != null) "Ganti" else "Pilih Foto/PDF")
+            }
+            if (file != null) {
+                TextButton(onClick = onClear, enabled = enabled) { Text("Hapus") }
+            }
+        }
+    }
+}
+
 @LightDarkPreview
 @Composable
 private fun LoanFormFilledPreview() {
@@ -317,8 +414,7 @@ private fun LoanFormFilledPreview() {
                 selectedJenis = 9,
                 nominal = "5000000",
                 tenor = "12",
-                gajiPokok = "4250000",
-                slipBytes = null
+                gajiPokok = "4250000"
             )
         )
     }
@@ -326,11 +422,24 @@ private fun LoanFormFilledPreview() {
 
 @LightDarkPreview
 @Composable
-private fun LoanFormEmptyPreview() {
+private fun LoanFormWithDocsPreview() {
     EsimkoPreview {
         LoanFormBody(
             state = LoanApplicationState(
-                loanTypes = listOf(TransactionType(9, "Pinjaman Umum", "PJU"))
+                loanTypes = listOf(TransactionType(9, "Pinjaman Umum", "PJU")),
+                selectedJenis = 9,
+                nominal = "25000000", // > 10jt → slot KTP-2 ikut tampil
+                tenor = "12",
+                gajiPokok = "4250000",
+                syarat = SyaratPinjaman(
+                    ktp2Threshold = 10_000_000L,
+                    dokumenWajib = listOf("kk", "ktp1", "kartu_anggota", "id_card"),
+                    format = listOf("jpg", "jpeg", "png", "pdf"),
+                    maksKb = 5120,
+                    persetujuanVersi = "v1-2026-10-24",
+                    persetujuanTeks = PERSETUJUAN_FALLBACK
+                ),
+                persetujuanSetuju = true
             )
         )
     }

@@ -3,9 +3,12 @@ package com.esimko.mobile.data.repository
 import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.InstallmentApi
+import com.esimko.mobile.domain.model.DokumenFile
 import com.esimko.mobile.domain.model.Installment
 import com.esimko.mobile.domain.model.Salary
+import com.esimko.mobile.domain.model.SyaratPinjaman
 import com.esimko.mobile.domain.repository.InstallmentRepository
+import com.esimko.mobile.util.LoanDocs
 import okhttp3.MultipartBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -51,22 +54,44 @@ class InstallmentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getSyaratPinjaman(): Result<SyaratPinjaman> {
+        return try {
+            val response = api.getSyaratPinjaman()
+            if (response.success && response.data != null) {
+                Result.Success(response.data.toDomain())
+            } else {
+                Result.Error(response.message ?: "Gagal memuat syarat pinjaman")
+            }
+        } catch (e: Exception) {
+            Result.Error(apiErrorMessage(e, "Network error"))
+        }
+    }
+
     override suspend fun submitLoan(
         jenisPinjaman: Int,
         nominal: Long,
         tenor: Int,
         gajiPokok: Long,
         keterangan: String?,
-        slipBytes: ByteArray?,
-        slipMime: String?
+        persetujuanVersi: String?,
+        dokumen: Map<String, DokumenFile>
     ): Result<Long> {
         return try {
             val toPart = { value: String -> value.toRequestBody("text/plain".toMediaType()) }
-            val slipPart = slipBytes?.let { bytes ->
+            // Slip dikirim sebagai part "attachment" (kontrak lama backend); dokumen
+            // pendukung sebagai part dokumen_<key> (MobileController::draft_gaji_pinjaman).
+            val slipPart = dokumen[LoanDocs.SLIP]?.let { f ->
                 MultipartBody.Part.createFormData(
-                    "attachment", "slip_gaji", bytes.toRequestBody(slipMime?.toMediaType() ?: "image/jpeg".toMediaType())
+                    "attachment", "slip_gaji", f.bytes.toRequestBody(f.mime.toMediaType())
                 )
             }
+            val dokumenParts = dokumen
+                .filterKeys { it != LoanDocs.SLIP }
+                .map { (key, f) ->
+                    MultipartBody.Part.createFormData(
+                        "dokumen_$key", f.nama, f.bytes.toRequestBody(f.mime.toMediaType())
+                    )
+                }
             val response = api.submitLoan(
                 "pinjaman",
                 toPart("add"),
@@ -75,7 +100,9 @@ class InstallmentRepositoryImpl @Inject constructor(
                 toPart(jenisPinjaman.toString()),
                 toPart(gajiPokok.toString()),
                 toPart(keterangan ?: ""),
-                slipPart
+                persetujuanVersi?.let { toPart(it) },
+                slipPart,
+                dokumenParts
             )
             if (response.success && response.data != null) {
                 Result.Success(response.data.id)

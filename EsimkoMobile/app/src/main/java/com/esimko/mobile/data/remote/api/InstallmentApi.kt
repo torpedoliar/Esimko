@@ -3,6 +3,7 @@ package com.esimko.mobile.data.remote.api
 import com.esimko.mobile.data.remote.dto.ApiResponse
 import com.esimko.mobile.data.remote.dto.InstallmentResponse
 import com.esimko.mobile.data.remote.dto.SalaryResponse
+import com.esimko.mobile.data.remote.dto.SyaratPinjamanResponse
 import com.esimko.mobile.data.remote.dto.TransactionRequest
 import com.esimko.mobile.data.remote.dto.TransactionResponse
 import okhttp3.MultipartBody
@@ -21,6 +22,9 @@ interface InstallmentApi {
     @GET("mobile/gaji_pokok")
     suspend fun getBaseSalary(): ApiResponse<SalaryResponse>
 
+    @GET("mobile/master/syarat_pinjaman")
+    suspend fun getSyaratPinjaman(): ApiResponse<SyaratPinjamanResponse>
+
     @Multipart
     @POST("mobile/transaksi/{jenis}/proses")
     suspend fun submitLoan(
@@ -31,6 +35,9 @@ interface InstallmentApi {
         @Part("jenis_pinjaman") jenisPinjaman: RequestBody,
         @Part("gaji_pokok") gajiPokok: RequestBody,
         @Part("keterangan") keterangan: RequestBody,
-        @Part attachment: MultipartBody.Part?
+        @Part("persetujuan_versi") persetujuanVersi: RequestBody?,
+        @Part attachment: MultipartBody.Part?,
+        // Part bernama dokumen_kk / dokumen_ktp1 / dst (backend draft_gaji_pinjaman).
+        @Part dokumen: List<MultipartBody.Part>
     ): ApiResponse<TransactionResponse>
 }

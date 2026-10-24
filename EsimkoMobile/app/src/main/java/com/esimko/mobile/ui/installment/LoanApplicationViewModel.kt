@@ -3,10 +3,13 @@ package com.esimko.mobile.ui.installment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.domain.model.DokumenFile
 import com.esimko.mobile.domain.model.Salary
+import com.esimko.mobile.domain.model.SyaratPinjaman
 import com.esimko.mobile.domain.model.TransactionType
 import com.esimko.mobile.domain.repository.InstallmentRepository
 import com.esimko.mobile.domain.repository.MasterRepository
+import com.esimko.mobile.util.LoanDocs
 import com.esimko.mobile.util.LoanMath
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.SimpleDateFormat
@@ -22,21 +25,25 @@ import javax.inject.Inject
 // (MobileController::validasi_transaksi: array(9 => 50, 10 => 18, 11 => 18))
 private val MAX_TENOR = mapOf(9 to 50, 10 to 18, 11 to 18)
 
+// Fallback kalau endpoint syarat_pinjaman gagal dimuat — sama dengan default server.
+private const val KTP2_THRESHOLD_DEFAULT = 10_000_000L
+
 data class LoanApplicationState(
     val loanTypes: List<TransactionType> = emptyList(),
     val salary: Salary? = null,
+    val syarat: SyaratPinjaman? = null,
     val isLoading: Boolean = false,
     val isSubmitting: Boolean = false,
     val error: String? = null,
+    val dokumenError: String? = null,
     val submitError: String? = null,
     val submitSuccess: Long? = null,
     val selectedJenis: Int? = null,
     val nominal: String = "",
     val tenor: String = "",
     val gajiPokok: String = "",
-    val slipBytes: ByteArray? = null,
-    val slipMime: String? = null,
-    val slipName: String? = null
+    val dokumen: Map<String, DokumenFile> = emptyMap(),
+    val persetujuanSetuju: Boolean = false
 ) {
     /** Batas tenor jenis terpilih; 0 = belum ada jenis dipilih. */
     val maxTenor: Int get() = MAX_TENOR[selectedJenis] ?: 0
@@ -47,12 +54,24 @@ data class LoanApplicationState(
 
     val tenorValid: Boolean get() = tenorValue in 1..maxTenor
 
+    val ktp2Threshold: Long get() = syarat?.ktp2Threshold ?: KTP2_THRESHOLD_DEFAULT
+
+    /** KTP pasangan muncul (wajib) hanya saat nominal di atas threshold. */
+    val perluKtp2: Boolean get() = LoanDocs.perluKtp2(nominalValue, ktp2Threshold)
+
     /** Estimasi, bukan angka resmi — backend tidak mengirim bunga per jenis. Lihat `LoanMath`. */
     val estimasiAngsuran: Long get() = LoanMath.angsuranPerBulan(nominalValue, tenorValue)
 
+    /** Kunci slot dokumen yang tampil di UI (urut): slip + 4 wajib + ktp2 kondisional. */
+    val slotDokumen: List<String>
+        get() = listOf(LoanDocs.SLIP) + LoanDocs.WAJIB + if (perluKtp2) listOf(LoanDocs.KTP2) else emptyList()
+
+    val dokumenKurang: List<String>
+        get() = slotDokumen.filter { it !in dokumen.keys }
+
     val bisaKirim: Boolean
         get() = !isSubmitting && selectedJenis != null && nominalValue > 0L &&
-            tenorValid && gajiValue > 0L && slipBytes != null
+            tenorValid && gajiValue > 0L && dokumenKurang.isEmpty() && persetujuanSetuju
 
     /** Konten form sudah bisa digambar (jenis pinjaman termuat). */
     val hasContent: Boolean get() = loanTypes.isNotEmpty()
@@ -75,6 +94,7 @@ class LoanApplicationViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             loadSalary()
+            loadSyarat()
             when (val result = masterRepository.getTransactionTypes("pinjaman")) {
                 is Result.Success -> _state.value = _state.value.copy(
                     loanTypes = result.data,
@@ -96,6 +116,14 @@ class LoanApplicationViewModel @Inject constructor(
         }
     }
 
+    private suspend fun loadSyarat() {
+        // Gagal memuat syarat tidak memblokir form — threshold fallback default 10jt.
+        when (val result = installmentRepository.getSyaratPinjaman()) {
+            is Result.Success -> _state.value = _state.value.copy(syarat = result.data)
+            else -> Unit
+        }
+    }
+
     fun selectJenis(id: Int) {
         _state.value = _state.value.copy(selectedJenis = id, tenor = "")
     }
@@ -112,12 +140,34 @@ class LoanApplicationViewModel @Inject constructor(
         _state.value = _state.value.copy(gajiPokok = value.filter { it.isDigit() })
     }
 
-    fun onSlipPicked(bytes: ByteArray, mime: String, name: String) {
-        _state.value = _state.value.copy(slipBytes = bytes, slipMime = mime, slipName = name)
+    /** Slot dokumen terpilih dari picker. Validasi mime/ukungan client-side dulu
+     *  (server memvalidasi ulang — client hanya untuk UX cepat). */
+    fun onDokumenPicked(key: String, file: DokumenFile?) {
+        if (file == null) return
+        if (!LoanDocs.mimeDiterima(file.mime)) {
+            _state.value = _state.value.copy(
+                dokumenError = "${LoanDocs.label(key)}: format harus JPG, PNG, atau PDF"
+            )
+            return
+        }
+        if (file.bytes.size > LoanDocs.MAKS_BYTES) {
+            _state.value = _state.value.copy(
+                dokumenError = "${LoanDocs.label(key)}: ukuran melebihi 5 MB"
+            )
+            return
+        }
+        _state.value = _state.value.copy(
+            dokumen = _state.value.dokumen + (key to file),
+            dokumenError = null
+        )
     }
 
-    fun clearSlip() {
-        _state.value = _state.value.copy(slipBytes = null, slipMime = null, slipName = null)
+    fun clearDokumen(key: String) {
+        _state.value = _state.value.copy(dokumen = _state.value.dokumen - key)
+    }
+
+    fun onPersetujuanChange(setuju: Boolean) {
+        _state.value = _state.value.copy(persetujuanSetuju = setuju)
     }
 
     fun submit() {
@@ -136,7 +186,8 @@ class LoanApplicationViewModel @Inject constructor(
             val ts = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
             val keterangan = "Pengajuan $jenisLabel dari Esimko Mobile App $ts"
             when (val result = installmentRepository.submitLoan(
-                jenis, s.nominalValue, s.tenorValue, s.gajiValue, keterangan, s.slipBytes, s.slipMime
+                jenis, s.nominalValue, s.tenorValue, s.gajiValue, keterangan,
+                s.syarat?.persetujuanVersi, s.dokumen
             )) {
                 is Result.Success -> _state.value = _state.value.copy(
                     isSubmitting = false,
