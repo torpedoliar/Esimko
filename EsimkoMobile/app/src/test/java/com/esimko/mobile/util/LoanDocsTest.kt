@@ -40,4 +40,18 @@ class LoanDocsTest {
         assertThat(LoanDocs.mimeDiterima("image/webp")).isFalse()
         assertThat(LoanDocs.mimeDiterima(null)).isFalse()
     }
+
+    @Test
+    fun `info slot ktp2 menyebut dokumen dan alasannya`() {
+        val info = LoanDocs.infoSlot(LoanDocs.KTP2, 10_000_000L)
+        assertThat(info).contains("KTP suami/istri")
+        assertThat(info).contains("10.000.000")
+    }
+
+    @Test
+    fun `info slot lain menyebut nama dokumen`() {
+        assertThat(LoanDocs.infoSlot("kk", 10_000_000L)).contains("Kartu Keluarga")
+        assertThat(LoanDocs.infoSlot("ktp1", 10_000_000L)).contains("KTP")
+        assertThat(LoanDocs.infoSlot(LoanDocs.SLIP, 10_000_000L)).contains("slip gaji")
+    }
 }

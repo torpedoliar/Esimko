@@ -236,19 +236,20 @@ private fun LoanFormBody(
         // 6. Dokumen pengajuan — slip + KK/KTP/kartu, foto atau PDF. Slot KTP-2 hanya
         //    muncul saat nominal di atas threshold (server yang memutuskan via syarat).
         SectionHeader("Dokumen Pengajuan", modifier = Modifier.padding(horizontal = 16.dp))
+        Text(
+            text = "Lengkapi semua dokumen di bawah — semuanya boleh berupa foto atau PDF.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             state.slotDokumen.forEach { key ->
-                val info = when (key) {
-                    LoanDocs.SLIP -> "Unggah slip gaji — foto atau PDF (wajib)"
-                    LoanDocs.KTP2 -> "Wajib untuk pinjaman di atas ${MoneyFormatter.format(state.ktp2Threshold)}"
-                    else -> "Unggah ${LoanDocs.label(key).lowercase()} — foto atau PDF (wajib)"
-                }
                 DokumenSlot(
                     label = LoanDocs.label(key),
-                    info = info,
+                    info = LoanDocs.infoSlot(key, state.ktp2Threshold),
                     file = state.dokumen[key],
                     enabled = !state.isSubmitting,
                     onPick = {

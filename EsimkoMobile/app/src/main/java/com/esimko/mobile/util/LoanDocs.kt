@@ -34,5 +34,23 @@ object LoanDocs {
     fun mimeDiterima(mime: String?): Boolean =
         mime == "image/jpeg" || mime == "image/png" || mime == "application/pdf"
 
+    /**
+     * Teks bantuan tiap slot — WAJIB menyebut dokumen apa yang diupload, bukan hanya
+     * aturannya (anggota bingung bila cuma "wajib di atas Rp 10 juta").
+     */
+    fun infoSlot(key: String, ktp2Threshold: Long): String = when (key) {
+        SLIP -> "Unggah slip gaji Anda — foto atau PDF (wajib)"
+        "kk" -> "Unggah foto/scan Kartu Keluarga — foto atau PDF (wajib)"
+        "ktp1" -> "Unggah foto KTP Anda sendiri selaku peminjam — foto atau PDF (wajib)"
+        KTP2 -> "Unggah foto KTP suami/istri Anda — dokumen ini muncul karena nominal pinjaman di atas Rp ${formatRingkas(ktp2Threshold)}. Boleh foto atau PDF."
+        "kartu_anggota" -> "Unggah foto kartu anggota koperasi Anda — foto atau PDF (wajib)"
+        "id_card" -> "Unggah foto ID Card pegawai Anda — foto atau PDF (wajib)"
+        else -> "Unggah ${label(key)} — foto atau PDF"
+    }
+
+    /** 10000000 → "10.000.000" (pemisah ribuan gaya Indonesia). */
+    private fun formatRingkas(n: Long): String =
+        n.toString().reversed().chunked(3).joinToString(".").reversed()
+
     const val MAKS_BYTES: Long = 5120L * 1024L
 }
