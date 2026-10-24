@@ -32,6 +32,13 @@ use Illuminate\Contracts\Encryption\DecryptException;
 
 class MobileController extends Controller
 {
+  // Syarat dokumen pengajuan pinjaman (mobile). KTP-2 pasangan wajib bila nominal
+  // di atas threshold. Nilai diekspos ke app via endpoint master/syarat_pinjaman
+  // supaya bisa diubah server-side tanpa rilis APK ulang.
+  const KTP2_THRESHOLD = 10000000;
+  const PERSETUJUAN_VERSI = 'v1-2026-10-24';
+  const PERSETUJUAN_TEKS = 'Saya menyetujui Koperasi mengumpulkan, menyimpan, dan mengolah salinan dokumen pribadi saya (slip gaji, Kartu Keluarga, KTP, kartu anggota, ID Card pegawai, dan/atau KTP pasangan) untuk keperluan pengajuan dan verifikasi pinjaman. Dokumen disimpan secara aman, hanya dapat diakses petugas koperasi yang berwenang, tidak dibagikan kepada pihak lain tanpa izin saya, dan akan dihapus otomatis apabila pengajuan ditolak. Sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi, saya berhak meminta akses, perbaikan, dan penghapusan data pribadi saya melalui koperasi.';
+  const DOKUMEN_WAJIB = ['kk', 'ktp1', 'kartu_anggota', 'id_card']; // slip selalu wajib
   public function login(Request $request)
   {
     if (str_contains($request->input('username'), ' ')) {
@@ -513,9 +520,36 @@ class MobileController extends Controller
         }
         $field->save();
         if ($jenis == 'pinjaman') {
-          // Gaji + slip dari app disimpan sebagai DRAFT di keterangan (JSON).
-          // Gaji resmi ditulis ke tabel gaji_pokok hanya saat admin approve (PinjamanController::verifikasi).
+          // Validasi file dulu (mime/ukuran), baru kelengkapan dokumen + persetujuan.
+          // Pengajuan yang belum lengkap ditolak dengan pesan jelas — transaksi
+          // setengah jadi tidak dibiarkan (dihapus) supaya angsuran tidak tercetak.
+          $err_file = $this->validasi_files_pengajuan($request);
+          if ($err_file !== null) {
+            if ($request->action == 'add') {
+              $field->delete();
+            }
+            return ApiResponse::error($err_file, 422);
+          }
           $this->draft_gaji_pinjaman($field, $request);
+          $lengkap = $this->cek_dokumen_pengajuan($field, str_replace('.', '', $request->nominal));
+          if ($lengkap !== true) {
+            if ($request->action == 'add') {
+              // Bersihkan file yang baru tersimpan oleh draft_gaji_pinjaman (anti orphan).
+              $draft = json_decode($field->draft_pengajuan, true);
+              if (is_array($draft)) {
+                $paths = !empty($draft['slip']) ? [$draft['slip']] : [];
+                foreach ((array) ($draft['dokumen'] ?? []) as $p) {
+                  if (!empty($p)) $paths[] = $p;
+                }
+                foreach ($paths as $p) {
+                  $f = storage_path('app/' . $p);
+                  if (file_exists($f)) { unlink($f); }
+                }
+              }
+              $field->delete();
+            }
+            return ApiResponse::error($lengkap, 422);
+          }
           $this->proses_angsuran($field->id, $request);
         }
         return ApiResponse::success(['id' => $field->id]);
@@ -581,15 +615,151 @@ class MobileController extends Controller
     $draft = ['gaji' => (float) str_replace('.', '', $request->gaji_pokok ?? 0)];
     if (!empty($transaksi->draft_pengajuan)) {
       $draft_lama = json_decode($transaksi->draft_pengajuan, true);
-      if (!empty($draft_lama['slip'])) {
-        $draft['slip'] = $draft_lama['slip'];
+      if (is_array($draft_lama)) {
+        if (!empty($draft_lama['slip'])) {
+          $draft['slip'] = $draft_lama['slip'];
+        }
+        if (!empty($draft_lama['dokumen'])) {
+          $draft['dokumen'] = $draft_lama['dokumen'];
+        }
       }
     }
     if ($request->hasFile('attachment')) {
       $draft['slip'] = $request->file('attachment')->store('slip_gaji');
     }
+    // Dokumen pendukung pengajuan (KK/KTP/kartu) — file part bernama dokumen_kk dst.
+    // Disimpan di folder terpisah dokumen_pengajuan (disajikan via route WAJIB LOGIN).
+    foreach (['kk', 'ktp1', 'ktp2', 'kartu_anggota', 'id_card'] as $j) {
+      $file = $request->file('dokumen_' . $j);
+      if (!empty($file) && $file->isValid()) {
+        $draft['dokumen'][$j] = $file->store('dokumen_pengajuan');
+      }
+    }
+    if (!empty($request->persetujuan_versi)) {
+      // Bukti persetujuan penggunaan data pribadi (UU PDP) — versi teks + waktu setuju.
+      $draft['consent'] = ['versi' => $request->persetujuan_versi, 'waktu' => date('Y-m-d H:i:s')];
+    }
     $transaksi->draft_pengajuan = json_encode($draft);
     $transaksi->save();
+  }
+
+  // Syarat pinjaman untuk app: threshold KTP-2, daftar dokumen, format, teks persetujuan.
+  public function syarat_pinjaman(Request $request)
+  {
+    return ApiResponse::success([
+      'ktp2_threshold' => self::KTP2_THRESHOLD,
+      'dokumen_wajib' => self::DOKUMEN_WAJIB,
+      'dokumen_kondisional' => ['ktp2'],
+      'format' => ['jpg', 'jpeg', 'png', 'pdf'],
+      'maks_kb' => 5120,
+      'persetujuan_versi' => self::PERSETUJUAN_VERSI,
+      'persetujuan_teks' => self::PERSETUJUAN_TEKS,
+    ]);
+  }
+
+  // Validasi file dokumen: hanya JPG/PNG/PDF (cek mime server-side, bukan sekadar
+  // ekstensi), maksimal 5 MB per file. Return pesan error atau null jika lolos.
+  private function validasi_dokumen($file, $label)
+  {
+    if (!in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'application/pdf'])) {
+      return $label . ': format harus JPG, PNG, atau PDF';
+    }
+    if ($file->getSize() > 5120 * 1024) {
+      return $label . ': ukuran melebihi 5 MB';
+    }
+    return null;
+  }
+
+  // Validasi semua file pengajuan SEBELUM angsuran dicetak.
+  private function validasi_files_pengajuan($request)
+  {
+    $labels = [
+      'attachment' => 'Slip Gaji',
+      'dokumen_kk' => 'Kartu Keluarga',
+      'dokumen_ktp1' => 'KTP Peminjam',
+      'dokumen_ktp2' => 'KTP Suami/Istri',
+      'dokumen_kartu_anggota' => 'Kartu Anggota',
+      'dokumen_id_card' => 'ID Card Pegawai',
+    ];
+    foreach ($labels as $key => $label) {
+      $file = $request->file($key);
+      if (!empty($file) && $file->isValid()) {
+        $err = $this->validasi_dokumen($file, $label);
+        if ($err !== null) {
+          return $err;
+        }
+      }
+    }
+    return null;
+  }
+
+  // Cek kelengkapan pengajuan: dokumen wajib + KTP-2 kondisional + persetujuan.
+  // Return true jika lengkap, atau string pesan error.
+  public function cek_dokumen_pengajuan($transaksi, $nominal)
+  {
+    $draft = json_decode($transaksi->draft_pengajuan, true);
+    $draft = is_array($draft) ? $draft : [];
+    $labels = [
+      'slip' => 'Slip Gaji',
+      'kk' => 'Kartu Keluarga',
+      'ktp1' => 'KTP Peminjam',
+      'ktp2' => 'KTP Suami/Istri',
+      'kartu_anggota' => 'Kartu Anggota',
+      'id_card' => 'ID Card Pegawai',
+    ];
+    $kurang = [];
+    if (empty($draft['slip'])) {
+      $kurang[] = $labels['slip'];
+    }
+    foreach (self::DOKUMEN_WAJIB as $j) {
+      if (empty($draft['dokumen'][$j])) {
+        $kurang[] = $labels[$j];
+      }
+    }
+    if ($nominal > self::KTP2_THRESHOLD && empty($draft['dokumen']['ktp2'])) {
+      $kurang[] = $labels['ktp2'] . ' (wajib untuk pinjaman di atas Rp 10 juta)';
+    }
+    if (!empty($kurang)) {
+      return 'Dokumen belum lengkap: ' . implode(', ', $kurang);
+    }
+    if (empty($draft['consent'])) {
+      return 'Persetujuan penggunaan data pribadi belum disetujui';
+    }
+    return true;
+  }
+
+  // Ganti/tambah satu dokumen setelah pengajuan dibuat (pola sama dengan upload_slip_gaji).
+  public function upload_dokumen(Request $request)
+  {
+    $field = Transaksi::find($request->id);
+    if (empty($field)) {
+      return ApiResponse::error('transaksi tidak ditemukan', 404);
+    }
+    $jenis_dok = $request->jenis_dok;
+    $labels = ['kk' => 'Kartu Keluarga', 'ktp1' => 'KTP Peminjam', 'ktp2' => 'KTP Suami/Istri', 'kartu_anggota' => 'Kartu Anggota', 'id_card' => 'ID Card Pegawai'];
+    if (!array_key_exists($jenis_dok, $labels)) {
+      return ApiResponse::error('jenis dokumen tidak valid');
+    }
+    $file = $request->file('attachment');
+    if (empty($file) || !$file->isValid()) {
+      return ApiResponse::error('file tidak ditemukan');
+    }
+    $err = $this->validasi_dokumen($file, $labels[$jenis_dok]);
+    if ($err !== null) {
+      return ApiResponse::error($err, 422);
+    }
+    $draft = json_decode($field->draft_pengajuan, true);
+    $draft = is_array($draft) ? $draft : [];
+    if (!empty($draft['dokumen'][$jenis_dok])) {
+      $lama = storage_path('app/' . $draft['dokumen'][$jenis_dok]);
+      if (file_exists($lama)) {
+        unlink($lama);
+      }
+    }
+    $draft['dokumen'][$jenis_dok] = $file->store('dokumen_pengajuan');
+    $field->draft_pengajuan = json_encode($draft);
+    $field->save();
+    return ApiResponse::success(null, 'Dokumen diperbarui');
   }
 
   public function upload_slip_gaji(Request $request)

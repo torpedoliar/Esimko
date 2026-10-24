@@ -18,6 +18,24 @@ Route::get('storage/{path?}', function ($path = null){
 
 })->where('path', '.+');
 
+// Dokumen pengajuan pinjaman (slip gaji, KK, KTP, kartu) = data pribadi identitas
+// (UU PDP). WAJIB LOGIN petugas (middleware ceklogin) — tidak disajikan publik via
+// /storage. Hanya folder dokumen_pengajuan/ dan slip_gaji/ yang boleh dibuka.
+Route::get('dokumen-pengajuan/{path?}', function ($path = null) {
+    $valid = $path
+        && starts_with($path, ['dokumen_pengajuan/', 'slip_gaji/'])
+        && !str_contains($path, '..')
+        && File::exists(storage_path('app/' . $path));
+    if (!$valid) {
+        abort(404);
+    }
+    $full = storage_path('app/' . $path);
+    $response = Response::make(File::get($full), 200);
+    $response->header('Content-Type', File::mimeType($full));
+    $response->header('Content-Disposition', 'inline');
+    return $response;
+})->where('path', '.+')->middleware('ceklogin');
+
 Route::get('zzzz', function () {
     $list_transaksi = \App\Angsuran::where('angsuran_pokok', '<=', 0)->select('fid_transaksi')->groupBy('fid_transaksi')->get()->pluck('fid_transaksi')->toArray();
     $transaksi = \App\Transaksi::whereIn('id', $list_transaksi)->get();

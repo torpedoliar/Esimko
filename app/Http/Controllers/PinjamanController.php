@@ -347,6 +347,25 @@ class PinjamanController extends Controller
                 $gaji->save();
             }
         }
+        if($request->status==2){
+            // Ditolak → dokumen pengajuan (slip + KK/KTP/kartu) dihapus otomatis.
+            // Kebijakan retensi data pribadi: yang disetujui dihapus manual, yang
+            // ditolak tidak ada alasan menyimpan KTP/KK anggota.
+            $draft=json_decode($field->draft_pengajuan,true);
+            if(is_array($draft)){
+                $paths=!empty($draft['slip']) ? [$draft['slip']] : [];
+                foreach((array)($draft['dokumen'] ?? []) as $p){
+                    if(!empty($p)) $paths[]=$p;
+                }
+                foreach($paths as $p){
+                    $f=storage_path('app/'.$p);
+                    if(file_exists($f)){ unlink($f); }
+                }
+                unset($draft['slip'],$draft['dokumen']);
+                $field->draft_pengajuan=json_encode($draft);
+                $field->save();
+            }
+        }
         if($request->status!=6){
             $this->update_status_angsuran($field->id,$request->status);
             $status=DB::table('status_transaksi')->find($field->fid_status);

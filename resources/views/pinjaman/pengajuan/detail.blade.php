@@ -104,12 +104,24 @@
                                             <th>:</th>
                                             <td>Rp {{format_number($draft['gaji'])}}</td>
                                         </tr>
+                                        @php
+                                            // Lampiran pengajuan — disajikan via route dokumen-pengajuan
+                                            // (wajib login): data pribadi KTP/KK tidak boleh URL publik.
+                                            $dokumen = !empty($draft['dokumen']) && is_array($draft['dokumen']) ? $draft['dokumen'] : [];
+                                            $label_dok = [
+                                                'kk' => 'Kartu Keluarga',
+                                                'ktp1' => 'KTP Peminjam',
+                                                'ktp2' => 'KTP Suami/Istri',
+                                                'kartu_anggota' => 'Kartu Anggota',
+                                                'id_card' => 'ID Card Pegawai',
+                                            ];
+                                        @endphp
                                         <tr>
                                             <th>Slip Gaji</th>
                                             <th>:</th>
                                             <td>
                                                 @if(!empty($draft['slip']))
-                                                    <a href="{{asset('storage/'.$draft['slip'])}}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                    <a href="{{url('dokumen-pengajuan/'.$draft['slip'])}}" target="_blank" class="btn btn-sm btn-outline-primary">
                                                         <i class="fas fa-file-image"></i> Lihat Slip Gaji
                                                     </a>
                                                 @else
@@ -117,6 +129,28 @@
                                                 @endif
                                             </td>
                                         </tr>
+                                        @foreach($label_dok as $key => $label)
+                                            <tr>
+                                                <th>{{$label}}</th>
+                                                <th>:</th>
+                                                <td>
+                                                    @if(!empty($dokumen[$key]))
+                                                        <a href="{{url('dokumen-pengajuan/'.$dokumen[$key])}}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                            <i class="fas fa-file-image"></i> Lihat {{$label}}
+                                                        </a>
+                                                    @else
+                                                        <span class="text-muted">Tidak ada</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                        @if(!empty($draft['consent']))
+                                            <tr>
+                                                <th>Persetujuan Data</th>
+                                                <th>:</th>
+                                                <td><span class="text-muted">Disetujui di app (versi {{$draft['consent']['versi'] ?? '-'}}, {{$draft['consent']['waktu'] ?? '-'}})</span></td>
+                                            </tr>
+                                        @endif
                                     @endif
                                 </table>
                                 <h5 class="mb-3 mt-4">Riwayat Transaksi</h5>
