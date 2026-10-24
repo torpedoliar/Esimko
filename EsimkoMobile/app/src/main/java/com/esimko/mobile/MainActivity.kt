@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import com.esimko.mobile.data.local.AuthEvents
 import com.esimko.mobile.ui.navigation.EsimkoNavHost
 import com.esimko.mobile.ui.theme.EsimkoTheme
+import com.esimko.mobile.ui.update.UpdateGate
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -34,11 +35,13 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                EsimkoNavHost(
-                    navController = navController,
-                    startDestination = if (loggedIn) "home" else "login",
-                    onLogout = { vm.logout() }
-                )
+                UpdateGate {
+                    EsimkoNavHost(
+                        navController = navController,
+                        startDestination = if (loggedIn) "home" else "login",
+                        onLogout = { vm.logout() }
+                    )
+                }
             }
         }
     }

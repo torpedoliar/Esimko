@@ -40,7 +40,12 @@ class VersionRepositoryImpl @Inject constructor(
                     updateAvailable = dto.updateAvailable ?: false,
                     forceUpdate = dto.forceUpdate ?: false,
                     message = dto.message,
-                    url = dto.url
+                    url = dto.url,
+                    latestVersion = dto.latestVersion,
+                    latestVersionCode = dto.latestVersionCode ?: 0,
+                    apkUrl = dto.apkUrl,
+                    apkSha256 = dto.apkSha256,
+                    apkUkuran = dto.apkUkuran ?: 0L
                 ))
             } else {
                 Result.Error(response.message ?: "Failed to check version")

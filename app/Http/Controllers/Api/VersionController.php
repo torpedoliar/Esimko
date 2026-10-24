@@ -53,7 +53,12 @@ class VersionController extends Controller
             'minVersion' => $minVersion,
             'updateAvailable' => $updateAvailable,
             'forceUpdate' => $forceUpdate,
-            'message' => $updateAvailable ? 'Update is available' : 'You are running the latest version'
+            'message' => $updateAvailable ? 'Update is available' : 'You are running the latest version',
+            // Info paket utk self-update in-app (dikelola modul Rilis Aplikasi):
+            'latestVersionCode' => (int) ($currentVersion['mobile_version_code'] ?? 0),
+            'apkUrl' => $currentVersion['apk_url'] ?? null,
+            'apkSha256' => $currentVersion['apk_sha256'] ?? null,
+            'apkUkuran' => (int) ($currentVersion['apk_ukuran'] ?? 0),
         ]);
     }
 }
