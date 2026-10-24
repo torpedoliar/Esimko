@@ -53,7 +53,7 @@
       <p>Keuangan koperasi Anda, dalam genggaman</p>
     </div>
     <div class="isi">
-      @php $r = $data['rilis'] ?? null; @endphp
+      @php $r = $rilis ?? null; @endphp
       @if(!empty($r))
         <div class="versi">
           <strong>Versi {{$r->versi}}</strong>

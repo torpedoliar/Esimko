@@ -38,7 +38,7 @@
             <div class="form-group">
               <label>Version Code <span class="text-danger">*</span></label>
               <input type="number" name="version_code" class="form-control" placeholder="harus lebih besar dari rilis terbaru" required>
-              @php $tb = $data['terbaru'] ?? null; @endphp
+              @php $tb = $terbaru ?? null; @endphp
               @if(!empty($tb))
                 <small class="text-muted">Terbaru saat ini: v{{$tb->versi}} (code {{$tb->version_code}})</small>
               @endif
@@ -81,11 +81,11 @@
                 </tr>
               </thead>
               <tbody>
-                @foreach($data['rilis'] as $r)
+                @foreach($rilis as $r)
                 <tr>
                   <td>
                     <strong>v{{$r->versi}}</strong> <small class="text-muted">(code {{$r->version_code}})</small>
-                    @if(!empty($data['terbaru']) && $r->id == $data['terbaru']->id)
+                    @if(!empty($terbaru) && $r->id == $terbaru->id)
                       <span class="badge badge-success ml-1">Terbaru</span>
                     @endif
                     @if(!empty($r->changelog))
@@ -102,7 +102,7 @@
                   </td>
                 </tr>
                 @endforeach
-                @if(count($data['rilis']) == 0)
+                @if(count($rilis) == 0)
                 <tr><td colspan="6" class="text-center text-muted">Belum ada rilis — upload APK pertama di form sebelah kiri.</td></tr>
                 @endif
               </tbody>
