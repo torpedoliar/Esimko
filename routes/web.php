@@ -36,6 +36,11 @@ Route::get('dokumen-pengajuan/{path?}', function ($path = null) {
     return $response;
 })->where('path', '.+')->middleware('ceklogin');
 
+// Halaman unduh aplikasi anggota (publik — tanpa login). Sumber data: rilis terbaru
+// dari modul admin Rilis Aplikasi; versi sinkron dgn version.json (satu sumber).
+Route::get('apk', 'RilisApkController@publik');
+Route::get('apk/unduh', 'RilisApkController@unduh');
+
 Route::get('zzzz', function () {
     $list_transaksi = \App\Angsuran::where('angsuran_pokok', '<=', 0)->select('fid_transaksi')->groupBy('fid_transaksi')->get()->pluck('fid_transaksi')->toArray();
     $transaksi = \App\Transaksi::whereIn('id', $list_transaksi)->get();
@@ -71,6 +76,11 @@ Route::group(['middleware' => ['ceklogin']],function(){
     // System Update Routes
     Route::get('pengaturan/system-update', 'SystemUpdateController@index')->name('system-update');
     Route::get('pengaturan/system-update/check', 'SystemUpdateController@checkUpdate')->name('system-update.check');
+
+    // Rilis Aplikasi (upload APK + kelola versi mobile)
+    Route::get('pengaturan/rilis_apk', 'RilisApkController@index');
+    Route::post('pengaturan/rilis_apk/proses', 'RilisApkController@proses');
+    Route::get('pengaturan/rilis_apk/hapus', 'RilisApkController@hapus');
     
     // Pengaturan Routes
     Route::get('pengaturan/otoritas_user', 'PengaturanController@otoritas_user');
