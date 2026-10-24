@@ -134,7 +134,15 @@ private fun InstallmentBody(
                     }
                 }
                 item { SectionHeader("Daftar Angsuran") }
-                itemsIndexed(state.installments, key = { _, it -> it.id }) { index, inst ->
+                // ponytail: key = id transaksi + angsuran_ke + index. Backend select
+                // transaksi.id (bukan angsuran.id), jadi id repeat per angsuran dalam satu
+                // pinjaman. Key id-only → LazyColumn throw IllegalArgumentException duplicate
+                // key → crash render. Anggota dgn ≥2 angsuran/pinjaman (mis. K 1695) terkena.
+                // index sebagai suffix stabilitas reorder; ke menjamin identitas per angsuran.
+                itemsIndexed(
+                    state.installments,
+                    key = { index, it -> "${it.id}-${it.ke}-$index" }
+                ) { index, inst ->
                     val pokokBunga = "Pokok ${MoneyFormatter.format(inst.pokok)} · Bunga ${MoneyFormatter.format(inst.bunga)}"
                     val subtitle = inst.namaBulan?.takeIf { it.isNotBlank() }?.let { "$it · $pokokBunga" } ?: pokokBunga
                     ListRow(
