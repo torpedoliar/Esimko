@@ -3,11 +3,14 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('storage/{path?}', function ($path = null){
-    // ponytail: serve file dari storage/app (disk local). Semua upload konsisten ke sini,
-    // termasuk slip gaji/bukti transaksi/berita. Symlink public/storage tidak dipakai —
-    // route fallback ini menutup IIS production yang baca storage/app/.
+    // ponytail: serve file dari storage/app (disk local). Symlink public/storage tidak
+    // dipakai — route fallback ini menutup IIS production yang baca storage/app/.
+    // Folder dokumen identitas (KTP/KK) & slip gaji DILINDUNGI: hanya via route
+    // dokumen-pengajuan/{path} yang wajib login petugas. Nama-file-acak saja tidak
+    // cukup untuk data pribadi (UU PDP) — rilis publik 1.0.8.
+    $dilindungi = ['dokumen_pengajuan/', 'slip_gaji/'];
     $full = storage_path('app/' . $path);
-    if (!$path || !File::exists($full)) {
+    if (!$path || str_contains($path, '..') || starts_with($path, $dilindungi) || !File::exists($full)) {
         abort(404);
     }
     $file = File::get($full);
