@@ -60,6 +60,12 @@ fun UpdateGate(
                 Button(onClick = viewModel::unduhDanPasang, enabled = !state.sedangUnduh) {
                     Text(if (state.sedangUnduh) "Mengunduh…" else "Perbarui Sekarang")
                 }
+            },
+            // Pintu darurat: jalur browser tidak pernah terpengaruh bug in-app.
+            dismissButton = {
+                TextButton(onClick = viewModel::unduhViaBrowser) {
+                    Text("Unduh via Browser")
+                }
             }
         )
     } else if (info.updateAvailable && !lewati && !state.sedangUnduh) {

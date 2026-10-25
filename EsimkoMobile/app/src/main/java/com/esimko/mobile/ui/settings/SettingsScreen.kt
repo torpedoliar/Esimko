@@ -137,6 +137,10 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
+                        TextButton(
+                            onClick = updateVm::unduhViaBrowser,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        ) { Text("Unduh via Browser") }
                     }
                 }
             }
