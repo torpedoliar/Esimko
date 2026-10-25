@@ -141,6 +141,26 @@ fun SettingsScreen(
                 }
             }
 
+            // Tampilan — mode tema pilihan anggota, tersimpan permanen.
+            SectionHeader(title = "Tampilan", modifier = Modifier.padding(top = 24.dp))
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val app = context.applicationContext as com.esimko.mobile.EsimkoApp
+            val mode by app.themeMode.collectAsState()
+            listOf(
+                com.esimko.mobile.data.local.ThemeMode.SYSTEM to "Ikuti Sistem",
+                com.esimko.mobile.data.local.ThemeMode.LIGHT to "Mode Terang",
+                com.esimko.mobile.data.local.ThemeMode.DARK to "Mode Gelap"
+            ).forEachIndexed { index, (m, label) ->
+                if (index > 0) RowDivider()
+                ListRow(
+                    title = label,
+                    trailing = {
+                        androidx.compose.material3.RadioButton(selected = mode == m, onClick = null)
+                    },
+                    onClick = { app.setThemeMode(m) }
+                )
+            }
+
             // Tentang
             SectionHeader(title = "Tentang", modifier = Modifier.padding(top = 24.dp))
             ListRow(title = "eSIMKO Mobile", subtitle = "Aplikasi mobile untuk koperasi SIMKO")

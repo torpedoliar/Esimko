@@ -170,7 +170,8 @@ private fun LoanFormBody(
                 label = "Gaji pokok",
                 supportingText = state.salary?.let { "Terdaftar: " + MoneyFormatter.format(it.gajiPokok) },
                 enabled = !state.isSubmitting,
-                imeAction = ImeAction.Next
+                imeAction = ImeAction.Next,
+                hero = true
             )
         }
 

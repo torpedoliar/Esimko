@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.esimko.mobile.ui.theme.MoneyRow
+import com.esimko.mobile.ui.theme.OnHero
 import com.esimko.mobile.util.MoneyFormatter
 
 @Composable
@@ -32,8 +34,24 @@ fun AmountField(
     isError: Boolean = false,
     enabled: Boolean = true,
     imeAction: ImeAction = ImeAction.Done,
-    onImeAction: (() -> Unit)? = null
+    onImeAction: (() -> Unit)? = null,
+    // hero=true: dipakai di atas HeroSurface hijau — teks/label/border memakai warna
+    // on-hero (putih). Default colors (onSurface gelap) tidak terbaca di atas hijau.
+    hero: Boolean = false
 ) {
+    val heroColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = OnHero,
+        unfocusedTextColor = OnHero,
+        focusedBorderColor = OnHero,
+        unfocusedBorderColor = OnHero.copy(alpha = 0.6f),
+        focusedLabelColor = OnHero,
+        unfocusedLabelColor = OnHero.copy(alpha = 0.85f),
+        focusedSupportingTextColor = OnHero.copy(alpha = 0.85f),
+        unfocusedSupportingTextColor = OnHero.copy(alpha = 0.85f),
+        focusedPrefixColor = OnHero,
+        unfocusedPrefixColor = OnHero.copy(alpha = 0.85f),
+        cursorColor = OnHero
+    )
     OutlinedTextField(
         value = value,
         onValueChange = { onValueChange(MoneyFormatter.digitsToLong(it).toString()) },
@@ -45,6 +63,7 @@ fun AmountField(
         enabled = enabled,
         singleLine = true,
         textStyle = MoneyRow,
+        colors = if (hero) heroColors else OutlinedTextFieldDefaults.colors(),
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.NumberPassword,
             imeAction = imeAction

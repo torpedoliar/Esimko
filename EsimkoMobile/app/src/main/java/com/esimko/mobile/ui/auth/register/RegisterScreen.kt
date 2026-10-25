@@ -14,6 +14,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -24,12 +26,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.R
@@ -127,12 +134,22 @@ fun RegisterScreen(
                 singleLine = true
             )
             Spacer(Modifier.height(12.dp))
+            // Mata lihat password — sama dengan layar login.
+            var showPassword by remember { mutableStateOf(false) }
             OutlinedTextField(
                 value = s.password,
                 onValueChange = viewModel::setPassword,
                 label = { Text("Password") },
+                trailingIcon = {
+                    IconButton(onClick = { showPassword = !showPassword }) {
+                        Icon(
+                            imageVector = if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                            contentDescription = if (showPassword) "Sembunyikan password" else "Lihat password"
+                        )
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 enabled = !s.isLoading,
                 singleLine = true
@@ -142,8 +159,16 @@ fun RegisterScreen(
                 value = s.confirmPassword,
                 onValueChange = viewModel::setConfirmPassword,
                 label = { Text("Konfirmasi Password") },
+                trailingIcon = {
+                    IconButton(onClick = { showPassword = !showPassword }) {
+                        Icon(
+                            imageVector = if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                            contentDescription = if (showPassword) "Sembunyikan password" else "Lihat password"
+                        )
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 enabled = !s.isLoading,
                 singleLine = true
