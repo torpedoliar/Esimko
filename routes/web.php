@@ -10,7 +10,7 @@ Route::get('storage/{path?}', function ($path = null){
     // cukup untuk data pribadi (UU PDP) — rilis publik 1.0.8.
     $dilindungi = ['dokumen_pengajuan/', 'slip_gaji/'];
     $full = storage_path('app/' . $path);
-    if (!$path || str_contains($path, '..') || starts_with($path, $dilindungi) || !File::exists($full)) {
+    if (!$path || str_contains($path, '..') || \Illuminate\Support\Str::startsWith($path, $dilindungi) || !File::exists($full)) {
         abort(404);
     }
     $file = File::get($full);
@@ -26,7 +26,7 @@ Route::get('storage/{path?}', function ($path = null){
 // /storage. Hanya folder dokumen_pengajuan/ dan slip_gaji/ yang boleh dibuka.
 Route::get('dokumen-pengajuan/{path?}', function ($path = null) {
     $valid = $path
-        && starts_with($path, ['dokumen_pengajuan/', 'slip_gaji/'])
+        && \Illuminate\Support\Str::startsWith($path, ['dokumen_pengajuan/', 'slip_gaji/'])
         && !str_contains($path, '..')
         && File::exists(storage_path('app/' . $path));
     if (!$valid) {
