@@ -13,20 +13,29 @@ class LoanDocsTest {
     }
 
     @Test
-    fun `kurang - semua dokumen wajib terdaftar saat kosong`() {
+    fun `kurang - semua dokumen wajib terdaftar saat kosong (3 slip + 4 dokumen)`() {
         val kurang = LoanDocs.kurang(emptySet(), 5_000_000L, 10_000_000L)
-        assertThat(kurang).containsExactly("kk", "ktp1", "kartu_anggota", "id_card").inOrder()
+        assertThat(kurang).containsExactly(
+            "slip_bulan_ini", "slip_bulan_lalu", "slip_dua_bulan_lalu",
+            "kk", "ktp1", "kartu_anggota", "id_card"
+        ).inOrder()
     }
 
     @Test
     fun `kurang - ktp2 ikut wajib saat nominal besar`() {
         val kurang = LoanDocs.kurang(setOf("kk"), 25_000_000L, 10_000_000L)
-        assertThat(kurang).containsExactly("ktp1", "kartu_anggota", "id_card", "ktp2").inOrder()
+        assertThat(kurang).containsExactly(
+            "slip_bulan_ini", "slip_bulan_lalu", "slip_dua_bulan_lalu",
+            "ktp1", "kartu_anggota", "id_card", "ktp2"
+        ).inOrder()
     }
 
     @Test
     fun `kurang - kosong saat lengkap`() {
-        val terlampir = setOf("kk", "ktp1", "kartu_anggota", "id_card", "ktp2")
+        val terlampir = setOf(
+            "slip_bulan_ini", "slip_bulan_lalu", "slip_dua_bulan_lalu",
+            "kk", "ktp1", "kartu_anggota", "id_card", "ktp2"
+        )
         assertThat(LoanDocs.kurang(terlampir, 25_000_000L, 10_000_000L)).isEmpty()
         // nominal kecil: ktp2 tak wajib, tak masalah tak dilampirkan
         assertThat(LoanDocs.kurang(terlampir - "ktp2", 5_000_000L, 10_000_000L)).isEmpty()
@@ -52,6 +61,7 @@ class LoanDocsTest {
     fun `info slot lain menyebut nama dokumen`() {
         assertThat(LoanDocs.infoSlot("kk", 10_000_000L)).contains("Kartu Keluarga")
         assertThat(LoanDocs.infoSlot("ktp1", 10_000_000L)).contains("KTP")
-        assertThat(LoanDocs.infoSlot(LoanDocs.SLIP, 10_000_000L)).contains("slip gaji")
+        assertThat(LoanDocs.infoSlot("slip_bulan_ini", 10_000_000L)).contains("bulan INI")
+        assertThat(LoanDocs.infoSlot("slip_dua_bulan_lalu", 10_000_000L)).contains("2 bulan lalu")
     }
 }

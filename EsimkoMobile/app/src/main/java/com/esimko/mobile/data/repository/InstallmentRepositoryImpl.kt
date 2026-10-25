@@ -78,20 +78,27 @@ class InstallmentRepositoryImpl @Inject constructor(
     ): Result<Long> {
         return try {
             val toPart = { value: String -> value.toRequestBody("text/plain".toMediaType()) }
-            // Slip dikirim sebagai part "attachment" (kontrak lama backend); dokumen
-            // pendukung sebagai part dokumen_<key> (MobileController::draft_gaji_pinjaman).
-            val slipPart = dokumen[LoanDocs.SLIP]?.let { f ->
+            // Slip 3 bulan: bulan_ini dikirim sebagai part "attachment" (kontrak backend),
+            // dua slot lain sebagai part bernama sendiri. Dokumen pendukung → dokumen_<key>.
+            val slipUtamaPart = dokumen[LoanDocs.SLIP]?.let { f ->
                 MultipartBody.Part.createFormData(
-                    "attachment", "slip_gaji", f.bytes.toRequestBody(f.mime.toMediaType())
+                    "attachment", "slip_bulan_ini.jpg", f.bytes.toRequestBody(f.mime.toMediaType())
                 )
             }
+            val slipLainParts = listOf("slip_bulan_lalu", "slip_dua_bulan_lalu").mapNotNull { key ->
+                dokumen[key]?.let { f ->
+                    MultipartBody.Part.createFormData(
+                        key, f.nama, f.bytes.toRequestBody(f.mime.toMediaType())
+                    )
+                }
+            }
             val dokumenParts = dokumen
-                .filterKeys { it != LoanDocs.SLIP }
+                .filterKeys { it !in LoanDocs.SLIP_SLOTS }
                 .map { (key, f) ->
                     MultipartBody.Part.createFormData(
                         "dokumen_$key", f.nama, f.bytes.toRequestBody(f.mime.toMediaType())
                     )
-                }
+                } + slipLainParts
             val response = api.submitLoan(
                 "pinjaman",
                 toPart("add"),
@@ -101,7 +108,7 @@ class InstallmentRepositoryImpl @Inject constructor(
                 toPart(gajiPokok.toString()),
                 toPart(keterangan ?: ""),
                 persetujuanVersi?.let { toPart(it) },
-                slipPart,
+                slipUtamaPart,
                 dokumenParts
             )
             if (response.success && response.data != null) {

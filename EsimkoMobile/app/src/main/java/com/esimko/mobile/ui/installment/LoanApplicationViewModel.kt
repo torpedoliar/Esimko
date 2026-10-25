@@ -62,9 +62,9 @@ data class LoanApplicationState(
     /** Estimasi, bukan angka resmi — backend tidak mengirim bunga per jenis. Lihat `LoanMath`. */
     val estimasiAngsuran: Long get() = LoanMath.angsuranPerBulan(nominalValue, tenorValue)
 
-    /** Kunci slot dokumen yang tampil di UI (urut): slip + 4 wajib + ktp2 kondisional. */
+    /** Kunci slot dokumen yang tampil di UI (urut): 3 slip + 4 wajib + ktp2 kondisional. */
     val slotDokumen: List<String>
-        get() = listOf(LoanDocs.SLIP) + LoanDocs.WAJIB + if (perluKtp2) listOf(LoanDocs.KTP2) else emptyList()
+        get() = LoanDocs.SLIP_SLOTS + LoanDocs.WAJIB + if (perluKtp2) listOf(LoanDocs.KTP2) else emptyList()
 
     val dokumenKurang: List<String>
         get() = slotDokumen.filter { it !in dokumen.keys }
