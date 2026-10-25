@@ -130,6 +130,12 @@ class AuthController extends Controller
             $field->tanggal_bekerja=(!empty($request->id_karyawan) ? GlobalHelper::bulan_bekerja($request->id_karyawan) : date('Y-m-d') );
             $field->tanggal_bergabung=date('Y-m-d');
             $field->save();
+            // ponytail: sama dengan register mobile — tanpa user_akses anggota baru tak
+            // bisa login setelah disetujui (audit 25 Okt 2026). Hak anggota = 2.
+            $akses=new UserAkses;
+            $akses->fid_anggota=$field->id;
+            $akses->fid_hak_akses=2;
+            $akses->save();
             Session::put('anggota',$field);
         }
         else{

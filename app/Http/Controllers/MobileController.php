@@ -130,6 +130,13 @@ class MobileController extends Controller
     $field->tanggal_bekerja = (!empty($request->id_karyawan) ? GlobalHelper::bulan_bekerja($request->id_karyawan) : date('Y-m-d'));
     $field->tanggal_bergabung = date('Y-m-d');
     $field->save();
+    // ponytail: tanpa baris user_akses, anggota baru TIDAK PERNAH bisa login walau
+    // sudah disetujui (login join user_akses → "Anggota tidak Ditemukan"). Audit
+    // 25 Okt 2026 menemukan ini pada akun test AK 2607. Hak anggota = 2.
+    $akses = new UserAkses;
+    $akses->fid_anggota = $field->id;
+    $akses->fid_hak_akses = 2;
+    $akses->save();
     $profil = Anggota::where('id', $field->id)
       ->select('id', 'no_anggota', 'nama_lengkap', 'no_ktp', 'avatar', 'no_handphone', 'email')
       ->first();
