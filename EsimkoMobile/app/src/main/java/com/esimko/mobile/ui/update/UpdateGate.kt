@@ -32,8 +32,9 @@ fun UpdateGate(
     content()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val info = state.info ?: return
-    var lewati by rememberSaveable { mutableStateOf(false) }
 
+    // Pembaruan TIDAK wajib tidak lagi pakai dialog — banner lembut di Beranda
+    // (UpdateBanner). Di sini hanya: force-update (mengunci) + dialog izin install.
     if (info.forceUpdate) {
         AlertDialog(
             onDismissRequest = { },
@@ -66,28 +67,6 @@ fun UpdateGate(
                 TextButton(onClick = viewModel::unduhViaBrowser) {
                     Text("Unduh via Browser")
                 }
-            }
-        )
-    } else if (info.updateAvailable && !lewati && !state.sedangUnduh) {
-        AlertDialog(
-            onDismissRequest = { lewati = true },
-            title = { Text("Pembaruan Tersedia") },
-            text = {
-                Column {
-                    Text(
-                        "Versi terbaru v${info.latestVersion ?: "-"} tersedia. " +
-                            "Perbarui agar aplikasi tetap aman dan dapat semua fitur terbaru."
-                    )
-                    state.error?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { lewati = true }) { Text("Nanti") }
-            },
-            confirmButton = {
-                Button(onClick = viewModel::unduhDanPasang) { Text("Perbarui") }
             }
         )
     }

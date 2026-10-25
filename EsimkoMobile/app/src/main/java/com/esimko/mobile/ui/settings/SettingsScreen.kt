@@ -41,6 +41,7 @@ import com.esimko.mobile.ui.update.UpdateViewModel
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -167,7 +168,17 @@ fun SettingsScreen(
 
             // Tentang
             SectionHeader(title = "Tentang", modifier = Modifier.padding(top = 24.dp))
-            ListRow(title = "eSIMKO Mobile", subtitle = "Aplikasi mobile untuk koperasi SIMKO")
+            ListRow(
+                title = "eSIMKO Mobile",
+                subtitle = "Aplikasi mobile untuk koperasi SIMKO",
+                onClick = onOpenAbout
+            )
+            RowDivider()
+            ListRow(
+                title = "Dikembangkan oleh",
+                subtitle = "Yohanes Octavian Rizky",
+                onClick = onOpenAbout
+            )
             Spacer(Modifier.height(24.dp))
         }
     }

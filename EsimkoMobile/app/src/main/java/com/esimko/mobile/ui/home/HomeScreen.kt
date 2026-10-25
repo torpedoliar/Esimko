@@ -1,5 +1,6 @@
 package com.esimko.mobile.ui.home
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -26,6 +27,7 @@ import com.esimko.mobile.BuildConfig
 import com.esimko.mobile.ui.account.AccountTab
 import com.esimko.mobile.ui.activity.ActivityTab
 import com.esimko.mobile.ui.shopping.ShoppingViewModel
+import com.esimko.mobile.ui.update.UpdateBanner
 
 private enum class Tab(val label: String, val icon: ImageVector, val route: String) {
     BERANDA("Beranda", Icons.Outlined.Home, "beranda"),
@@ -82,11 +84,13 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        NavHost(
-            navController = tabNav,
-            startDestination = Tab.BERANDA.route,
-            modifier = Modifier.padding(bottom = padding.calculateBottomPadding())
-        ) {
+        Column(modifier = Modifier.padding(bottom = padding.calculateBottomPadding())) {
+            // Notifikasi pembaruan non-wajib — tampil di semua tab, cek otomatis.
+            UpdateBanner()
+            NavHost(
+                navController = tabNav,
+                startDestination = Tab.BERANDA.route
+            ) {
             composable(Tab.BERANDA.route) {
                 DashboardTab(
                     onNavigate = { route ->
@@ -127,6 +131,7 @@ fun HomeScreen(
                     onLogout = onLogout,
                     onOpenSettings = { onNavigateRoot("settings") }
                 )
+            }
             }
         }
     }
