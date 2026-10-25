@@ -545,7 +545,12 @@ class MobileController extends Controller
               // Bersihkan file yang baru tersimpan oleh draft_gaji_pinjaman (anti orphan).
               $draft = json_decode($field->draft_pengajuan, true);
               if (is_array($draft)) {
-                $paths = !empty($draft['slip']) ? [$draft['slip']] : [];
+                // Slip bentuk baru array 3 slot; legacy string tunggal tetap dibersihkan.
+                $slipCleanup = [];
+                if (!empty($draft['slip'])) {
+                  $slipCleanup = is_array($draft['slip']) ? array_values($draft['slip']) : [$draft['slip']];
+                }
+                $paths = $slipCleanup;
                 foreach ((array) ($draft['dokumen'] ?? []) as $p) {
                   if (!empty($p)) $paths[] = $p;
                 }
