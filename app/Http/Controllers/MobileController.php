@@ -9,6 +9,7 @@ use App\Helpers\GlobalHelper;
 use App\Helpers\MobileHelper;
 use App\Support\ApiResponse;
 use App\Anggota;
+use App\UserAkses;
 use App\Transaksi;
 use App\Angsuran;
 use App\GajiPokok;
