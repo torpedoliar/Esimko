@@ -115,20 +115,37 @@
                                                 'kartu_anggota' => 'Kartu Anggota',
                                                 'id_card' => 'ID Card Pegawai',
                                             ];
+                                            // Slip: bentuk baru array 3 bulan (Okt 2026), legacy string tunggal.
+                                            $slips = [];
+                                            if (!empty($draft['slip'])) {
+                                                if (is_array($draft['slip'])) {
+                                                    $labelSlip = ['bulan_ini' => 'Bulan Ini', 'bulan_lalu' => '1 Bulan Lalu', 'dua_bulan_lalu' => '2 Bulan Lalu'];
+                                                    foreach ($labelSlip as $k => $lab) {
+                                                        if (!empty($draft['slip'][$k])) $slips[$lab] = $draft['slip'][$k];
+                                                    }
+                                                } else {
+                                                    $slips['Slip Gaji'] = $draft['slip'];
+                                                }
+                                            }
                                         @endphp
-                                        <tr>
-                                            <th>Slip Gaji</th>
-                                            <th>:</th>
-                                            <td>
-                                                @if(!empty($draft['slip']))
-                                                    <a href="{{url('dokumen-pengajuan/'.$draft['slip'])}}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                                        <i class="fas fa-file-image"></i> Lihat Slip Gaji
+                                        @foreach($slips as $labSlip => $pathSlip)
+                                            <tr>
+                                                <th>Slip Gaji — {{$labSlip}}</th>
+                                                <th>:</th>
+                                                <td>
+                                                    <a href="{{url('dokumen-pengajuan/'.$pathSlip)}}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-file-image"></i> Lihat Slip ({{$labSlip}})
                                                     </a>
-                                                @else
-                                                    <span class="text-muted">Tidak ada slip</span>
-                                                @endif
-                                            </td>
-                                        </tr>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                        @if(count($slips) == 0)
+                                            <tr>
+                                                <th>Slip Gaji</th>
+                                                <th>:</th>
+                                                <td><span class="text-muted">Tidak ada slip</span></td>
+                                            </tr>
+                                        @endif
                                         @foreach($label_dok as $key => $label)
                                             <tr>
                                                 <th>{{$label}}</th>

@@ -339,10 +339,14 @@ class PinjamanController extends Controller
                 }
                 $gaji->gaji_pokok=$keterangan['gaji'];
                 if(!empty($keterangan['slip'])){
-                    if(!empty($gaji->attachment) && file_exists(storage_path('app/'.$gaji->attachment))){
-                        unlink(storage_path('app/'.$gaji->attachment));
+                    // Slip bentuk baru = array 3 bulan; ambil bulan_ini untuk gaji resmi.
+                    $slipResmi = is_array($keterangan['slip']) ? ($keterangan['slip']['bulan_ini'] ?? null) : $keterangan['slip'];
+                    if(!empty($slipResmi)){
+                        if(!empty($gaji->attachment) && file_exists(storage_path('app/'.$gaji->attachment))){
+                            unlink(storage_path('app/'.$gaji->attachment));
+                        }
+                        $gaji->attachment=$slipResmi;
                     }
-                    $gaji->attachment=$keterangan['slip'];
                 }
                 $gaji->save();
             }
@@ -353,7 +357,16 @@ class PinjamanController extends Controller
             // ditolak tidak ada alasan menyimpan KTP/KK anggota.
             $draft=json_decode($field->draft_pengajuan,true);
             if(is_array($draft)){
-                $paths=!empty($draft['slip']) ? [$draft['slip']] : [];
+                // Slip bisa string (pengajuan lama) atau array 3 bulan (aturan Okt 2026).
+                $slipPaths=[];
+                if(!empty($draft['slip'])){
+                    if(is_array($draft['slip'])){
+                        foreach($draft['slip'] as $p){ if(!empty($p)) $slipPaths[]=$p; }
+                    } else {
+                        $slipPaths[]=$draft['slip'];
+                    }
+                }
+                $paths=$slipPaths;
                 foreach((array)($draft['dokumen'] ?? []) as $p){
                     if(!empty($p)) $paths[]=$p;
                 }

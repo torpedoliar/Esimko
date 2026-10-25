@@ -625,18 +625,26 @@ class MobileController extends Controller
       $draft_lama = json_decode($transaksi->draft_pengajuan, true);
       if (is_array($draft_lama)) {
         if (!empty($draft_lama['slip'])) {
-          $draft['slip'] = $draft_lama['slip'];
+          // Legacy: slip lama string tunggal → migrasi ke bentuk array (bulan_ini).
+          $draft['slip'] = is_array($draft_lama['slip'])
+            ? $draft_lama['slip']
+            : ['bulan_ini' => $draft_lama['slip']];
         }
         if (!empty($draft_lama['dokumen'])) {
           $draft['dokumen'] = $draft_lama['dokumen'];
         }
       }
     }
-    if ($request->hasFile('attachment')) {
-      $draft['slip'] = $request->file('attachment')->store('slip_gaji');
+    // Syarat per Okt 2026: slip gaji 3 bulan terakhir. Part multipart:
+    // attachment = bulan ini (kompatibel nama lama), slip_bulan_lalu, slip_dua_bulan_lalu.
+    $slipParts = ['bulan_ini' => 'attachment', 'bulan_lalu' => 'slip_bulan_lalu', 'dua_bulan_lalu' => 'slip_dua_bulan_lalu'];
+    foreach ($slipParts as $slot => $part) {
+      $file = $request->file($part);
+      if (!empty($file) && $file->isValid()) {
+        $draft['slip'][$slot] = $file->store('slip_gaji');
+      }
     }
-    // Dokumen pendukung pengajuan (KK/KTP/kartu) — file part bernama dokumen_kk dst.
-    // Disimpan di folder terpisah dokumen_pengajuan (disajikan via route WAJIB LOGIN).
+    // Dokumen pendukung pengajuan (KK/KTP/kartu) — folder dokumen_pengajuan (wajib login).
     foreach (['kk', 'ktp1', 'ktp2', 'kartu_anggota', 'id_card'] as $j) {
       $file = $request->file('dokumen_' . $j);
       if (!empty($file) && $file->isValid()) {
@@ -650,6 +658,13 @@ class MobileController extends Controller
     $transaksi->draft_pengajuan = json_encode($draft);
     $transaksi->save();
   }
+
+  // Label slot slip — dipakai validasi, cek kelengkapan, dan pesan error.
+  const SLIP_SLOTS = [
+    'bulan_ini' => 'Slip Gaji (bulan ini)',
+    'bulan_lalu' => 'Slip Gaji (1 bulan lalu)',
+    'dua_bulan_lalu' => 'Slip Gaji (2 bulan lalu)',
+  ];
 
   // Syarat pinjaman untuk app: threshold KTP-2, daftar dokumen, format, teks persetujuan.
   public function syarat_pinjaman(Request $request)
@@ -682,7 +697,9 @@ class MobileController extends Controller
   private function validasi_files_pengajuan($request)
   {
     $labels = [
-      'attachment' => 'Slip Gaji',
+      'attachment' => 'Slip Gaji (bulan ini)',
+      'slip_bulan_lalu' => 'Slip Gaji (1 bulan lalu)',
+      'slip_dua_bulan_lalu' => 'Slip Gaji (2 bulan lalu)',
       'dokumen_kk' => 'Kartu Keluarga',
       'dokumen_ktp1' => 'KTP Peminjam',
       'dokumen_ktp2' => 'KTP Suami/Istri',
@@ -701,14 +718,13 @@ class MobileController extends Controller
     return null;
   }
 
-  // Cek kelengkapan pengajuan: dokumen wajib + KTP-2 kondisional + persetujuan.
+  // Cek kelengkapan pengajuan: 3 slip + dokumen wajib + KTP-2 kondisional + persetujuan.
   // Return true jika lengkap, atau string pesan error.
   public function cek_dokumen_pengajuan($transaksi, $nominal)
   {
     $draft = json_decode($transaksi->draft_pengajuan, true);
     $draft = is_array($draft) ? $draft : [];
     $labels = [
-      'slip' => 'Slip Gaji',
       'kk' => 'Kartu Keluarga',
       'ktp1' => 'KTP Peminjam',
       'ktp2' => 'KTP Suami/Istri',
@@ -716,8 +732,15 @@ class MobileController extends Controller
       'id_card' => 'ID Card Pegawai',
     ];
     $kurang = [];
-    if (empty($draft['slip'])) {
-      $kurang[] = $labels['slip'];
+    // Slip: bentuk baru array {bulan_ini, bulan_lalu, dua_bulan_lalu}; legacy string
+    // dianggap hanya bulan_ini (pengajuan lama tidak lewat cek ini lagi — hanya submit baru).
+    $slip = !empty($draft['slip'])
+      ? (is_array($draft['slip']) ? $draft['slip'] : ['bulan_ini' => $draft['slip']])
+      : [];
+    foreach (self::SLIP_SLOTS as $slot => $label) {
+      if (empty($slip[$slot])) {
+        $kurang[] = $label;
+      }
     }
     foreach (self::DOKUMEN_WAJIB as $j) {
       if (empty($draft['dokumen'][$j])) {
@@ -736,7 +759,8 @@ class MobileController extends Controller
     return true;
   }
 
-  // Ganti/tambah satu dokumen setelah pengajuan dibuat (pola sama dengan upload_slip_gaji).
+  // Ganti/tambah satu dokumen setelah pengajuan dibuat. Jenis: slot slip
+  // (slip_bulan_ini/lalu/dua_bulan_lalu) atau dokumen pendukung (kk/ktp1/…).
   public function upload_dokumen(Request $request)
   {
     $field = Transaksi::find($request->id);
@@ -745,26 +769,44 @@ class MobileController extends Controller
     }
     $jenis_dok = $request->jenis_dok;
     $labels = ['kk' => 'Kartu Keluarga', 'ktp1' => 'KTP Peminjam', 'ktp2' => 'KTP Suami/Istri', 'kartu_anggota' => 'Kartu Anggota', 'id_card' => 'ID Card Pegawai'];
-    if (!array_key_exists($jenis_dok, $labels)) {
+    $slipJenis = ['slip_bulan_ini' => 'bulan_ini', 'slip_bulan_lalu' => 'bulan_lalu', 'slip_dua_bulan_lalu' => 'dua_bulan_lalu'];
+    $isSlip = array_key_exists($jenis_dok, $slipJenis);
+    if (!$isSlip && !array_key_exists($jenis_dok, $labels)) {
       return ApiResponse::error('jenis dokumen tidak valid');
     }
+    $label = $isSlip ? self::SLIP_SLOTS[$slipJenis[$jenis_dok]] : $labels[$jenis_dok];
     $file = $request->file('attachment');
     if (empty($file) || !$file->isValid()) {
       return ApiResponse::error('file tidak ditemukan');
     }
-    $err = $this->validasi_dokumen($file, $labels[$jenis_dok]);
+    $err = $this->validasi_dokumen($file, $label);
     if ($err !== null) {
       return ApiResponse::error($err, 422);
     }
     $draft = json_decode($field->draft_pengajuan, true);
     $draft = is_array($draft) ? $draft : [];
-    if (!empty($draft['dokumen'][$jenis_dok])) {
-      $lama = storage_path('app/' . $draft['dokumen'][$jenis_dok]);
-      if (file_exists($lama)) {
-        unlink($lama);
+    if ($isSlip) {
+      $slot = $slipJenis[$jenis_dok];
+      $slip = !empty($draft['slip'])
+        ? (is_array($draft['slip']) ? $draft['slip'] : ['bulan_ini' => $draft['slip']])
+        : [];
+      if (!empty($slip[$slot])) {
+        $lama = storage_path('app/' . $slip[$slot]);
+        if (file_exists($lama)) {
+          unlink($lama);
+        }
       }
+      $slip[$slot] = $file->store('slip_gaji');
+      $draft['slip'] = $slip;
+    } else {
+      if (!empty($draft['dokumen'][$jenis_dok])) {
+        $lama = storage_path('app/' . $draft['dokumen'][$jenis_dok]);
+        if (file_exists($lama)) {
+          unlink($lama);
+        }
+      }
+      $draft['dokumen'][$jenis_dok] = $file->store('dokumen_pengajuan');
     }
-    $draft['dokumen'][$jenis_dok] = $file->store('dokumen_pengajuan');
     $field->draft_pengajuan = json_encode($draft);
     $field->save();
     return ApiResponse::success(null, 'Dokumen diperbarui');
@@ -783,11 +825,16 @@ class MobileController extends Controller
     if (empty($draft)) {
       $draft = [];
     }
-    if (!empty($draft['slip'])) {
-      $path = storage_path('app/' . $draft['slip']);
+    // Normalisasi slip ke bentuk array; ganti slot bulan_ini saja (part "attachment").
+    $slip = !empty($draft['slip'])
+      ? (is_array($draft['slip']) ? $draft['slip'] : ['bulan_ini' => $draft['slip']])
+      : [];
+    if (!empty($slip['bulan_ini'])) {
+      $path = storage_path('app/' . $slip['bulan_ini']);
       if (file_exists($path)) { unlink($path); }
     }
-    $draft['slip'] = $request->file('attachment')->store('slip_gaji');
+    $slip['bulan_ini'] = $request->file('attachment')->store('slip_gaji');
+    $draft['slip'] = $slip;
     $field->draft_pengajuan = json_encode($draft);
     $field->save();
     return ApiResponse::success(null, 'success');
