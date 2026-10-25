@@ -45,3 +45,9 @@ storage/framework/sessions/
 # public/storage = artisan storage:link symlink -> storage/app/public.
 # ponytail: git tracks real files here = conflicts with symlink, new uploads 404.
 public/storage/
+
+# Arsip operasional lokal & artefak — JANGAN di-push (berisi snapshot DB, keystore, APK):
+"From Server Production"/
+EsimkoMobile/app/outputs/
+*.keystore
+*.jks
