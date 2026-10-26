@@ -36,6 +36,12 @@ class LoanMathTest {
     }
 
     @Test
+    fun `bunga server nol koma delapan persen sesuai pengaturan web`() {
+        assertThat(LoanMath.angsuranPerBulan(1_000_000, 10, rate = 0.008)).isEqualTo(108_000)
+        assertThat(LoanMath.angsuranPerBulan(30_000_000, 20, rate = 0.008)).isEqualTo(1_740_000)
+    }
+
+    @Test
     fun `rate bisa diganti`() {
         // bunga 0% → murni pokok dibagi tenor
         assertThat(LoanMath.angsuranPerBulan(1_200_000, 12, rate = 0.0)).isEqualTo(100_000)

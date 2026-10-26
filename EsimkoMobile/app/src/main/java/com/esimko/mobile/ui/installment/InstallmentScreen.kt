@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -131,32 +133,29 @@ private fun InstallmentBody(
                     FilledTonalButton(
                         onClick = onApplyLoan,
                         modifier = Modifier
+                            .padding(16.dp)
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
-                            .padding(horizontal = 16.dp, vertical = 16.dp)
                     ) {
                         Text("Ajukan Pinjaman")
                     }
                 }
                 item { SectionHeader("Daftar Angsuran") }
-                // Pencarian + urutan terbaru/terlama (Okt 2026).
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = state.search,
-                            onValueChange = onSearchChange,
-                            placeholder = { Text("Cari angsuran…") },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(onClick = onToggleSort) {
-                            Text(if (state.sortTerbaru) "Terbaru" else "Terlama")
+                    InstallmentFilters(state, onSearchChange, onToggleSort)
+                }
+                if (state.installments.isEmpty()) {
+                    item {
+                        if (state.isLoading) {
+                            SkeletonListRows(count = 3)
+                        } else if (error == null) {
+                            EmptyStateView(
+                                message = if (state.search.isNotBlank())
+                                    "Tidak ada angsuran yang cocok. Coba kata kunci lain."
+                                else "Belum ada angsuran pinjaman untuk ditampilkan.",
+                                icon = Icons.Outlined.EventRepeat,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)
+                            )
                         }
                     }
                 }
@@ -189,6 +188,63 @@ private fun InstallmentBody(
     }
 }
 
+@Composable
+private fun InstallmentFilters(
+    state: InstallmentState,
+    onSearchChange: (String) -> Unit,
+    onToggleSort: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedTextField(
+            value = state.search,
+            onValueChange = onSearchChange,
+            placeholder = { Text("Cari angsuran…") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (state.search.isNotEmpty()) {
+                    IconButton(onClick = { onSearchChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Hapus pencarian")
+                    }
+                }
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                shape = MaterialTheme.shapes.small,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Urutan", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        if (state.sortTerbaru) "Terbaru" else "Terlama",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(text = { Text("Terbaru") }, onClick = {
+                    expanded = false
+                    if (!state.sortTerbaru) onToggleSort()
+                })
+                DropdownMenuItem(text = { Text("Terlama") }, onClick = {
+                    expanded = false
+                    if (state.sortTerbaru) onToggleSort()
+                })
+            }
+        }
+    }
+}
+
 @LightDarkPreview
 @Composable
 private fun InstallmentScreenPreview() {
@@ -212,6 +268,6 @@ private fun InstallmentScreenPreview() {
 @Composable
 private fun InstallmentEmptyPreview() {
     EsimkoPreview {
-        InstallmentBody(state = InstallmentState(), onApplyLoan = {}, onRetry = {})
+        InstallmentBody(state = InstallmentState(salary = Salary(gajiPokok = 0)), onApplyLoan = {}, onRetry = {})
     }
 }

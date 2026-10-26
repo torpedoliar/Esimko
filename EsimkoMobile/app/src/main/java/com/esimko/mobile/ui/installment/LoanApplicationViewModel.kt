@@ -61,8 +61,12 @@ data class LoanApplicationState(
     /** KTP pasangan muncul (wajib) hanya saat nominal di atas threshold. */
     val perluKtp2: Boolean get() = LoanDocs.perluKtp2(nominalValue, ktp2Threshold)
 
-    /** Estimasi, bukan angka resmi — backend tidak mengirim bunga per jenis. Lihat `LoanMath`. */
-    val estimasiAngsuran: Long get() = LoanMath.angsuranPerBulan(nominalValue, tenorValue)
+    val bungaRate: Double?
+        get() = syarat?.bungaPinjamanRate?.takeIf { it.isFinite() && it >= 0.0 }
+
+    /** Tidak menebak bunga ketika pengaturan server belum tersedia. */
+    val estimasiAngsuran: Long
+        get() = bungaRate?.let { LoanMath.angsuranPerBulan(nominalValue, tenorValue, it) } ?: 0L
 
     /** Kunci slot dokumen yang tampil di UI: 3 slip + 4 wajib + ktp2 kondisional + surat hutang (jenis 9). */
     val slotDokumen: List<String>

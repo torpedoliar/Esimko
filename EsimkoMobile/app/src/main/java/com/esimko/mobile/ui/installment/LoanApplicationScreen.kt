@@ -235,11 +235,20 @@ private fun LoanFormBody(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Angka resmi ditentukan pengurus saat verifikasi.",
+                    text = "Bunga flat ${java.math.BigDecimal.valueOf(state.bungaRate ?: 0.0).multiply(java.math.BigDecimal(100)).stripTrailingZeros().toPlainString().replace('.', ',')}% per bulan sesuai pengaturan koperasi. Angka resmi ditentukan saat verifikasi.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+
+        if (state.nominalValue > 0L && state.tenorValid && state.bungaRate == null) {
+            Text(
+                text = "Estimasi belum tersedia karena bunga koperasi belum berhasil dimuat. Buka ulang halaman untuk mencoba lagi.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
 
         // 6. Dokumen pengajuan — slip + KK/KTP/kartu, foto atau PDF. Slot KTP-2 hanya

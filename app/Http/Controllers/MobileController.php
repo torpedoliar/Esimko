@@ -636,7 +636,10 @@ class MobileController extends Controller
       });
     }
     $arah = ($request->input('sort', 'terbaru') === 'terlama') ? 'asc' : 'desc';
-    $query = $query->orderBy('transaksi.created_at', $arah)->orderBy('angsuran.angsuran_ke', 'asc');
+    $query = $query->orderBy('transaksi.created_at', $arah)
+      ->orderBy('transaksi.id', $arah)
+      ->orderBy('angsuran.angsuran_ke', $arah)
+      ->orderBy('angsuran.id', $arah);
     // $p = $query->paginate($request->input('per_page', 20)); $data = $p->items();
     $data = $query->get();
     foreach ($data as $key => $value) {
@@ -704,6 +707,7 @@ class MobileController extends Controller
   public function syarat_pinjaman(Request $request)
   {
     return ApiResponse::success([
+      'bunga_pinjaman_rate' => GlobalHelper::getBungaPinjaman(),
       'ktp2_threshold' => self::KTP2_THRESHOLD,
       'dokumen_wajib' => self::DOKUMEN_WAJIB,
       'dokumen_kondisional' => ['ktp2'],

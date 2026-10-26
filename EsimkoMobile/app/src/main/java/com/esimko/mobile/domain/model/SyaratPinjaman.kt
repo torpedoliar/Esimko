@@ -9,7 +9,8 @@ data class SyaratPinjaman(
     val persetujuanVersi: String,
     val persetujuanTeks: String,
     val persetujuanPinjamanVersi: String = "",
-    val persetujuanPinjamanTeks: String = ""
+    val persetujuanPinjamanTeks: String = "",
+    val bungaPinjamanRate: Double? = null
 )
 
 /** Satu dokumen terpilih di lokal (belum diupload). */
