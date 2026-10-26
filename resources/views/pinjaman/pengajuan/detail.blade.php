@@ -114,6 +114,7 @@
                                                 'ktp2' => 'KTP Suami/Istri',
                                                 'kartu_anggota' => 'Kartu Anggota',
                                                 'id_card' => 'ID Card Pegawai',
+                                                'surat_hutang' => 'Surat Hutang (Materai)',
                                             ];
                                             // Slip: bentuk baru array 3 bulan (Okt 2026), legacy string tunggal.
                                             $slips = [];
@@ -166,6 +167,13 @@
                                                 <th>Persetujuan Data</th>
                                                 <th>:</th>
                                                 <td><span class="text-muted">Disetujui di app (versi {{$draft['consent']['versi'] ?? '-'}}, {{$draft['consent']['waktu'] ?? '-'}})</span></td>
+                                            </tr>
+                                        @endif
+                                        @if(!empty($draft['persetujuan_pinjaman']))
+                                            <tr>
+                                                <th>Persetujuan Pengajuan</th>
+                                                <th>:</th>
+                                                <td><span class="text-muted">Syarat & ketentuan disetujui di app (versi {{$draft['persetujuan_pinjaman']['versi'] ?? '-'}}, {{$draft['persetujuan_pinjaman']['waktu'] ?? '-'}})</span></td>
                                             </tr>
                                         @endif
                                     @endif

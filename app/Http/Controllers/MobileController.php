@@ -40,6 +40,11 @@ class MobileController extends Controller
   const PERSETUJUAN_VERSI = 'v1-2026-10-24';
   const PERSETUJUAN_TEKS = 'Saya menyetujui Koperasi mengumpulkan, menyimpan, dan mengolah salinan dokumen pribadi saya (slip gaji, Kartu Keluarga, KTP, kartu anggota, ID Card pegawai, dan/atau KTP pasangan) untuk keperluan pengajuan dan verifikasi pinjaman. Dokumen disimpan secara aman, hanya dapat diakses petugas koperasi yang berwenang, tidak dibagikan kepada pihak lain tanpa izin saya, dan akan dihapus otomatis apabila pengajuan ditolak. Sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi, saya berhak meminta akses, perbaikan, dan penghapusan data pribadi saya melalui koperasi.';
   const DOKUMEN_WAJIB = ['kk', 'ktp1', 'kartu_anggota', 'id_card']; // slip selalu wajib
+  // Surat Hutang bertanda tangan materai — wajib hanya untuk Pinjaman Jangka Panjang (jenis 9).
+  const SURAT_HUTANG_JENIS = [9];
+  // Persetujuan kedua: pernyataan pengajuan pinjaman (terpisah dari persetujuan data pribadi).
+  const PERSETUJUAN_PINJAMAN_VERSI = 'pj-v1-2026-10-25';
+  const PERSETUJUAN_PINJAMAN_TEKS = 'Saya menyatakan bahwa data dan dokumen dalam pengajuan pinjaman ini benar, serta saya menyetujui syarat dan ketentuan pinjaman koperasi — termasuk bunga, jadwal angsuran, dan konsekuensi keterlambatan pembayaran — sebagaimana ditetapkan pengurus koperasi.';
   public function login(Request $request)
   {
     if (str_contains($request->input('username'), ' ')) {
@@ -280,14 +285,24 @@ class MobileController extends Controller
       $query = $query->whereBetween('transaksi.tanggal', [GlobalHelper::dateFormat($request->tanggal_mulai, 'Y-m-d'), GlobalHelper::dateFormat($request->tanggal_akhir, 'Y-m-d')]);
     }
 
+    // Pencarian bebas (keterangan/nominal) + urutan terbaru/terlama (Okt 2026).
+    $search = trim((string) $request->input('search', ''));
+    if ($search !== '') {
+      $query = $query->where(function ($q) use ($search) {
+        $q->where('transaksi.keterangan', 'like', "%{$search}%")
+          ->orWhere('transaksi.nominal', 'like', "%{$search}%");
+      });
+    }
+    $arah = ($request->input('sort', 'terbaru') === 'terlama') ? 'asc' : 'desc';
+
     $limit = $request->input('per_page', 20);
     $paginated = $request->has('page');
     if ($paginated) {
-        $p = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->paginate($limit);
+        $p = $query->orderBy('transaksi.tanggal', $arah)->orderBy('transaksi.created_at', $arah)->paginate($limit);
         $items = $p->items();
     } else {
         // Tanpa page = ambil semua (riwayat lengkap); pagination hanya saat request page
-        $items = $query->orderBy('transaksi.tanggal', 'DESC')->orderBy('transaksi.created_at', 'DESC')->get();
+        $items = $query->orderBy('transaksi.tanggal', $arah)->orderBy('transaksi.created_at', $arah)->get();
     }
 
     // Manual eager load for angsuran is a bit complex, let's keep it N+1 or fix it
@@ -612,6 +627,16 @@ class MobileController extends Controller
     } else {
       $query = $query->where('transaksi.fid_anggota', $request->no_anggota)->whereIn('angsuran.fid_status', array(5, 6));
     }
+    // Pencarian & urutan untuk daftar angsuran (Okt 2026).
+    $search = trim((string) $request->input('search', ''));
+    if ($search !== '') {
+      $query = $query->where(function ($q) use ($search) {
+        $q->where('transaksi.keterangan', 'like', "%{$search}%")
+          ->orWhere('jenis_transaksi.jenis_transaksi', 'like', "%{$search}%");
+      });
+    }
+    $arah = ($request->input('sort', 'terbaru') === 'terlama') ? 'asc' : 'desc';
+    $query = $query->orderBy('transaksi.created_at', $arah)->orderBy('angsuran.angsuran_ke', 'asc');
     // $p = $query->paginate($request->input('per_page', 20)); $data = $p->items();
     $data = $query->get();
     foreach ($data as $key => $value) {
@@ -650,7 +675,7 @@ class MobileController extends Controller
       }
     }
     // Dokumen pendukung pengajuan (KK/KTP/kartu) — folder dokumen_pengajuan (wajib login).
-    foreach (['kk', 'ktp1', 'ktp2', 'kartu_anggota', 'id_card'] as $j) {
+    foreach (['kk', 'ktp1', 'ktp2', 'kartu_anggota', 'id_card', 'surat_hutang'] as $j) {
       $file = $request->file('dokumen_' . $j);
       if (!empty($file) && $file->isValid()) {
         $draft['dokumen'][$j] = $file->store('dokumen_pengajuan');
@@ -659,6 +684,10 @@ class MobileController extends Controller
     if (!empty($request->persetujuan_versi)) {
       // Bukti persetujuan penggunaan data pribadi (UU PDP) — versi teks + waktu setuju.
       $draft['consent'] = ['versi' => $request->persetujuan_versi, 'waktu' => date('Y-m-d H:i:s')];
+    }
+    if (!empty($request->persetujuan_pinjaman_versi)) {
+      // Persetujuan kedua: pernyataan pengajuan pinjaman (syarat & ketentuan).
+      $draft['persetujuan_pinjaman'] = ['versi' => $request->persetujuan_pinjaman_versi, 'waktu' => date('Y-m-d H:i:s')];
     }
     $transaksi->draft_pengajuan = json_encode($draft);
     $transaksi->save();
@@ -678,10 +707,13 @@ class MobileController extends Controller
       'ktp2_threshold' => self::KTP2_THRESHOLD,
       'dokumen_wajib' => self::DOKUMEN_WAJIB,
       'dokumen_kondisional' => ['ktp2'],
+      'surat_hutang_jenis' => self::SURAT_HUTANG_JENIS,
       'format' => ['jpg', 'jpeg', 'png', 'pdf'],
       'maks_kb' => 5120,
       'persetujuan_versi' => self::PERSETUJUAN_VERSI,
       'persetujuan_teks' => self::PERSETUJUAN_TEKS,
+      'persetujuan_pinjaman_versi' => self::PERSETUJUAN_PINJAMAN_VERSI,
+      'persetujuan_pinjaman_teks' => self::PERSETUJUAN_PINJAMAN_TEKS,
     ]);
   }
 
@@ -710,6 +742,7 @@ class MobileController extends Controller
       'dokumen_ktp2' => 'KTP Suami/Istri',
       'dokumen_kartu_anggota' => 'Kartu Anggota',
       'dokumen_id_card' => 'ID Card Pegawai',
+      'dokumen_surat_hutang' => 'Surat Hutang (materai)',
     ];
     foreach ($labels as $key => $label) {
       $file = $request->file($key);
@@ -735,6 +768,7 @@ class MobileController extends Controller
       'ktp2' => 'KTP Suami/Istri',
       'kartu_anggota' => 'Kartu Anggota',
       'id_card' => 'ID Card Pegawai',
+      'surat_hutang' => 'Surat Hutang (materai)',
     ];
     $kurang = [];
     // Slip: bentuk baru array {bulan_ini, bulan_lalu, dua_bulan_lalu}; legacy string
@@ -755,11 +789,18 @@ class MobileController extends Controller
     if ($nominal > self::KTP2_THRESHOLD && empty($draft['dokumen']['ktp2'])) {
       $kurang[] = $labels['ktp2'] . ' (wajib untuk pinjaman di atas Rp 10 juta)';
     }
+    // Surat Hutang bermaterai — wajib hanya Pinjaman Jangka Panjang (jenis 9).
+    if (in_array($transaksi->fid_jenis_transaksi, self::SURAT_HUTANG_JENIS) && empty($draft['dokumen']['surat_hutang'])) {
+      $kurang[] = $labels['surat_hutang'] . ' (wajib untuk Pinjaman Jangka Panjang)';
+    }
     if (!empty($kurang)) {
       return 'Dokumen belum lengkap: ' . implode(', ', $kurang);
     }
     if (empty($draft['consent'])) {
       return 'Persetujuan penggunaan data pribadi belum disetujui';
+    }
+    if (empty($draft['persetujuan_pinjaman'])) {
+      return 'Persetujuan pengajuan pinjaman (syarat & ketentuan) belum dicentang';
     }
     return true;
   }
@@ -773,7 +814,7 @@ class MobileController extends Controller
       return ApiResponse::error('transaksi tidak ditemukan', 404);
     }
     $jenis_dok = $request->jenis_dok;
-    $labels = ['kk' => 'Kartu Keluarga', 'ktp1' => 'KTP Peminjam', 'ktp2' => 'KTP Suami/Istri', 'kartu_anggota' => 'Kartu Anggota', 'id_card' => 'ID Card Pegawai'];
+    $labels = ['kk' => 'Kartu Keluarga', 'ktp1' => 'KTP Peminjam', 'ktp2' => 'KTP Suami/Istri', 'kartu_anggota' => 'Kartu Anggota', 'id_card' => 'ID Card Pegawai', 'surat_hutang' => 'Surat Hutang (materai)'];
     $slipJenis = ['slip_bulan_ini' => 'bulan_ini', 'slip_bulan_lalu' => 'bulan_lalu', 'slip_dua_bulan_lalu' => 'dua_bulan_lalu'];
     $isSlip = array_key_exists($jenis_dok, $slipJenis);
     if (!$isSlip && !array_key_exists($jenis_dok, $labels)) {
@@ -1061,7 +1102,16 @@ class MobileController extends Controller
       ->where('jenis_belanja', $jenis)
       ->where('fid_anggota', '=', $request->no_anggota);
 
-    $p = $query->orderBy('penjualan.created_at')->paginate($request->input('per_page', 20)); $result = $p->items();
+    // Pencarian (no. transaksi/keterangan) + urutan terbaru/terlama (Okt 2026).
+    $search = trim((string) $request->input('search', ''));
+    if ($search !== '') {
+      $query = $query->where(function ($q) use ($search) {
+        $q->where('penjualan.no_transaksi', 'like', "%{$search}%")
+          ->orWhere('penjualan.keterangan', 'like', "%{$search}%");
+      });
+    }
+    $arah = ($request->input('sort', 'terbaru') === 'terlama') ? 'asc' : 'desc';
+    $p = $query->orderBy('penjualan.created_at', $arah)->paginate($request->input('per_page', 20)); $result = $p->items();
     foreach ($result as $key => $value) {
       if ($jenis == 'toko') {
         $items = ItemPenjualan::select('item_penjualan.*', 'produk.nama_produk', 'produk.kode', 'satuan_barang.satuan')
