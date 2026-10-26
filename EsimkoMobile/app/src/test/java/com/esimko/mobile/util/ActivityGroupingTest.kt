@@ -26,6 +26,14 @@ class ActivityGroupingTest {
     }
 
     @Test
+    fun `pilihan terlama tidak dibalik menjadi terbaru oleh grouping`() {
+        val data = listOf(trx(2, "2026-08-02", "Selesai"), trx(1, "2026-07-01", "Selesai"))
+        val ids = ActivityGrouping.build(data, terbaru = false)
+            .filterIsInstance<ActivityRow.ItemRow>().map { it.transaction.id }
+        assertThat(ids).containsExactly(1L, 2L).inOrder()
+    }
+
+    @Test
     fun `berjalan di atas, selesai di bawah`() {
         val rows = ActivityGrouping.build(
             listOf(

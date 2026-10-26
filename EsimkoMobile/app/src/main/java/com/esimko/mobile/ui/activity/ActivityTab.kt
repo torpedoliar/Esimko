@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -63,80 +64,22 @@ fun ActivityTab(
     val state by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.start(initialFilter) }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Text(
             text = "Aktivitas",
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
         )
 
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(ActivitySegment.values()) { segment ->
-                FilterChip(
-                    selected = state.segment == segment,
-                    onClick = { viewModel.selectSegment(segment) },
-                    label = { Text(segment.label) },
-                    modifier = Modifier.heightIn(min = 48.dp)
-                )
-            }
-        }
-
-        if (state.showStatusFilter && !(state.statusError != null && state.statuses.isEmpty())) {
-            Spacer(Modifier.height(8.dp))
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    FilterChip(
-                        selected = state.selectedStatusId == null,
-                        onClick = { viewModel.selectStatus(null) },
-                        label = { Text("Semua") },
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    )
-                }
-                items(state.statuses) { status ->
-                    FilterChip(
-                        selected = state.selectedStatusId == status.id,
-                        onClick = { viewModel.selectStatus(status.id) },
-                        label = { Text(status.nama) },
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    )
-                }
-            }
-        }
-
-        // Pencarian + urutan terbaru/terlama (Okt 2026) — berlaku utk semua segmen.
-        Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = state.search,
-                onValueChange = viewModel::onSearchChange,
-                placeholder = { Text("Cari transaksi…") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = viewModel::toggleSort) {
-                Text(if (state.sortTerbaru) "Terbaru" else "Terlama")
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
+        ActivityFilters(state, viewModel::selectSegment, viewModel::selectStatus, viewModel::onSearchChange, viewModel::toggleSort)
 
         val error = state.error
         when {
             state.isFirstLoad -> SkeletonListRows(count = 6)
             state.rows.isEmpty() && error == null -> EmptyStateView(
-                message = "Belum ada pengajuan. Mulai dari Beranda."
+                message = if (state.search.isNotBlank() || state.selectedStatusId != null)
+                    "Tidak ada transaksi yang cocok. Coba kata kunci atau status lain."
+                else "Belum ada aktivitas untuk jenis ini."
             )
             state.rows.isEmpty() && error != null -> ErrorView(
                 message = error,

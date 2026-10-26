@@ -40,14 +40,15 @@ object ActivityGrouping {
      * API mengirim daftar status tapi tidak menandai mana yang final. Status baru dengan nama
      * lain akan masuk "Berjalan". Kalau backend kelak mengirim flag final, ganti StatusMeta.isFinal.
      */
-    fun build(transactions: List<Transaction>): List<ActivityRow> {
+    fun build(transactions: List<Transaction>, terbaru: Boolean = true): List<ActivityRow> {
         if (transactions.isEmpty()) return emptyList()
 
-        val sorted = transactions.sortedWith(
-            // ISO yyyy-MM-dd berurut benar secara leksikografis, jadi tidak perlu parse.
-            // Tanggal kosong jatuh ke paling bawah karena "" < "2026-…".
+        val comparator = if (terbaru) {
             compareByDescending<Transaction> { it.tanggal }.thenByDescending { it.id }
-        )
+        } else {
+            compareBy<Transaction> { it.tanggal }.thenBy { it.id }
+        }
+        val sorted = transactions.sortedWith(comparator)
         val (running, finished) = sorted.partition { !StatusMeta.isFinal(it.status) }
 
         val rows = mutableListOf<ActivityRow>()

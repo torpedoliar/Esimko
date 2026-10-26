@@ -139,7 +139,7 @@ class ActivityViewModel @Inject constructor(
                     val merged = if (page == 1) fresh else _state.value.items + fresh
                     _state.value = _state.value.copy(
                         items = merged,
-                        rows = ActivityGrouping.build(merged),
+                        rows = ActivityGrouping.build(merged, terbaru = _state.value.sortTerbaru),
                         page = page,
                         hasMore = hasMore,
                         isFirstLoad = false,
