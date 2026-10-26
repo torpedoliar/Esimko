@@ -217,6 +217,27 @@ private fun DashboardHero(
                 }
             }
         }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "Selamat datang",
+            style = MaterialTheme.typography.bodyMedium,
+            color = OnHero.copy(alpha = 0.85f)
+        )
+        profile?.nama?.takeIf { it.isNotBlank() }?.let { nama ->
+            Text(
+                text = nama,
+                style = MaterialTheme.typography.titleLarge,
+                color = OnHero,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        profile?.noAnggota?.takeIf { it.isNotBlank() }?.let { nomor ->
+            Text(
+                text = "No. Anggota: $nomor",
+                style = MaterialTheme.typography.bodySmall,
+                color = OnHero.copy(alpha = 0.85f)
+            )
+        }
         Spacer(Modifier.height(24.dp))
         Text(
             "Saldo Simpanan",
