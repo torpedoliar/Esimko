@@ -147,9 +147,9 @@ class ShoppingRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getPurchaseHistory(jenis: String, page: Int, perPage: Int): Result<Paged<PurchaseHistory>> {
+    override suspend fun getPurchaseHistory(jenis: String, page: Int, perPage: Int, search: String?, sort: String?): Result<Paged<PurchaseHistory>> {
         return try {
-            val response = api.getPurchaseHistory(jenis, page, perPage)
+            val response = api.getPurchaseHistory(jenis, page, perPage, search?.takeIf { it.isNotBlank() }, sort)
             if (response.success && response.data != null) {
                 Result.Success(Paged(
                     items = response.data.map { dto ->
@@ -214,9 +214,9 @@ class ShoppingRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getShoppingInstallments(page: Int, perPage: Int): Result<Paged<ShoppingInstallment>> {
+    override suspend fun getShoppingInstallments(page: Int, perPage: Int, search: String?, sort: String?): Result<Paged<ShoppingInstallment>> {
         return try {
-            val response = api.getShoppingInstallments(page, perPage)
+            val response = api.getShoppingInstallments(page, perPage, search?.takeIf { it.isNotBlank() }, sort)
             if (response.success && response.data != null) {
                 Result.Success(Paged(
                     items = response.data.map { dto ->
@@ -243,9 +243,9 @@ class ShoppingRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getReturns(search: String?, page: Int, perPage: Int): Result<Paged<Return>> {
+    override suspend fun getReturns(search: String?, sort: String?, page: Int, perPage: Int): Result<Paged<Return>> {
         return try {
-            val response = api.getReturns(search?.takeIf { it.isNotBlank() }, page, perPage)
+            val response = api.getReturns(search?.takeIf { it.isNotBlank() }, sort, page, perPage)
             if (response.success && response.data != null) {
                 Result.Success(Paged(
                     items = response.data.map { dto ->

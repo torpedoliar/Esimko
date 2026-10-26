@@ -9,6 +9,9 @@ object LoanDocs {
     val SLIP_SLOTS = listOf("slip_bulan_ini", "slip_bulan_lalu", "slip_dua_bulan_lalu")
     const val SLIP = "slip_bulan_ini" // slot pertama (part "attachment" di submit)
     const val KTP2 = "ktp2"
+    /** Surat Hutang bermaterai — wajib hanya utk Pinjaman Jangka Panjang (jenis 9). */
+    const val SURAT_HUTANG = "surat_hutang"
+    const val JENIS_JANGKA_PANJANG = 9
 
     /** Urutan tampil di UI; slip ditangani slot sendiri tapi ikut dihitung wajib. */
     val WAJIB = listOf("kk", "ktp1", "kartu_anggota", "id_card")
@@ -22,6 +25,7 @@ object LoanDocs {
         KTP2 -> "KTP Suami/Istri"
         "kartu_anggota" -> "Kartu Anggota"
         "id_card" -> "ID Card Pegawai"
+        SURAT_HUTANG -> "Surat Hutang (Materai)"
         else -> key
     }
 
@@ -51,6 +55,7 @@ object LoanDocs {
         KTP2 -> "Unggah foto KTP suami/istri Anda — dokumen ini muncul karena nominal pinjaman di atas Rp ${formatRingkas(ktp2Threshold)}. Boleh foto atau PDF."
         "kartu_anggota" -> "Unggah foto kartu anggota koperasi Anda — foto atau PDF (wajib)"
         "id_card" -> "Unggah foto ID Card pegawai Anda — foto atau PDF (wajib)"
+        SURAT_HUTANG -> "Unggah Surat Hutang yang sudah DITANDATANGANI dan BERMATERAI — foto atau PDF (wajib untuk Pinjaman Jangka Panjang)"
         else -> "Unggah ${label(key)} — foto atau PDF"
     }
 

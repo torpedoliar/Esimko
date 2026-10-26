@@ -43,7 +43,9 @@ data class LoanApplicationState(
     val tenor: String = "",
     val gajiPokok: String = "",
     val dokumen: Map<String, DokumenFile> = emptyMap(),
-    val persetujuanSetuju: Boolean = false
+    val persetujuanSetuju: Boolean = false,
+    /** Checkbox kedua: pernyataan pengajuan pinjaman (syarat & ketentuan). */
+    val persetujuanPinjamanSetuju: Boolean = false
 ) {
     /** Batas tenor jenis terpilih; 0 = belum ada jenis dipilih. */
     val maxTenor: Int get() = MAX_TENOR[selectedJenis] ?: 0
@@ -62,16 +64,22 @@ data class LoanApplicationState(
     /** Estimasi, bukan angka resmi — backend tidak mengirim bunga per jenis. Lihat `LoanMath`. */
     val estimasiAngsuran: Long get() = LoanMath.angsuranPerBulan(nominalValue, tenorValue)
 
-    /** Kunci slot dokumen yang tampil di UI (urut): 3 slip + 4 wajib + ktp2 kondisional. */
+    /** Kunci slot dokumen yang tampil di UI: 3 slip + 4 wajib + ktp2 kondisional + surat hutang (jenis 9). */
     val slotDokumen: List<String>
-        get() = LoanDocs.SLIP_SLOTS + LoanDocs.WAJIB + if (perluKtp2) listOf(LoanDocs.KTP2) else emptyList()
+        get() {
+            val daftar = (LoanDocs.SLIP_SLOTS + LoanDocs.WAJIB).toMutableList()
+            if (perluKtp2) daftar += LoanDocs.KTP2
+            if (selectedJenis == LoanDocs.JENIS_JANGKA_PANJANG) daftar += LoanDocs.SURAT_HUTANG
+            return daftar
+        }
 
     val dokumenKurang: List<String>
         get() = slotDokumen.filter { it !in dokumen.keys }
 
     val bisaKirim: Boolean
         get() = !isSubmitting && selectedJenis != null && nominalValue > 0L &&
-            tenorValid && gajiValue > 0L && dokumenKurang.isEmpty() && persetujuanSetuju
+            tenorValid && gajiValue > 0L && dokumenKurang.isEmpty() &&
+            persetujuanSetuju && persetujuanPinjamanSetuju
 
     /** Konten form sudah bisa digambar (jenis pinjaman termuat). */
     val hasContent: Boolean get() = loanTypes.isNotEmpty()
@@ -170,6 +178,10 @@ class LoanApplicationViewModel @Inject constructor(
         _state.value = _state.value.copy(persetujuanSetuju = setuju)
     }
 
+    fun onPersetujuanPinjamanChange(setuju: Boolean) {
+        _state.value = _state.value.copy(persetujuanPinjamanSetuju = setuju)
+    }
+
     fun submit() {
         val s = _state.value
         val jenis = s.selectedJenis ?: return
@@ -187,7 +199,7 @@ class LoanApplicationViewModel @Inject constructor(
             val keterangan = "Pengajuan $jenisLabel dari Esimko Mobile App $ts"
             when (val result = installmentRepository.submitLoan(
                 jenis, s.nominalValue, s.tenorValue, s.gajiValue, keterangan,
-                s.syarat?.persetujuanVersi, s.dokumen
+                s.syarat?.persetujuanVersi, s.syarat?.persetujuanPinjamanVersi, s.dokumen
             )) {
                 is Result.Success -> _state.value = _state.value.copy(
                     isSubmitting = false,

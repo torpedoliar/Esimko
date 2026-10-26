@@ -12,7 +12,9 @@ data class SyaratPinjamanResponse(
     @Json(name = "format") val format: List<String> = emptyList(),
     @Json(name = "maks_kb") val maksKb: Int = 5120,
     @Json(name = "persetujuan_versi") val persetujuanVersi: String = "",
-    @Json(name = "persetujuan_teks") val persetujuanTeks: String = ""
+    @Json(name = "persetujuan_teks") val persetujuanTeks: String = "",
+    @Json(name = "persetujuan_pinjaman_versi") val persetujuanPinjamanVersi: String = "",
+    @Json(name = "persetujuan_pinjaman_teks") val persetujuanPinjamanTeks: String = ""
 ) {
     fun toDomain(): SyaratPinjaman = SyaratPinjaman(
         ktp2Threshold = ktp2Threshold,
@@ -20,6 +22,8 @@ data class SyaratPinjamanResponse(
         format = format,
         maksKb = maksKb,
         persetujuanVersi = persetujuanVersi,
-        persetujuanTeks = persetujuanTeks
+        persetujuanTeks = persetujuanTeks,
+        persetujuanPinjamanVersi = persetujuanPinjamanVersi,
+        persetujuanPinjamanTeks = persetujuanPinjamanTeks
     )
 }

@@ -10,8 +10,8 @@ interface ShoppingRepository {
     suspend fun updateCart(produkId: Long, qty: Int): Result<Cart>
     suspend fun deleteFromCart(produkId: Long): Result<Cart>
     suspend fun checkout(barang: List<Long>, jumlah: List<Int>): Result<Checkout>
-    suspend fun getPurchaseHistory(jenis: String, page: Int = 1, perPage: Int = 20): Result<Paged<PurchaseHistory>>
+    suspend fun getPurchaseHistory(jenis: String, page: Int = 1, perPage: Int = 20, search: String? = null, sort: String? = null): Result<Paged<PurchaseHistory>>
     suspend fun getPurchaseDetail(jenis: String, id: Long): Result<PurchaseDetail>
-    suspend fun getShoppingInstallments(page: Int = 1, perPage: Int = 20): Result<Paged<ShoppingInstallment>>
-    suspend fun getReturns(search: String? = null, page: Int = 1, perPage: Int = 20): Result<Paged<Return>>
+    suspend fun getShoppingInstallments(page: Int = 1, perPage: Int = 20, search: String? = null, sort: String? = null): Result<Paged<ShoppingInstallment>>
+    suspend fun getReturns(search: String? = null, sort: String? = null, page: Int = 1, perPage: Int = 20): Result<Paged<Return>>
 }

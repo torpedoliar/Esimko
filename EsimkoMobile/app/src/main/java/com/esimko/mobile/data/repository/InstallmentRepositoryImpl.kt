@@ -18,9 +18,9 @@ class InstallmentRepositoryImpl @Inject constructor(
     private val api: InstallmentApi
 ) : InstallmentRepository {
 
-    override suspend fun getLoanInstallments(): Result<List<Installment>> {
+    override suspend fun getLoanInstallments(search: String?, sort: String?): Result<List<Installment>> {
         return try {
-            val response = api.getLoanInstallments()
+            val response = api.getLoanInstallments(search?.takeIf { it.isNotBlank() }, sort)
             if (response.success && response.data != null) {
                 Result.Success(response.data.map { dto ->
                     Installment(
@@ -74,6 +74,7 @@ class InstallmentRepositoryImpl @Inject constructor(
         gajiPokok: Long,
         keterangan: String?,
         persetujuanVersi: String?,
+        persetujuanPinjamanVersi: String?,
         dokumen: Map<String, DokumenFile>
     ): Result<Long> {
         return try {
@@ -108,6 +109,7 @@ class InstallmentRepositoryImpl @Inject constructor(
                 toPart(gajiPokok.toString()),
                 toPart(keterangan ?: ""),
                 persetujuanVersi?.let { toPart(it) },
+                persetujuanPinjamanVersi?.let { toPart(it) },
                 slipUtamaPart,
                 dokumenParts
             )

@@ -38,7 +38,9 @@ interface ShoppingApi {
     suspend fun getPurchaseHistory(
         @Path("jenis") jenis: String,
         @Query("page") page: Int,
-        @Query("per_page") perPage: Int = 20
+        @Query("per_page") perPage: Int = 20,
+        @Query("search") search: String? = null,
+        @Query("sort") sort: String? = null
     ): ApiResponse<List<PurchaseHistoryResponse>>
 
     @GET("mobile/belanja/riwayat/{jenis}/detail")
@@ -50,12 +52,15 @@ interface ShoppingApi {
     @GET("mobile/belanja/angsuran")
     suspend fun getShoppingInstallments(
         @Query("page") page: Int? = null,
-        @Query("per_page") perPage: Int? = null
+        @Query("per_page") perPage: Int? = null,
+        @Query("search") search: String? = null,
+        @Query("sort") sort: String? = null
     ): ApiResponse<List<ShoppingInstallmentResponse>>
 
     @GET("mobile/belanja/retur")
     suspend fun getReturns(
         @Query("search") search: String? = null,
+        @Query("sort") sort: String? = null,
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null
     ): ApiResponse<List<ReturnResponse>>

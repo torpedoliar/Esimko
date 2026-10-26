@@ -35,7 +35,10 @@ data class ActivityState(
     val statusError: String? = null,
     val selectedStatusId: Int? = null,
     val page: Int = 1,
-    val hasMore: Boolean = false
+    val hasMore: Boolean = false,
+    // Pencarian & urutan (Okt 2026): diteruskan ke semua endpoint daftar.
+    val search: String = "",
+    val sortTerbaru: Boolean = true
 ) {
     /** Chip status hanya ada untuk segmen yang memakai `transaksi/{modul}`. */
     val showStatusFilter: Boolean get() = segment.modul != null
@@ -86,6 +89,26 @@ class ActivityViewModel @Inject constructor(
     }
 
     fun retry() = if (_state.value.items.isEmpty()) loadPage(1) else refresh()
+
+    private var searchJob: kotlinx.coroutines.Job? = null
+
+    /** Debounce ketikan pencarian supaya tidak membebani server tiap huruf. */
+    fun onSearchChange(value: String) {
+        _state.value = _state.value.copy(search = value)
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(400)
+            _state.value = _state.value.copy(isFirstLoad = true)
+            loadPage(1)
+        }
+    }
+
+    fun toggleSort() {
+        _state.value = _state.value.copy(sortTerbaru = !_state.value.sortTerbaru, isFirstLoad = true)
+        loadPage(1)
+    }
+
+    private fun sortParam(): String = if (_state.value.sortTerbaru) "terbaru" else "terlama"
 
     private fun loadStatuses(segment: ActivitySegment) {
         viewModelScope.launch {
@@ -144,6 +167,8 @@ class ActivityViewModel @Inject constructor(
         val result = transactionRepository.getTransactions(
             modul = segment.modul ?: "transaksi",
             status = _state.value.selectedStatusId,
+            search = _state.value.search.takeIf { it.isNotBlank() },
+            sort = sortParam(),
             page = page
         )
         return when (result) {
@@ -163,7 +188,11 @@ class ActivityViewModel @Inject constructor(
         var hasMore = false
         var lastError: String? = null
         JENIS_BELANJA.forEach { jenis ->
-            when (val r = shoppingRepository.getPurchaseHistory(jenis, page = page)) {
+            when (val r = shoppingRepository.getPurchaseHistory(
+                jenis, page = page,
+                search = _state.value.search.takeIf { it.isNotBlank() },
+                sort = sortParam()
+            )) {
                 is Result.Success -> {
                     merged += r.data.items.map { ActivityMapper.purchaseToActivity(it, jenis) }
                     if (r.data.hasMore) hasMore = true
@@ -178,7 +207,11 @@ class ActivityViewModel @Inject constructor(
     }
 
     private suspend fun loadInstallments(page: Int): Result<Pair<List<Transaction>, Boolean>> {
-        return when (val r = shoppingRepository.getShoppingInstallments(page = page)) {
+        return when (val r = shoppingRepository.getShoppingInstallments(
+            page = page,
+            search = _state.value.search.takeIf { it.isNotBlank() },
+            sort = sortParam()
+        )) {
             is Result.Success ->
                 Result.Success(r.data.items.map(ActivityMapper::installmentToActivity) to r.data.hasMore)
             is Result.Error -> r
@@ -187,7 +220,11 @@ class ActivityViewModel @Inject constructor(
     }
 
     private suspend fun loadReturns(page: Int): Result<Pair<List<Transaction>, Boolean>> {
-        return when (val r = shoppingRepository.getReturns(page = page)) {
+        return when (val r = shoppingRepository.getReturns(
+            search = _state.value.search.takeIf { it.isNotBlank() },
+            sort = sortParam(),
+            page = page
+        )) {
             is Result.Success ->
                 Result.Success(r.data.items.map(ActivityMapper::returnToActivity) to r.data.hasMore)
             is Result.Error -> r

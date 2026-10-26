@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -61,7 +62,9 @@ fun InstallmentScreen(
             InstallmentBody(
                 state = state,
                 onApplyLoan = onApplyLoan,
-                onRetry = viewModel::load
+                onRetry = viewModel::load,
+                onSearchChange = viewModel::onSearchChange,
+                onToggleSort = viewModel::toggleSort
             )
         }
     }
@@ -71,7 +74,9 @@ fun InstallmentScreen(
 private fun InstallmentBody(
     state: InstallmentState,
     onApplyLoan: () -> Unit = {},
-    onRetry: () -> Unit = {}
+    onRetry: () -> Unit = {},
+    onSearchChange: (String) -> Unit = {},
+    onToggleSort: () -> Unit = {}
 ) {
     when {
         !state.hasContent && state.isLoading -> Column(Modifier.fillMaxSize()) {
@@ -134,6 +139,27 @@ private fun InstallmentBody(
                     }
                 }
                 item { SectionHeader("Daftar Angsuran") }
+                // Pencarian + urutan terbaru/terlama (Okt 2026).
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = state.search,
+                            onValueChange = onSearchChange,
+                            placeholder = { Text("Cari angsuran…") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onToggleSort) {
+                            Text(if (state.sortTerbaru) "Terbaru" else "Terlama")
+                        }
+                    }
+                }
                 // ponytail: key = id transaksi + angsuran_ke + index. Backend select
                 // transaksi.id (bukan angsuran.id), jadi id repeat per angsuran dalam satu
                 // pinjaman. Key id-only → LazyColumn throw IllegalArgumentException duplicate

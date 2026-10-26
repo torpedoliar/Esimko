@@ -18,7 +18,10 @@ data class InstallmentState(
     val installments: List<Installment> = emptyList(),
     val salary: Salary? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    // Pencarian & urutan (Okt 2026): diteruskan ke endpoint angsuran.
+    val search: String = "",
+    val sortTerbaru: Boolean = true
 ) {
     /** Ada yang bisa digambar; gagal memuat tidak boleh menghapusnya. */
     val hasContent: Boolean get() = installments.isNotEmpty() || salary != null
@@ -36,6 +39,8 @@ class InstallmentViewModel @Inject constructor(
     private val _state = MutableStateFlow(InstallmentState())
     val state: StateFlow<InstallmentState> = _state.asStateFlow()
 
+    private var searchJob: kotlinx.coroutines.Job? = null
+
     init {
         load()
     }
@@ -44,7 +49,11 @@ class InstallmentViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             loadSalary()
-            when (val result = repository.getLoanInstallments()) {
+            val s = _state.value
+            when (val result = repository.getLoanInstallments(
+                search = s.search.takeIf { it.isNotBlank() },
+                sort = if (s.sortTerbaru) "terbaru" else "terlama"
+            )) {
                 is Result.Success -> _state.value = _state.value.copy(
                     installments = result.data,
                     isLoading = false,
@@ -58,6 +67,21 @@ class InstallmentViewModel @Inject constructor(
                 is Result.Loading -> Unit
             }
         }
+    }
+
+    /** Debounce ketikan pencarian supaya tidak membebani server tiap huruf. */
+    fun onSearchChange(value: String) {
+        _state.value = _state.value.copy(search = value)
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(400)
+            load()
+        }
+    }
+
+    fun toggleSort() {
+        _state.value = _state.value.copy(sortTerbaru = !_state.value.sortTerbaru)
+        load()
     }
 
     private suspend fun loadSalary() {

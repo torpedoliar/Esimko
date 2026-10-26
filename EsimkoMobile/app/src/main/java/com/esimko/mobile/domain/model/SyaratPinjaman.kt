@@ -8,6 +8,8 @@ data class SyaratPinjaman(
     val maksKb: Int,
     val persetujuanVersi: String,
     val persetujuanTeks: String,
+    val persetujuanPinjamanVersi: String = "",
+    val persetujuanPinjamanTeks: String = ""
 )
 
 /** Satu dokumen terpilih di lokal (belum diupload). */

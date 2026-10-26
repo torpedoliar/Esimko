@@ -14,10 +14,14 @@ import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface InstallmentApi {
     @GET("mobile/angsuran")
-    suspend fun getLoanInstallments(): ApiResponse<List<InstallmentResponse>>
+    suspend fun getLoanInstallments(
+        @Query("search") search: String? = null,
+        @Query("sort") sort: String? = null
+    ): ApiResponse<List<InstallmentResponse>>
 
     @GET("mobile/gaji_pokok")
     suspend fun getBaseSalary(): ApiResponse<SalaryResponse>
@@ -36,6 +40,7 @@ interface InstallmentApi {
         @Part("gaji_pokok") gajiPokok: RequestBody,
         @Part("keterangan") keterangan: RequestBody,
         @Part("persetujuan_versi") persetujuanVersi: RequestBody?,
+        @Part("persetujuan_pinjaman_versi") persetujuanPinjamanVersi: RequestBody?,
         @Part attachment: MultipartBody.Part?,
         // Part bernama dokumen_kk / dokumen_ktp1 / dst (backend draft_gaji_pinjaman).
         @Part dokumen: List<MultipartBody.Part>

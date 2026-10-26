@@ -25,6 +25,8 @@ class TransactionRepositoryImpl @Inject constructor(
         status: Int?,
         tanggalAwal: String?,
         tanggalAkhir: String?,
+        search: String?,
+        sort: String?,
         page: Int,
         perPage: Int
     ): Result<Paged<Transaction>> {
@@ -35,6 +37,8 @@ class TransactionRepositoryImpl @Inject constructor(
                 status = status,
                 tanggalMulai = tanggalAwal,
                 tanggalAkhir = tanggalAkhir,
+                search = search?.takeIf { it.isNotBlank() },
+                sort = sort,
                 page = page,
                 perPage = perPage
             )

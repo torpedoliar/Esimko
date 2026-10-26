@@ -54,6 +54,12 @@ private const val PERSETUJUAN_FALLBACK =
         "untuk verifikasi pengajuan pinjaman ini saja; dokumen dihapus otomatis bila " +
         "pengajuan ditolak, sesuai UU No. 27/2022 tentang Pelindungan Data Pribadi."
 
+// Fallback persetujuan kedua: pernyataan pengajuan pinjaman (syarat & ketentuan).
+private const val PERSETUJUAN_PINJAMAN_FALLBACK =
+    "Saya menyatakan bahwa data dan dokumen dalam pengajuan pinjaman ini benar, serta " +
+        "menyetujui syarat dan ketentuan pinjaman koperasi — termasuk bunga, jadwal " +
+        "angsuran, dan konsekuensi keterlambatan pembayaran."
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoanApplicationScreen(
@@ -95,6 +101,7 @@ fun LoanApplicationScreen(
                         onDokumenPicked = viewModel::onDokumenPicked,
                         onClearDokumen = viewModel::clearDokumen,
                         onPersetujuanChange = viewModel::onPersetujuanChange,
+                        onPersetujuanPinjamanChange = viewModel::onPersetujuanPinjamanChange,
                         onSubmit = viewModel::submit,
                         onSubmitted = onSubmitted
                     )
@@ -114,6 +121,7 @@ private fun LoanFormBody(
     onDokumenPicked: (String, DokumenFile?) -> Unit = { _, _ -> },
     onClearDokumen: (String) -> Unit = {},
     onPersetujuanChange: (Boolean) -> Unit = {},
+    onPersetujuanPinjamanChange: (Boolean) -> Unit = {},
     onSubmit: () -> Unit = {},
     onSubmitted: () -> Unit = {}
 ) {
@@ -292,6 +300,35 @@ private fun LoanFormBody(
                 )
                 Text(
                     text = "Saya menyetujui dan melanjutkan pengajuan",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+
+        // 7b. Persetujuan pengajuan pinjaman (checkbox kedua) — syarat & ketentuan.
+        SectionHeader("Persetujuan Pengajuan Pinjaman", modifier = Modifier.padding(horizontal = 16.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = state.syarat?.persetujuanPinjamanTeks?.takeIf { it.isNotBlank() }
+                    ?: PERSETUJUAN_PINJAMAN_FALLBACK,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = state.persetujuanPinjamanSetuju,
+                    onCheckedChange = onPersetujuanPinjamanChange,
+                    enabled = !state.isSubmitting
+                )
+                Text(
+                    text = "Saya menyetujui syarat & ketentuan pinjaman",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }

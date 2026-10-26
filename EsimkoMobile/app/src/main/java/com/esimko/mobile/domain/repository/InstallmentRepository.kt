@@ -7,7 +7,7 @@ import com.esimko.mobile.domain.model.Salary
 import com.esimko.mobile.domain.model.SyaratPinjaman
 
 interface InstallmentRepository {
-    suspend fun getLoanInstallments(): Result<List<Installment>>
+    suspend fun getLoanInstallments(search: String? = null, sort: String? = null): Result<List<Installment>>
     suspend fun getBaseSalary(): Result<Salary>
     suspend fun getSyaratPinjaman(): Result<SyaratPinjaman>
     suspend fun submitLoan(
@@ -17,6 +17,7 @@ interface InstallmentRepository {
         gajiPokok: Long,
         keterangan: String?,
         persetujuanVersi: String?,
+        persetujuanPinjamanVersi: String?,
         dokumen: Map<String, DokumenFile>
     ): Result<Long>
 }

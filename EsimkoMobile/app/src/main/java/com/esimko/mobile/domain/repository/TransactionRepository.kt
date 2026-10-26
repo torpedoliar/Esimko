@@ -12,6 +12,8 @@ interface TransactionRepository {
         status: Int? = null,
         tanggalAwal: String? = null,
         tanggalAkhir: String? = null,
+        search: String? = null,
+        sort: String? = null,
         page: Int = 1,
         perPage: Int = 20
     ): Result<Paged<Transaction>>

@@ -17,6 +17,8 @@ interface TransactionApi {
         @Query("status") status: Int? = null,
         @Query("tanggal_mulai") tanggalMulai: String? = null,
         @Query("tanggal_akhir") tanggalAkhir: String? = null,
+        @Query("search") search: String? = null,
+        @Query("sort") sort: String? = null,
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null
     ): ApiResponse<List<TransactionResponse>>

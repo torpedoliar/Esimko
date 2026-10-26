@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,11 +18,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -100,6 +106,27 @@ fun ActivityTab(
                         modifier = Modifier.heightIn(min = 48.dp)
                     )
                 }
+            }
+        }
+
+        // Pencarian + urutan terbaru/terlama (Okt 2026) — berlaku utk semua segmen.
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = state.search,
+                onValueChange = viewModel::onSearchChange,
+                placeholder = { Text("Cari transaksi…") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = viewModel::toggleSort) {
+                Text(if (state.sortTerbaru) "Terbaru" else "Terlama")
             }
         }
 
