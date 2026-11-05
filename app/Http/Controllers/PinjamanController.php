@@ -89,7 +89,8 @@ class PinjamanController extends Controller
 
     public function export(Request $request)
     {
-
+        $otoritas = GlobalHelper::otoritas_modul(Session::get('useractive')->hak_akses, 15);
+        if (($otoritas['view'] ?? 'N') !== 'Y') abort(403);
         $status = $request->status ?? 'all';
 
         $search=(!empty($request->search) ? $request->search : null);
@@ -248,6 +249,21 @@ class PinjamanController extends Controller
     }
 
     public function proses(Request $request){
+        if ($request->action !== 'delete') return $this->proses_pinjaman_web($request);
+        $this->pastikanPetugasPinjaman();
+        $hapus = Transaksi::find($request->id);
+        if (!$hapus || !in_array((int) $hapus->fid_status, [1, 2], true)) {
+            return Redirect::back()->with('message', 'Pengajuan tidak dapat dihapus karena sudah diproses')->with('message_type', 'warning');
+        }
+        $existing = $request->action == 'add' ? null : Transaksi::findOrFail($request->id);
+        if ($request->action != 'delete') {
+            $type = $existing ? $existing->fid_jenis_transaksi : $request->jenis;
+            $unchanged = $existing && (string) $existing->tenor === (string) $request->tenor;
+            $error = \App\Support\LoanApplicationRules::tenorError($type, $request->tenor, $unchanged);
+            if ($error !== null) {
+                return Redirect::back()->withInput()->with('message', $error)->with('message_type', 'warning');
+            }
+        }
         if($request->action=='add'){
             $field=new Transaksi;
             $field->created_at=date('Y-m-d H:i:s');
@@ -255,7 +271,7 @@ class PinjamanController extends Controller
             $field->fid_jenis_transaksi=$request->jenis;
         }
         else{
-            $field=Transaksi::find($request->id);
+            $field=$existing;
             $field->updated_at=date('Y-m-d H:i:s');
         }
         $field->fid_status=1;
@@ -287,6 +303,45 @@ class PinjamanController extends Controller
         }
     }
 
+    private function proses_pinjaman_web(Request $request){
+        if (!in_array($request->action, ['add', 'edit'], true)) abort(422);
+        $actor = Session::get('useractive');
+        $otoritas = GlobalHelper::otoritas_modul($actor->hak_akses, 15);
+        if (($request->action === 'add' && $otoritas['insert'] !== 'Y') || ($request->action === 'edit' && $otoritas['update'] !== 'Y')) abort(403);
+        $existing = $request->action === 'edit' ? Transaksi::findOrFail($request->id) : null;
+        if ($existing && ((int)$existing->fid_status !== 1 || !in_array((int)$existing->fid_jenis_transaksi, [9,10,11], true) || $existing->fid_anggota !== $request->no_anggota)) abort(403);
+        $type = $existing ? $existing->fid_jenis_transaksi : $request->jenis;
+        $unchanged = $existing && (string)$existing->tenor === (string)$request->tenor;
+        $error = \App\Support\LoanApplicationRules::tenorError($type, $request->tenor, $unchanged);
+        if ($error) return Redirect::back()->withInput()->with('message', $error)->with('message_type', 'warning');
+        $nominal = str_replace('.', '', $request->nominal);
+        if (!ctype_digit((string)$nominal) || (float)$nominal <= 0 || (float)str_replace('.', '', $request->gaji_pokok) <= 0) abort(422);
+        $newRules = !$existing || (float)$existing->nominal !== -(float)$nominal;
+        $scheduleChanged = $newRules || !$unchanged;
+        $legacyNoDraft = $existing && empty($existing->draft_pengajuan) && !$scheduleChanged;
+        $draft = \App\Support\WebLoanDocuments::prepare($request, $existing, $type, $nominal, $newRules, true, $actor->no_anggota, $legacyNoDraft);
+        $paths = [];
+        try {
+            $id = DB::transaction(function () use ($request, $actor, $existing, $type, $nominal, $scheduleChanged, &$draft, &$paths) {
+                $field = $existing ? Transaksi::lockForUpdate()->findOrFail($existing->id) : new Transaksi;
+                if ($existing && $field->getRawOriginal() != $existing->getRawOriginal()) throw new \RuntimeException('Pengajuan telah berubah, silakan coba lagi');
+                \App\Support\WebLoanDocuments::store($request, $draft, $paths);
+                if (!$existing) { $field->created_by = $actor->no_anggota; $field->created_at = date('Y-m-d H:i:s'); }
+                $field->fid_status = 1; $field->fid_jenis_transaksi = $type; $field->fid_anggota = $request->no_anggota;
+                $field->fid_metode_transaksi = $request->metode_transaksi; $field->nominal = -(float)$nominal;
+                $field->tenor = $request->tenor; $field->keterangan = $request->keterangan;
+                $field->tanggal = GlobalHelper::dateFormat($request->tanggal, 'Y-m-d');
+                $field->draft_pengajuan = json_encode($draft); $field->save();
+                if ($scheduleChanged) { $this->proses_angsuran($field->id, $request); $this->update_status_angsuran($field->id, 1); }
+                return $field->id;
+            });
+        } catch (\Throwable $e) { \App\Support\WebLoanDocuments::rollbackFiles($paths); throw $e; }
+        // Petugas mengisi gaji resmi langsung (perilaku lama dipertahankan).
+        if ($request->filled('gaji_pokok')) $this->update_riwayat_gaji($request);
+        if ($existing) \App\Support\WebLoanDocuments::cleanupReplaced($existing->draft_pengajuan, $draft);
+        return redirect('pinjaman/pengajuan/detail?id='.$id);
+    }
+
     public function update_riwayat_gaji($request){
         $riwayat_gaji=GajiPokok::where('fid_anggota',$request->no_anggota)
             ->where('bulan',$request->bulan)
@@ -315,7 +370,19 @@ class PinjamanController extends Controller
     }
 
     public function verifikasi(Request $request){
-        $field=Transaksi::find($request->id);
+        $this->pastikanPetugasPinjaman();
+        $alasan=null;
+        if(in_array((string)$request->status, ['2','3'], true)){
+            $request->validate([
+                'alasan' => [($request->status == 2 ? 'required' : 'nullable'), 'string'],
+            ], ['alasan.required' => 'Alasan penolakan wajib diisi.']);
+            $alasan=trim($request->input('alasan') ?? '');
+            if($request->status == 2 && $alasan === ''){
+                return Redirect::back()->withInput()->withErrors(['alasan' => 'Alasan penolakan wajib diisi.']);
+            }
+            $alasan=($alasan === '' ? null : $alasan);
+        }
+        $field=Transaksi::findOrFail($request->id);
         $field->fid_status=($request->status==6 ? 4 : $request->status);
         $field->save();
         if($request->status==3){
@@ -342,9 +409,8 @@ class PinjamanController extends Controller
                     // Slip bentuk baru = array 3 bulan; ambil bulan_ini untuk gaji resmi.
                     $slipResmi = is_array($keterangan['slip']) ? ($keterangan['slip']['bulan_ini'] ?? null) : $keterangan['slip'];
                     if(!empty($slipResmi)){
-                        if(!empty($gaji->attachment) && file_exists(storage_path('app/'.$gaji->attachment))){
-                            unlink(storage_path('app/'.$gaji->attachment));
-                        }
+                        // The previous file may still be referenced by another loan draft.
+                        // Do not unlink it here; reference-aware retention handles cleanup.
                         $gaji->attachment=$slipResmi;
                     }
                 }
@@ -370,13 +436,12 @@ class PinjamanController extends Controller
                 foreach((array)($draft['dokumen'] ?? []) as $p){
                     if(!empty($p)) $paths[]=$p;
                 }
-                foreach($paths as $p){
-                    $f=storage_path('app/'.$p);
-                    if(file_exists($f)){ unlink($f); }
-                }
                 unset($draft['slip'],$draft['dokumen']);
                 $field->draft_pengajuan=json_encode($draft);
                 $field->save();
+                foreach(array_unique($paths) as $p){
+                    \App\Support\WebLoanDocuments::deleteIfUnreferenced($p);
+                }
             }
         }
         if($request->status!=6){
@@ -386,7 +451,7 @@ class PinjamanController extends Controller
                 GlobalHelper::add_verifikasi_transaksi('transaksi',$field->id,'Verifikasi Transaksi dibatalkan oleh',null);
             }
             else{
-                GlobalHelper::add_verifikasi_transaksi('transaksi',$field->id,(!empty($status) ? $status->caption : ''),null);
+                GlobalHelper::add_verifikasi_transaksi('transaksi',$field->id,(!empty($status) ? $status->caption : ''),GlobalHelper::loan_decision_reason_for_log($alasan));
             }
             return Redirect::back()
                 ->with('message','Pengajuan pinjaman anggota berhasil diverikasi')
@@ -445,6 +510,7 @@ class PinjamanController extends Controller
     }
 
     public function pelunasan(Request $request){
+        $this->pastikanPetugasPinjaman();
         $pinjaman=Transaksi::find($request->id);
         if(!empty($pinjaman)){
             $jenis_angsuran=array('sisa_pinjaman'=>14,'bunga_pinjaman'=>13);
@@ -478,8 +544,19 @@ class PinjamanController extends Controller
             ->with('message_type','success');
     }
 
+    // Verifikasi/pelunasan pinjaman hanya untuk petugas dengan izin modul pinjaman.
+    private function pastikanPetugasPinjaman()
+    {
+        $user = Session::get('useractive');
+        if (!$user || (string) $user->hak_akses === '2') abort(403);
+        $otoritas = GlobalHelper::otoritas_modul($user->hak_akses, 15);
+        if (($otoritas['view'] ?? 'N') !== 'Y' || ($otoritas['verified'] ?? 'N') !== 'Y') abort(403);
+        return $user;
+    }
+
     public function delete($id)
     {
+        $this->pastikanPetugasPinjaman();
         $angsuran = Angsuran::find($id);
         $angsuran->fid_payroll = null;
         $angsuran->fid_stastus = 3;

@@ -56,6 +56,38 @@ Angsuran |
     </div>
   </div>
   <div class="container-fluid mt-4 mb-5">
+    @foreach($data['ringkasan_pinjaman'] as $ringkasan)
+      <div class="card mb-3">
+        <div class="card-body">
+          <h5 class="mb-1">{{$ringkasan['jenis']}} <small class="text-muted">#{{$ringkasan['id']}}</small></h5>
+          <p class="text-muted mb-3">Tanggal pengajuan: {{date('d-m-Y', strtotime($ringkasan['tanggal']))}} · Tenor {{$ringkasan['tenor']}} bulan</p>
+          <div class="row">
+            <div class="col-md-3 mb-3">
+              <div class="text-muted">Pinjaman awal</div>
+              <strong>Rp {{number_format($ringkasan['nominal'],0,',','.')}}</strong>
+            </div>
+            <div class="col-md-3 mb-3">
+              <div class="text-muted">Angsuran dibayar</div>
+              <strong>{{$ringkasan['terbayar']}} dari {{$ringkasan['tenor']}}</strong>
+              <div class="small">{{ $ringkasan['lunas'] ? 'Pinjaman lunas (termasuk pelunasan)' : $ringkasan['tersisa'].' angsuran belum dibayar' }}</div>
+            </div>
+            <div class="col-md-3 mb-3">
+              <div class="text-muted">Sisa pokok belum dibayar</div>
+              <strong>Rp {{number_format($ringkasan['sisa_pokok'],0,',','.')}}</strong>
+            </div>
+            <div class="col-md-3 mb-3">
+              <div class="text-muted">Total jadwal belum dibayar</div>
+              <strong>Rp {{number_format($ringkasan['sisa_total'],0,',','.')}}</strong>
+              <div class="small">Termasuk bunga terjadwal Rp {{number_format($ringkasan['sisa_bunga'],0,',','.')}}</div>
+            </div>
+          </div>
+          @if($ringkasan['berikutnya'] !== null)
+            <div>Angsuran belum lunas terdekat: <strong>ke-{{$ringkasan['berikutnya']}} dari {{$ringkasan['tenor']}}</strong></div>
+          @endif
+          <small class="text-muted">Ringkasan seluruh jadwal pinjaman, tidak mengikuti halaman riwayat atau filter tanggal. Bukan nominal pelunasan dipercepat.</small>
+        </div>
+      </div>
+    @endforeach
     <div class="row">
       <div class="col">
         <div style="height:100%">
@@ -81,7 +113,7 @@ Angsuran |
               <tbody>
                 @foreach ($data['angsuran'] as $key => $value)
                   <tr>
-                    <td class="center" style="width:1px;white-space:nowrap;border-color:{{$value->color}}">{{$value->angsuran_ke}}</td>
+                    <td class="center" style="width:1px;white-space:nowrap;border-color:{{$value->color}}">{{$value->angsuran_ke}} dari {{$value->tenor}}</td>
                     <td class="center">{{\App\Helpers\GlobalHelper::nama_bulan($value->bulan)}}</td>
                     <td style="font-weight:500">{{$value->jenis_transaksi}}</td>
                     <td style="text-align:right">{{number_format(str_replace('-','',$value->angsuran_pokok),0,',','.')}}</td>

@@ -115,7 +115,7 @@ class RilisApkController extends Controller
             $json['mobile_version'] = $rilis->versi;
             $json['mobile_version_code'] = $rilis->version_code;
             $json['mobile_release_date'] = substr($rilis->created_at, 0, 10);
-            $json['apk_url'] = url('apk/unduh');
+            $json['apk_url'] = secure_url('apk/unduh');
             $json['apk_ukuran'] = (int) $rilis->ukuran;
             $json['apk_sha256'] = $rilis->sha256;
             if ($wajibUpdate) {

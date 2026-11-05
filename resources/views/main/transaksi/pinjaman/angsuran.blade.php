@@ -128,7 +128,7 @@ Pinjaman |
     </div>
   </div>
 </div>
-<form action="{{url('pinjaman/konfirmasi_angsuran')}}" method="post" id="konfirmasi_angsuran">
+  <form action="{{url('main/pinjaman/konfirmasi_angsuran')}}" method="post" id="konfirmasi_angsuran">
   {{ csrf_field() }}
   <input type="hidden"name="modul" value="pinjaman">
   <input type="hidden"name="id" value="{{$id}}">

@@ -114,6 +114,10 @@ Pinjaman |
                   </div>
                   <h6>{{\App\Helpers\GlobalHelper::tgl_indo($value->created_at)}}, {{\App\Helpers\GlobalHelper::dateFormat($value->created_at,'H:i:s')}}</h6>
                   <p class="text-muted">{{$value->caption}} <span style="font-weight:500">{{$value->nama_lengkap}}</span></p>
+                  @php($alasan = in_array($data['pinjaman']->fid_jenis_transaksi, [9, 10, 11]) ? \App\Helpers\GlobalHelper::public_loan_decision_reason($value->keterangan) : null)
+                  @if(!is_null($alasan))
+                    <p class="text-muted">Keterangan: {{$alasan}}</p>
+                  @endif
                 </li>
                 @endforeach
               </ul>
@@ -160,7 +164,7 @@ Pinjaman |
         <div class="card-body">
           <h5>Edit Data Pinjaman</h5>
           <hr>
-          <form action="{{url('main/transaksi/proses')}}" method="post">
+          <form action="{{url('main/transaksi/proses')}}" method="post" enctype="multipart/form-data">
             {{ csrf_field() }}
             <div class="form-group">
               <label>Jenis Pinjaman</label>
@@ -180,7 +184,7 @@ Pinjaman |
               <div class="col-md-6">
                 <div class="form-group">
                   <label class="control-label">Tenor</label>
-                  <input data-toggle="touchspin" {{$disabled}} onchange="calc_angsuran()" id="tenor" name="tenor" value="{{$data['pinjaman']->tenor}}" type="text" value="0" data-max='100' >
+                  <input data-toggle="touchspin" {{$disabled}} onchange="calc_angsuran()" id="tenor" name="tenor" value="{{$data['pinjaman']->tenor}}" type="text" data-min="1" data-max="{{max(\App\Support\LoanApplicationRules::MAX_TENOR[$data['pinjaman']->fid_jenis_transaksi] ?? 1, $data['pinjaman']->tenor)}}" >
                 </div>
               </div>
             </div>
@@ -213,13 +217,7 @@ Pinjaman |
                 </div>
               </div>
             </div>
-            <div class="form-group">
-              <label>Upload Slip Gaji</label>
-              <div class="custom-file">
-                <input type="file" class="custom-file-input" {{$disabled}} id="customFile" name="attachment">
-                <label class="custom-file-label" {{$disabled}} for="customFile">Choose file</label>
-              </div>
-            </div>
+            @include('include.loan_documents', ['adminLoanDocuments' => false])
             <div class="form-group">
               <label>Keterangan</label>
               <textarea name="keterangan" {{$disabled}} class="form-control" style="height:80px"></textarea>
@@ -255,6 +253,17 @@ Pinjaman |
   <script src="{{asset('assets/js/pages/form-advanced.init.js')}}"></script>
   <script src="{{asset('assets/js/accounting.js')}}"></script>
   <script>
+  var maxTenor = @json(\App\Support\LoanApplicationRules::MAX_TENOR);
+  var originalType = @json((string) $data['pinjaman']->fid_jenis_transaksi);
+  var originalTenor = @json((int) $data['pinjaman']->tenor);
+  function updateTenorLimit() {
+    var type = $('#jenis_pinjaman').val();
+    var max = maxTenor[type] || 1;
+    if (type === originalType) max = Math.max(max, originalTenor);
+    $('#tenor').trigger('touchspin.updatesettings', {max: max});
+  }
+  $('#jenis_pinjaman').on('change', updateTenorLimit);
+  updateTenorLimit();
   function calc_angsuran(){
     jenis = $('#jenis_pinjaman').val();
 

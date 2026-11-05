@@ -822,6 +822,24 @@ class GlobalHelper
         return $data;
     }
 
+    // Only explicitly marked decision reasons are intended for member-facing timelines.
+    const LOAN_DECISION_REASON_PREFIX = '[LOAN_DECISION_REASON_V1]';
+
+    public static function loan_decision_reason_for_log($reason)
+    {
+        return $reason === null ? null : self::LOAN_DECISION_REASON_PREFIX.$reason;
+    }
+
+    public static function public_loan_decision_reason($keterangan)
+    {
+        $prefix = self::LOAN_DECISION_REASON_PREFIX;
+        if (!is_string($keterangan) || strncmp($keterangan, $prefix, strlen($prefix)) !== 0) {
+            return null;
+        }
+        $reason = substr($keterangan, strlen($prefix));
+        return trim($reason) === '' ? null : $reason;
+    }
+
     public static function add_verifikasi_transaksi($jenis, $id, $caption, $keterangan)
     {
         $field = new VerifikasiTransaksi;

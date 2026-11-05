@@ -8,10 +8,35 @@ Route::get('storage/{path?}', function ($path = null){
     // Folder dokumen identitas (KTP/KK) & slip gaji DILINDUNGI: hanya via route
     // dokumen-pengajuan/{path} yang wajib login petugas. Nama-file-acak saja tidak
     // cukup untuk data pribadi (UU PDP) — rilis publik 1.0.8.
+    $path = str_replace('\\', '/', (string) $path);
+    $path = ltrim(preg_replace('#/+#', '/', $path), '/');
+    $lower = strtolower($path);
     $dilindungi = ['dokumen_pengajuan/', 'slip_gaji/'];
-    $full = storage_path('app/' . $path);
-    if (!$path || str_contains($path, '..') || \Illuminate\Support\Str::startsWith($path, $dilindungi) || !File::exists($full)) {
+    $dotSegment = preg_match('#(^|/)\.\.?(/|$)#', $path);
+    // Windows mengabaikan titik/spasi di akhir nama dan mendukung ADS (`:`);
+    // segmen semacam itu bisa menjadi alias ke folder terlindungi.
+    foreach (explode('/', $path) as $seg) {
+        if ($seg === '' || $seg !== rtrim($seg, " .") || strpos($seg, ':') !== false
+            || in_array(strtolower(rtrim($seg, " .")), ['slip_gaji', 'dokumen_pengajuan'], true)) {
+            $dotSegment = true;
+        }
+    }
+    if ($path === '' || $dotSegment || strpos($path, "\0") !== false || \Illuminate\Support\Str::startsWith($lower, $dilindungi)) {
         abort(404);
+    }
+    $base = realpath(storage_path('app'));
+    $full = realpath(storage_path('app/' . $path));
+    $norm = fn ($p) => str_replace('\\', '/', (string) $p);
+    if (!$base || !$full || !is_file($full) || !\Illuminate\Support\Str::startsWith(strtolower($norm($full)), strtolower(rtrim($norm($base), '/') . '/'))) {
+        abort(404);
+    }
+    // Alias Windows (nama pendek 8.3, huruf besar, dll.) diselesaikan realpath:
+    // tolak jika file hasil resolve berada di folder data pribadi.
+    foreach (['slip_gaji', 'dokumen_pengajuan'] as $protectedDir) {
+        $dirReal = realpath(storage_path('app/' . $protectedDir));
+        if ($dirReal && \Illuminate\Support\Str::startsWith(strtolower($norm($full)), strtolower(rtrim($norm($dirReal), '/') . '/'))) {
+            abort(404);
+        }
     }
     $file = File::get($full);
     $type = File::mimeType($full);
@@ -25,14 +50,43 @@ Route::get('storage/{path?}', function ($path = null){
 // (UU PDP). WAJIB LOGIN petugas (middleware ceklogin) — tidak disajikan publik via
 // /storage. Hanya folder dokumen_pengajuan/ dan slip_gaji/ yang boleh dibuka.
 Route::get('dokumen-pengajuan/{path?}', function ($path = null) {
-    $valid = $path
-        && \Illuminate\Support\Str::startsWith($path, ['dokumen_pengajuan/', 'slip_gaji/'])
-        && !str_contains($path, '..')
-        && File::exists(storage_path('app/' . $path));
-    if (!$valid) {
+    $user = \Illuminate\Support\Facades\Session::get('useractive');
+    if (!$user || (\App\Helpers\GlobalHelper::otoritas_modul($user->hak_akses, 15)['view'] ?? 'N') !== 'Y') abort(403);
+    $path = str_replace('\\', '/', (string) $path);
+    $path = ltrim(preg_replace('#/+#', '/', $path), '/');
+    $lower = strtolower($path);
+    $dotSegment = preg_match('#(^|/)\.\.?(/|$)#', $path);
+    foreach (explode('/', $path) as $seg) {
+        if ($seg === '' || $seg !== rtrim($seg, " .") || strpos($seg, ':') !== false) {
+            $dotSegment = true;
+        }
+    }
+    $allowed = \Illuminate\Support\Str::startsWith($lower, ['dokumen_pengajuan/', 'slip_gaji/']);
+    $dir = \Illuminate\Support\Str::startsWith($lower, 'slip_gaji/')
+        ? storage_path('app/slip_gaji')
+        : storage_path('app/dokumen_pengajuan');
+    $dirReal = realpath($dir);
+    $full = realpath(storage_path('app/' . $path));
+    $norm = fn ($p) => str_replace('\\', '/', (string) $p);
+    if ($path === '' || $dotSegment || strpos($path, "\0") !== false || !$allowed || !$dirReal || !$full
+        || !is_file($full)
+        || !\Illuminate\Support\Str::startsWith(strtolower($norm($full)), strtolower(rtrim($norm($dirReal), '/') . '/'))) {
         abort(404);
     }
-    $full = storage_path('app/' . $path);
+    // Anggota hanya boleh membuka dokumen miliknya sendiri; petugas (role != 2)
+    // tetap dapat memeriksa seluruh pengajuan sesuai otoritas modul.
+    if ((string) $user->hak_akses === '2') {
+        $filename = basename($path);
+        $owned = \Illuminate\Support\Facades\DB::table('transaksi')
+                ->where('fid_anggota', $user->no_anggota)
+                ->where('draft_pengajuan', 'like', '%' . $filename . '%')
+                ->exists()
+            || \Illuminate\Support\Facades\DB::table('gaji_pokok')
+                ->where('fid_anggota', $user->no_anggota)
+                ->where('attachment', $path)
+                ->exists();
+        if (!$owned) abort(403);
+    }
     $response = Response::make(File::get($full), 200);
     $response->header('Content-Type', File::mimeType($full));
     $response->header('Content-Disposition', 'inline');

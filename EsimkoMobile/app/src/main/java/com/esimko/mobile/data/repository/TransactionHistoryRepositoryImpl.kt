@@ -22,7 +22,8 @@ class TransactionHistoryRepositoryImpl @Inject constructor(
                         createdAt = it.created_at.orEmpty(),
                         caption = it.caption.orEmpty(),
                         noAnggota = it.no_anggota.orEmpty(),
-                        namaLengkap = it.nama_lengkap.orEmpty()
+                        namaLengkap = it.nama_lengkap.orEmpty(),
+                        keterangan = it.keterangan?.takeIf { reason -> reason.isNotBlank() }
                     )
                 })
             } else {

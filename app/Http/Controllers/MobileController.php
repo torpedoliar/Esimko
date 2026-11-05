@@ -37,11 +37,10 @@ class MobileController extends Controller
   // di atas threshold. Nilai diekspos ke app via endpoint master/syarat_pinjaman
   // supaya bisa diubah server-side tanpa rilis APK ulang.
   const KTP2_THRESHOLD = 10000000;
-  const PERSETUJUAN_VERSI = 'v1-2026-10-24';
-  const PERSETUJUAN_TEKS = 'Saya menyetujui Koperasi mengumpulkan, menyimpan, dan mengolah salinan dokumen pribadi saya (slip gaji, Kartu Keluarga, KTP, kartu anggota, ID Card pegawai, dan/atau KTP pasangan) untuk keperluan pengajuan dan verifikasi pinjaman. Dokumen disimpan secara aman, hanya dapat diakses petugas koperasi yang berwenang, tidak dibagikan kepada pihak lain tanpa izin saya, dan akan dihapus otomatis apabila pengajuan ditolak. Sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi, saya berhak meminta akses, perbaikan, dan penghapusan data pribadi saya melalui koperasi.';
+  const PERSETUJUAN_VERSI = 'v2-2026-10-24';
+  const PERSETUJUAN_TEKS = 'Saya menyetujui Koperasi mengumpulkan, menyimpan, dan mengolah salinan dokumen pribadi saya (slip gaji, Kartu Keluarga, KTP, kartu anggota, ID Card pegawai, surat hutang, dan/atau KTP pasangan serta KTP penjamin) untuk keperluan pengajuan dan verifikasi pinjaman. Dokumen disimpan secara aman, hanya dapat diakses petugas koperasi yang berwenang, tidak dibagikan kepada pihak lain tanpa izin saya, dan akan dihapus otomatis apabila pengajuan ditolak. Sesuai UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi, saya berhak meminta akses, perbaikan, dan penghapusan data pribadi saya melalui koperasi.';
   const DOKUMEN_WAJIB = ['kk', 'ktp1', 'kartu_anggota', 'id_card']; // slip selalu wajib
-  // Surat Hutang bertanda tangan materai — wajib hanya untuk Pinjaman Jangka Panjang (jenis 9).
-  const SURAT_HUTANG_JENIS = [9];
+  const SURAT_HUTANG_JENIS = [9, 10, 11];
   // Persetujuan kedua: pernyataan pengajuan pinjaman (terpisah dari persetujuan data pribadi).
   const PERSETUJUAN_PINJAMAN_VERSI = 'pj-v1-2026-10-25';
   const PERSETUJUAN_PINJAMAN_TEKS = 'Saya menyatakan bahwa data dan dokumen dalam pengajuan pinjaman ini benar, serta saya menyetujui syarat dan ketentuan pinjaman koperasi — termasuk bunga, jadwal angsuran, dan konsekuensi keterlambatan pembayaran — sebagaimana ditetapkan pengurus koperasi.';
@@ -337,7 +336,7 @@ class MobileController extends Controller
 
   public function upload_bukti_transaksi(Request $request)
   {
-    $field = Transaksi::find($request->id);
+    $field = Transaksi::where('fid_anggota', $request->no_anggota)->find($request->id);
     if (!empty($field)) {
       if ($request->hasFile('bukti_transaksi')) {
         if (!empty($field->bukti_transaksi)) {
@@ -370,8 +369,11 @@ class MobileController extends Controller
 
   public function batalkan_transaksi(Request $request)
   {
-    $field = Transaksi::find($request->id);
+    $field = Transaksi::where('fid_anggota', $request->no_anggota)->find($request->id);
     if (!empty($field)) {
+      if ((int) $field->fid_status !== 1) {
+        return ApiResponse::error('Transaksi tidak dapat dibatalkan karena sudah diproses', 422);
+      }
       $field->fid_status = 5;
       $field->save();
       $this->add_riwayat_transaksi('transaksi', $field->id, 'Transaksi dibatalkan oleh', $request->no_anggota);
@@ -402,6 +404,7 @@ class MobileController extends Controller
       ->join('metode_pembayaran', 'metode_pembayaran.id', '=', 'transaksi.fid_metode_transaksi')
       ->join('jenis_transaksi', 'jenis_transaksi.id', '=', 'transaksi.fid_jenis_transaksi')
       ->where('transaksi.id', $request->id)
+      ->where('transaksi.fid_anggota', $request->no_anggota)
       ->first();
 
     if (!empty($data)) {
@@ -445,11 +448,13 @@ class MobileController extends Controller
         $msg = 'success';
       }
     } elseif ($jenis == 'pinjaman') {
-      $tenor = array(9 => 50, 10 => 18, 11 => 18);
-      if (!array_key_exists($request->jenis_pinjaman, $tenor)) {
-        $msg = 'Jenis pinjaman tidak valid';
-      } elseif ($request->tenor > $tenor[$request->jenis_pinjaman]) {
-        $msg = 'Tenor melebihi maksimal yaitu ' . $tenor[$request->jenis_pinjaman] . ' bulan';
+      $existing = $request->action && $request->action !== 'add'
+        ? Transaksi::where('fid_anggota', $request->no_anggota)->find($request->id) : null;
+      $unchanged = $existing && (string) $existing->fid_jenis_transaksi === (string) $request->jenis_pinjaman
+        && (string) $existing->tenor === (string) $request->tenor;
+      $tenorError = \App\Support\LoanApplicationRules::tenorError($request->jenis_pinjaman, $request->tenor, $unchanged);
+      if ($tenorError !== null) {
+        $msg = $tenorError;
       } else {
         // Angsuran baru = pokok (nominal/tenor) + bunga (bunga% x nominal), sama seperti proses_angsuran
         $nominal = str_replace('.', '', $request->nominal ?? 0);
@@ -505,6 +510,9 @@ class MobileController extends Controller
 
   public function proses_transaksi(Request $request, $jenis)
   {
+    if ($jenis === 'pinjaman' && $request->action !== 'delete') {
+      return $this->proses_pinjaman_mobile($request);
+    }
     $validasi = $this->validasi_transaksi($request, $jenis);
     if ($validasi == 'success') {
       if ($request->action == 'add') {
@@ -513,9 +521,15 @@ class MobileController extends Controller
         $field->created_by = $request->no_anggota;
         $field->fid_status = 1;
       } else {
-        $field = Transaksi::find($request->id);
+        $field = Transaksi::where('fid_anggota', $request->no_anggota)->find($request->id);
         if (empty($field)) {
           return ApiResponse::error('Data transaksi tidak ditemukan', 404);
+        }
+        if ($request->action == 'delete' && (int) $field->fid_status !== 1) {
+          return ApiResponse::error('Transaksi tidak dapat dibatalkan karena sudah diproses', 422);
+        }
+        if (in_array($request->action, ['edit', 'proses_ulang'], true) && !in_array((int) $field->fid_status, [1, 2], true)) {
+          return ApiResponse::error('Transaksi tidak dapat diubah karena sudah diproses', 422);
         }
         $field->updated_at = date('Y-m-d H:i:s');
       }
@@ -554,7 +568,7 @@ class MobileController extends Controller
             return ApiResponse::error($err_file, 422);
           }
           $this->draft_gaji_pinjaman($field, $request);
-          $lengkap = $this->cek_dokumen_pengajuan($field, str_replace('.', '', $request->nominal));
+          $lengkap = $this->cek_dokumen_pengajuan($field, str_replace('.', '', $request->nominal), $request->action == 'add');
           if ($lengkap !== true) {
             if ($request->action == 'add') {
               // Bersihkan file yang baru tersimpan oleh draft_gaji_pinjaman (anti orphan).
@@ -585,6 +599,125 @@ class MobileController extends Controller
     } else {
       return $validasi === 'success' ? ApiResponse::success(null, $validasi) : ApiResponse::error($validasi);
     }
+  }
+
+  private function proses_pinjaman_mobile(Request $request)
+  {
+    if (!in_array($request->action, ['add', 'edit'], true)) {
+      return ApiResponse::error('Aksi pengajuan tidak valid', 422);
+    }
+    $existing = null;
+    if ($request->action === 'edit') {
+      $existing = Transaksi::where('fid_anggota', $request->no_anggota)->find($request->id);
+      if (!$existing || !in_array((int) $existing->fid_jenis_transaksi, [9, 10, 11], true)) {
+        return ApiResponse::error('Data transaksi tidak ditemukan', 404);
+      }
+      // Jadwal yang sudah diverifikasi atau dibayar tidak boleh dibuat ulang.
+      if ((int) $existing->fid_status !== 1) {
+        return ApiResponse::error('Pengajuan tidak dapat diubah', 422);
+      }
+    }
+    $validasi = $this->validasi_transaksi($request, 'pinjaman');
+    if ($validasi !== 'success') return ApiResponse::error($validasi);
+    $err = $this->validasi_files_pengajuan($request);
+    if ($err !== null) return ApiResponse::error($err, 422);
+
+    // Build a prospective draft using placeholders, without touching storage or the database.
+    $draft = $this->prospective_loan_draft($existing, $request);
+    $candidate = (object) ['fid_jenis_transaksi' => $request->jenis_pinjaman, 'draft_pengajuan' => json_encode($draft)];
+    $nominalChanged = $existing && (float) $existing->nominal !== -(float) str_replace('.', '', $request->nominal);
+    $newRules = !$existing || (string) $existing->fid_jenis_transaksi !== (string) $request->jenis_pinjaman || $nominalChanged;
+    $scheduleChanged = $newRules || (string) $existing->tenor !== (string) $request->tenor;
+    if ($newRules && ($request->persetujuan_versi !== self::PERSETUJUAN_VERSI
+        || $request->persetujuan_pinjaman_versi !== self::PERSETUJUAN_PINJAMAN_VERSI)) {
+      return ApiResponse::error('Persetujuan data pribadi dan persetujuan pinjaman versi terbaru wajib disetujui', 422);
+    }
+    $complete = $this->cek_dokumen_pengajuan($candidate, str_replace('.', '', $request->nominal), $newRules);
+    if ($complete !== true) return ApiResponse::error($complete, 422);
+
+    $newPaths = [];
+    try {
+      $result = DB::transaction(function () use ($request, $existing, $draft, $scheduleChanged, &$newPaths) {
+        $field = $existing ? Transaksi::where('fid_anggota', $request->no_anggota)->lockForUpdate()->find($existing->id) : new Transaksi;
+        if ($existing) {
+          // Do not overwrite another request after validating against an older draft.
+          if (!$field || (int) $field->fid_status !== 1 || $field->getRawOriginal() != $existing->getRawOriginal()) {
+            throw new \RuntimeException('Pengajuan telah berubah, silakan coba lagi');
+          }
+          $field->updated_at = date('Y-m-d H:i:s');
+        } else {
+          $field->created_at = date('Y-m-d H:i:s');
+          $field->created_by = $request->no_anggota;
+          $field->fid_status = 1;
+        }
+        foreach ($this->loan_upload_parts() as $part => $target) {
+          $file = $request->file($part);
+          if ($file && $file->isValid()) {
+            $path = $file->store($target[0] === 'slip' ? 'slip_gaji' : 'dokumen_pengajuan');
+            if (!$path) throw new \RuntimeException('Gagal menyimpan dokumen pengajuan');
+            $newPaths[] = $path;
+            $draft[$target[0]][$target[1]] = $path;
+          }
+        }
+        $field->fid_anggota = $request->no_anggota;
+        $field->keterangan = $request->keterangan;
+        $field->tanggal = date('Y-m-d');
+        $field->fid_metode_transaksi = 1;
+        $field->fid_jenis_transaksi = $request->jenis_pinjaman;
+        $field->nominal = '-' . str_replace('.', '', $request->nominal);
+        $field->tenor = $request->tenor;
+        $field->draft_pengajuan = json_encode($draft);
+        $field->save();
+        if ($scheduleChanged) $this->proses_angsuran($field->id, $request);
+        return ApiResponse::success(['id' => $field->id]);
+      });
+    } catch (\Throwable $e) {
+      foreach ($newPaths as $path) {
+        \Illuminate\Support\Facades\Storage::delete($path);
+      }
+      throw $e;
+    }
+    if ($existing) {
+      $saved = Transaksi::find($existing->id);
+      if ($saved) {
+        \App\Support\WebLoanDocuments::cleanupReplaced($existing->draft_pengajuan, $saved->draft_pengajuan);
+      }
+    }
+    return $result;
+  }
+
+  private function loan_upload_parts()
+  {
+    $parts = [
+      'attachment' => ['slip', 'bulan_ini'],
+      'slip_bulan_lalu' => ['slip', 'bulan_lalu'],
+      'slip_dua_bulan_lalu' => ['slip', 'dua_bulan_lalu'],
+    ];
+    foreach (['kk', 'ktp1', 'ktp2', 'ktp_penjamin', 'kartu_anggota', 'id_card', 'surat_hutang'] as $key) {
+      $parts['dokumen_' . $key] = ['dokumen', $key];
+    }
+    return $parts;
+  }
+
+  private function prospective_loan_draft($existing, $request)
+  {
+    $draft = $existing ? json_decode($existing->draft_pengajuan, true) : [];
+    $draft = is_array($draft) ? $draft : [];
+    $draft['gaji'] = (float) str_replace('.', '', $request->gaji_pokok ?? 0);
+    if (!empty($draft['slip']) && !is_array($draft['slip'])) {
+      $draft['slip'] = ['bulan_ini' => $draft['slip']];
+    }
+    foreach ($this->loan_upload_parts() as $part => $target) {
+      $file = $request->file($part);
+      if ($file && $file->isValid()) $draft[$target[0]][$target[1]] = '__pending_upload__';
+    }
+    if ($request->persetujuan_versi === self::PERSETUJUAN_VERSI) {
+      $draft['consent'] = ['versi' => self::PERSETUJUAN_VERSI, 'waktu' => date('Y-m-d H:i:s')];
+    }
+    if ($request->persetujuan_pinjaman_versi === self::PERSETUJUAN_PINJAMAN_VERSI) {
+      $draft['persetujuan_pinjaman'] = ['versi' => self::PERSETUJUAN_PINJAMAN_VERSI, 'waktu' => date('Y-m-d H:i:s')];
+    }
+    return $draft;
   }
 
   public function sisa_hutang($id, $n)
@@ -621,11 +754,12 @@ class MobileController extends Controller
       ->join('transaksi', 'transaksi.id', '=', 'angsuran.fid_transaksi')
       ->join('jenis_transaksi', 'jenis_transaksi.id', '=', 'transaksi.fid_jenis_transaksi')
       ->join('status_angsuran', 'status_angsuran.id', '=', 'angsuran.fid_status')
-      ->leftJoin('payroll_angsuran', 'payroll_angsuran.id', '=', 'angsuran.fid_payroll');
+      ->leftJoin('payroll_angsuran', 'payroll_angsuran.id', '=', 'angsuran.fid_payroll')
+      ->where('transaksi.fid_anggota', $request->no_anggota);
     if (!empty($request->id)) {
       $query = $query->where('transaksi.id', $request->id);
     } else {
-      $query = $query->where('transaksi.fid_anggota', $request->no_anggota)->whereIn('angsuran.fid_status', array(5, 6));
+      $query = $query->whereIn('angsuran.fid_status', array(5, 6));
     }
     // Pencarian & urutan untuk daftar angsuran (Okt 2026).
     $search = trim((string) $request->input('search', ''));
@@ -678,7 +812,7 @@ class MobileController extends Controller
       }
     }
     // Dokumen pendukung pengajuan (KK/KTP/kartu) — folder dokumen_pengajuan (wajib login).
-    foreach (['kk', 'ktp1', 'ktp2', 'kartu_anggota', 'id_card', 'surat_hutang'] as $j) {
+    foreach (['kk', 'ktp1', 'ktp2', 'ktp_penjamin', 'kartu_anggota', 'id_card', 'surat_hutang'] as $j) {
       $file = $request->file('dokumen_' . $j);
       if (!empty($file) && $file->isValid()) {
         $draft['dokumen'][$j] = $file->store('dokumen_pengajuan');
@@ -710,8 +844,10 @@ class MobileController extends Controller
       'bunga_pinjaman_rate' => GlobalHelper::getBungaPinjaman(),
       'ktp2_threshold' => self::KTP2_THRESHOLD,
       'dokumen_wajib' => self::DOKUMEN_WAJIB,
-      'dokumen_kondisional' => ['ktp2'],
+      'dokumen_kondisional' => ['ktp2', 'ktp_penjamin'],
+      'ktp_penjamin_jenis' => [9],
       'surat_hutang_jenis' => self::SURAT_HUTANG_JENIS,
+      'maks_tenor' => \App\Support\LoanApplicationRules::MAX_TENOR,
       'format' => ['jpg', 'jpeg', 'png', 'pdf'],
       'maks_kb' => 5120,
       'persetujuan_versi' => self::PERSETUJUAN_VERSI,
@@ -744,13 +880,17 @@ class MobileController extends Controller
       'dokumen_kk' => 'Kartu Keluarga',
       'dokumen_ktp1' => 'KTP Peminjam',
       'dokumen_ktp2' => 'KTP Suami/Istri',
+      'dokumen_ktp_penjamin' => 'KTP Penjamin',
       'dokumen_kartu_anggota' => 'Kartu Anggota',
       'dokumen_id_card' => 'ID Card Pegawai',
       'dokumen_surat_hutang' => 'Surat Hutang (materai)',
     ];
     foreach ($labels as $key => $label) {
       $file = $request->file($key);
-      if (!empty($file) && $file->isValid()) {
+      if (!empty($file) && !$file->isValid()) {
+        return $label . ': unggahan tidak valid';
+      }
+      if (!empty($file)) {
         $err = $this->validasi_dokumen($file, $label);
         if ($err !== null) {
           return $err;
@@ -762,7 +902,7 @@ class MobileController extends Controller
 
   // Cek kelengkapan pengajuan: 3 slip + dokumen wajib + KTP-2 kondisional + persetujuan.
   // Return true jika lengkap, atau string pesan error.
-  public function cek_dokumen_pengajuan($transaksi, $nominal)
+  public function cek_dokumen_pengajuan($transaksi, $nominal, $syaratBaru = true)
   {
     $draft = json_decode($transaksi->draft_pengajuan, true);
     $draft = is_array($draft) ? $draft : [];
@@ -770,6 +910,7 @@ class MobileController extends Controller
       'kk' => 'Kartu Keluarga',
       'ktp1' => 'KTP Peminjam',
       'ktp2' => 'KTP Suami/Istri',
+      'ktp_penjamin' => 'KTP Penjamin',
       'kartu_anggota' => 'Kartu Anggota',
       'id_card' => 'ID Card Pegawai',
       'surat_hutang' => 'Surat Hutang (materai)',
@@ -780,7 +921,7 @@ class MobileController extends Controller
     $slip = !empty($draft['slip'])
       ? (is_array($draft['slip']) ? $draft['slip'] : ['bulan_ini' => $draft['slip']])
       : [];
-    foreach (self::SLIP_SLOTS as $slot => $label) {
+    foreach (($syaratBaru ? self::SLIP_SLOTS : ['bulan_ini' => self::SLIP_SLOTS['bulan_ini']]) as $slot => $label) {
       if (empty($slip[$slot])) {
         $kurang[] = $label;
       }
@@ -793,9 +934,11 @@ class MobileController extends Controller
     if ($nominal > self::KTP2_THRESHOLD && empty($draft['dokumen']['ktp2'])) {
       $kurang[] = $labels['ktp2'] . ' (wajib untuk pinjaman di atas Rp 10 juta)';
     }
-    // Surat Hutang bermaterai — wajib hanya Pinjaman Jangka Panjang (jenis 9).
-    if (in_array($transaksi->fid_jenis_transaksi, self::SURAT_HUTANG_JENIS) && empty($draft['dokumen']['surat_hutang'])) {
-      $kurang[] = $labels['surat_hutang'] . ' (wajib untuk Pinjaman Jangka Panjang)';
+    if ($syaratBaru && (int) $transaksi->fid_jenis_transaksi === 9 && empty($draft['dokumen']['ktp_penjamin'])) {
+      $kurang[] = $labels['ktp_penjamin'] . ' (wajib untuk Pinjaman Jangka Panjang)';
+    }
+    if (in_array((int) $transaksi->fid_jenis_transaksi, $syaratBaru ? self::SURAT_HUTANG_JENIS : [9], true) && empty($draft['dokumen']['surat_hutang'])) {
+      $kurang[] = $labels['surat_hutang'] . ' (wajib untuk semua jenis pinjaman)';
     }
     if (!empty($kurang)) {
       return 'Dokumen belum lengkap: ' . implode(', ', $kurang);
@@ -813,12 +956,15 @@ class MobileController extends Controller
   // (slip_bulan_ini/lalu/dua_bulan_lalu) atau dokumen pendukung (kk/ktp1/…).
   public function upload_dokumen(Request $request)
   {
-    $field = Transaksi::find($request->id);
+    $field = Transaksi::where('fid_anggota', $request->no_anggota)->find($request->id);
     if (empty($field)) {
       return ApiResponse::error('transaksi tidak ditemukan', 404);
     }
+    if (!in_array((int) $field->fid_jenis_transaksi, [9, 10, 11], true) || (int) $field->fid_status !== 1) {
+      return ApiResponse::error('Pengajuan tidak dapat diubah', 422);
+    }
     $jenis_dok = $request->jenis_dok;
-    $labels = ['kk' => 'Kartu Keluarga', 'ktp1' => 'KTP Peminjam', 'ktp2' => 'KTP Suami/Istri', 'kartu_anggota' => 'Kartu Anggota', 'id_card' => 'ID Card Pegawai', 'surat_hutang' => 'Surat Hutang (materai)'];
+    $labels = ['kk' => 'Kartu Keluarga', 'ktp1' => 'KTP Peminjam', 'ktp2' => 'KTP Suami/Istri', 'ktp_penjamin' => 'KTP Penjamin', 'kartu_anggota' => 'Kartu Anggota', 'id_card' => 'ID Card Pegawai', 'surat_hutang' => 'Surat Hutang (materai)'];
     $slipJenis = ['slip_bulan_ini' => 'bulan_ini', 'slip_bulan_lalu' => 'bulan_lalu', 'slip_dua_bulan_lalu' => 'dua_bulan_lalu'];
     $isSlip = array_key_exists($jenis_dok, $slipJenis);
     if (!$isSlip && !array_key_exists($jenis_dok, $labels)) {
@@ -835,41 +981,52 @@ class MobileController extends Controller
     }
     $draft = json_decode($field->draft_pengajuan, true);
     $draft = is_array($draft) ? $draft : [];
+    $oldPath = null;
     if ($isSlip) {
       $slot = $slipJenis[$jenis_dok];
       $slip = !empty($draft['slip'])
         ? (is_array($draft['slip']) ? $draft['slip'] : ['bulan_ini' => $draft['slip']])
         : [];
-      if (!empty($slip[$slot])) {
-        $lama = storage_path('app/' . $slip[$slot]);
-        if (file_exists($lama)) {
-          unlink($lama);
-        }
-      }
+      $oldPath = $slip[$slot] ?? null;
       $slip[$slot] = $file->store('slip_gaji');
       $draft['slip'] = $slip;
     } else {
-      if (!empty($draft['dokumen'][$jenis_dok])) {
-        $lama = storage_path('app/' . $draft['dokumen'][$jenis_dok]);
-        if (file_exists($lama)) {
-          unlink($lama);
-        }
-      }
+      $oldPath = $draft['dokumen'][$jenis_dok] ?? null;
       $draft['dokumen'][$jenis_dok] = $file->store('dokumen_pengajuan');
     }
+    $newPath = $isSlip ? $draft['slip'][$slipJenis[$jenis_dok]] : $draft['dokumen'][$jenis_dok];
+    if (empty($newPath)) {
+      return ApiResponse::error('Gagal menyimpan dokumen', 500);
+    }
     $field->draft_pengajuan = json_encode($draft);
-    $field->save();
+    try {
+      $field->save();
+    } catch (\Throwable $e) {
+      \Illuminate\Support\Facades\Storage::delete($newPath);
+      throw $e;
+    }
+    if (!empty($oldPath) && $oldPath !== $newPath) {
+      \App\Support\WebLoanDocuments::deleteIfUnreferenced($oldPath);
+    }
     return ApiResponse::success(null, 'Dokumen diperbarui');
   }
 
   public function upload_slip_gaji(Request $request)
   {
-    $field = Transaksi::find($request->id);
+    $field = Transaksi::where('fid_anggota', $request->no_anggota)->find($request->id);
     if (empty($field)) {
       return ApiResponse::error('transaksi tidak ditemukan', 404);
     }
+    if (!in_array((int) $field->fid_jenis_transaksi, [9, 10, 11], true) || (int) $field->fid_status !== 1) {
+      return ApiResponse::error('Pengajuan tidak dapat diubah', 422);
+    }
     if (!$request->hasFile('attachment')) {
       return ApiResponse::error('file tidak ditemukan');
+    }
+    $file = $request->file('attachment');
+    $err = $this->validasi_dokumen($file, self::SLIP_SLOTS['bulan_ini']);
+    if ($err !== null) {
+      return ApiResponse::error($err, 422);
     }
     $draft = json_decode($field->draft_pengajuan, true);
     if (empty($draft)) {
@@ -879,14 +1036,22 @@ class MobileController extends Controller
     $slip = !empty($draft['slip'])
       ? (is_array($draft['slip']) ? $draft['slip'] : ['bulan_ini' => $draft['slip']])
       : [];
-    if (!empty($slip['bulan_ini'])) {
-      $path = storage_path('app/' . $slip['bulan_ini']);
-      if (file_exists($path)) { unlink($path); }
+    $oldPath = $slip['bulan_ini'] ?? null;
+    $slip['bulan_ini'] = $file->store('slip_gaji');
+    if (empty($slip['bulan_ini'])) {
+      return ApiResponse::error('Gagal menyimpan dokumen', 500);
     }
-    $slip['bulan_ini'] = $request->file('attachment')->store('slip_gaji');
     $draft['slip'] = $slip;
     $field->draft_pengajuan = json_encode($draft);
-    $field->save();
+    try {
+      $field->save();
+    } catch (\Throwable $e) {
+      \Illuminate\Support\Facades\Storage::delete($slip['bulan_ini']);
+      throw $e;
+    }
+    if (!empty($oldPath) && $oldPath !== $slip['bulan_ini']) {
+      \App\Support\WebLoanDocuments::deleteIfUnreferenced($oldPath);
+    }
     return ApiResponse::success(null, 'success');
   }
 
@@ -1194,23 +1359,42 @@ class MobileController extends Controller
 
   public function riwayat_transaksi(Request $request)
   {
+    // Only reveal history for a record owned by the authenticated member.
+    // mobile.auth overwrites no_anggota with the identity from the bearer token.
+    $loanHistory = false;
+    if ($request->jenis === 'transaksi') {
+      $record = Transaksi::where('id', $request->id)->where('fid_anggota', $request->no_anggota)->first();
+      $owned = $record !== null;
+      $loanHistory = $owned && in_array((int) $record->fid_jenis_transaksi, [9, 10, 11], true);
+    } elseif ($request->jenis === 'penjualan') {
+      $owned = Penjualan::where('id', $request->id)->where('fid_anggota', $request->no_anggota)->exists();
+    } else {
+      $owned = false;
+    }
+    if (!$owned) {
+      return ApiResponse::error('Transaksi tidak ditemukan', 404);
+    }
+
     $transaksi = collect();
     if ($request->jenis == 'transaksi') {
-      $transaksi = Transaksi::selectRaw("transaksi.created_at,concat('Transaksi dibuat oleh') as caption,anggota.no_anggota,anggota.nama_lengkap")
+      $transaksi = Transaksi::selectRaw("transaksi.created_at,'Transaksi dibuat oleh' as caption,anggota.no_anggota,anggota.nama_lengkap")
         ->join('anggota', 'anggota.no_anggota', '=', 'transaksi.created_by')
         ->where('transaksi.id', $request->id)
         ->get();
     } elseif ($request->jenis == 'penjualan') {
-      $transaksi = Penjualan::selectRaw("penjualan.created_at,concat('Transaksi dibuat oleh') as caption,anggota.no_anggota,anggota.nama_lengkap")
+      $transaksi = Penjualan::selectRaw("penjualan.created_at,'Transaksi dibuat oleh' as caption,anggota.no_anggota,anggota.nama_lengkap")
         ->join('anggota', 'anggota.no_anggota', '=', 'penjualan.created_by')
         ->where('penjualan.id', $request->id)
         ->get();
     }
-    $data = VerifikasiTransaksi::select('verifikasi_transaksi.created_at', 'verifikasi_transaksi.caption', 'anggota.no_anggota', 'anggota.nama_lengkap')
+    $data = VerifikasiTransaksi::select('verifikasi_transaksi.created_at', 'verifikasi_transaksi.caption', 'verifikasi_transaksi.keterangan', 'anggota.no_anggota', 'anggota.nama_lengkap')
       ->leftJoin('anggota', 'anggota.no_anggota', '=', 'verifikasi_transaksi.created_by')
       ->where('verifikasi_transaksi.fid_transaksi', $request->id)
       ->where('verifikasi_transaksi.jenis', $request->jenis)
       ->get();
+    foreach ($data as $entry) {
+      $entry->keterangan = $loanHistory ? GlobalHelper::public_loan_decision_reason($entry->keterangan) : null;
+    }
     $collection = collect($transaksi);
     $merged = $collection->merge($data);
     return ApiResponse::success($merged->all());

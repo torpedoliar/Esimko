@@ -21,9 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// Tenor maksimal per jenis pinjaman, sama dengan validasi backend
-// (MobileController::validasi_transaksi: array(9 => 50, 10 => 18, 11 => 18))
-private val MAX_TENOR = mapOf(9 to 50, 10 to 18, 11 to 18)
+// Batas tenor aplikasi: panjang (9), pendek (10), barang (11).
+private val MAX_TENOR = mapOf(9 to 60, 10 to 15, 11 to 20)
 
 // Fallback kalau endpoint syarat_pinjaman gagal dimuat — sama dengan default server.
 private const val KTP2_THRESHOLD_DEFAULT = 10_000_000L
@@ -68,14 +67,9 @@ data class LoanApplicationState(
     val estimasiAngsuran: Long
         get() = bungaRate?.let { LoanMath.angsuranPerBulan(nominalValue, tenorValue, it) } ?: 0L
 
-    /** Kunci slot dokumen yang tampil di UI: 3 slip + 4 wajib + ktp2 kondisional + surat hutang (jenis 9). */
+    /** Slot dokumen wajib dan kondisional untuk jenis dan nominal terpilih. */
     val slotDokumen: List<String>
-        get() {
-            val daftar = (LoanDocs.SLIP_SLOTS + LoanDocs.WAJIB).toMutableList()
-            if (perluKtp2) daftar += LoanDocs.KTP2
-            if (selectedJenis == LoanDocs.JENIS_JANGKA_PANJANG) daftar += LoanDocs.SURAT_HUTANG
-            return daftar
-        }
+        get() = LoanDocs.slotDokumen(selectedJenis, nominalValue, ktp2Threshold)
 
     val dokumenKurang: List<String>
         get() = slotDokumen.filter { it !in dokumen.keys }

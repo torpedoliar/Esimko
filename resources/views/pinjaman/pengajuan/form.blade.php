@@ -2,7 +2,7 @@
   $app='sinjam';
   $page='Pengajuan Pinjaman';
   $subpage='Pengajuan Pinjaman';
-  $tenor=array('9'=>50,'10'=>18,'11'=>18);
+  $tenor = \App\Support\LoanApplicationRules::MAX_TENOR;
 @endphp
 @extends('layouts.admin')
 @section('title')
@@ -120,7 +120,7 @@
                 <div class="col-md-4">
                   <div class="form-group">
                     <label class="control-label">Tenor</label>
-                    <input data-toggle="touchspin" onchange="calc_angsuran()" id="tenor" name="tenor" value="{{(!empty($data['pinjaman']) ? $data['pinjaman']->tenor : '1')}}" type="text" value="0" data-max="60">
+                    <input data-toggle="touchspin" onchange="calc_angsuran()" id="tenor" name="tenor" value="{{(!empty($data['pinjaman']) ? $data['pinjaman']->tenor : '1')}}" type="text" data-min="1" data-max="{{max($tenor[$data['jenis-pinjaman']->id] ?? 1, !empty($data['pinjaman']) ? $data['pinjaman']->tenor : 1)}}">
                   </div>
                 </div>
               </div>
@@ -152,16 +152,8 @@
                     <div id="bulan_gaji" style="text-align:right;margin-top:5px"></div>
                   </div>
                 </div>
-                <div class="col-md-8">
-                  <div class="form-group">
-                    <label class="control-label">Slip Gaji</label>
-                    <div class="custom-file">
-                      <input type="file" class="custom-file-input" id="customFile" name="attachment">
-                      <label class="custom-file-label" for="customFile">Choose file</label>
-                    </div>
-                  </div>
-                </div>
               </div>
+              @include('include.loan_documents', ['adminLoanDocuments' => true])
               <div class="form-group">
                 <label>Keterangan</label>
                 <textarea name="keterangan" class="form-control" style="height:150px">{{(!empty($data['pinjaman']) ? $data['pinjaman']->keterangan : '')}}</textarea>

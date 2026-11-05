@@ -233,10 +233,21 @@ private fun DetailContent(
             item(key = "timeline-header") { SectionHeader(title = "Riwayat Verifikasi") }
             state.timeline.forEachIndexed { index, entry ->
                 item(key = "timeline-$index") {
-                    ListRow(
-                        title = entry.caption,
-                        subtitle = ActivityGrouping.dayLabel(entry.createdAt) + " · " + entry.pelaku
-                    )
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Text(entry.caption, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            ActivityGrouping.dayLabel(entry.createdAt) + " · " + entry.pelaku,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        entry.keterangan?.takeIf { it.isNotBlank() }?.let { reason ->
+                            Text(
+                                reason,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
                     RowDivider()
                 }
             }

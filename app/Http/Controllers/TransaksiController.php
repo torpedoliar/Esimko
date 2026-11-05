@@ -79,13 +79,16 @@ class TransaksiController extends Controller
             $msg=((str_replace(',','',$request->nominal)>$saldo) ? 'Saldo simpanan tidak mencukupi' : 'success' );
         }
         elseif($jenis=='pinjaman'){
-            $jenis_pinjaman=DB::table('jenis_transaksi')->find($jenis);
-            if(!empty($jenis_pinjaman)){
-                $tenor=array(9=>50,10=>18,11=>18);
-                if($request->tenor > $tenor[$request->jenis_transaksi]){
-                    $msg='Tenor melebihi maksimal tenor yaitu '.$tenor[$request->jenis_transaksi].' bulan';
-                }
-                else{
+            $existing = $request->action != 'add' ? Transaksi::where('fid_anggota', $anggota)->find($request->id) : null;
+            $unchanged = $existing && (string) $existing->fid_jenis_transaksi === (string) $request->jenis_transaksi
+                && (string) $existing->tenor === (string) $request->tenor;
+            $tenorError = \App\Support\LoanApplicationRules::tenorError($request->jenis_transaksi, $request->tenor, $unchanged);
+            $jenis_pinjaman = $tenorError ? null : DB::table('jenis_transaksi')->find($request->jenis_transaksi);
+            if ($tenorError) {
+                $msg = $tenorError;
+            } elseif (empty($jenis_pinjaman)) {
+                $msg = 'Jenis pinjaman tidak valid';
+            } else {
                     $total_angsuran=GlobalHelper::angsuran_pinjaman($anggota,'all')+$request->total_angsuran_pinjaman+GlobalHelper::total_angsuran_belanja($anggota)+GlobalHelper::setoran_berkala($anggota)+350000;
                     $total_angsuran_pinjaman=GlobalHelper::angsuran_pinjaman($anggota,'all')+350000+str_replace('.','',$request->total_angsuran_pinjaman);
 
@@ -108,7 +111,6 @@ class TransaksiController extends Controller
                     else{
                         $msg='Maaf anda belum bisa mengajukan '.$jenis_pinjaman->jenis_transaksi.', karena anda masih mempunyai sisa angsuran senilai <b>Rp '.number_format($sisa_pinjaman,0,',','.').'</b> dan sisa tenor <b>'.$sisa_tenor.'x </b>. Silahkan melunasi pinjaman anda atau melakukan pengajuan pinjaman yang lain.';
                     }
-                }
             }
         }
         else{
@@ -118,6 +120,7 @@ class TransaksiController extends Controller
     }
 
     public function proses_transaksi(Request $request){
+        if ($request->modul === 'pinjaman') return $this->proses_pinjaman_web($request);
         $validasi=$this->validasi_transaksi($request,$request->modul);
         if($validasi=='success' ){
             if($request->action=='add'){
@@ -127,7 +130,16 @@ class TransaksiController extends Controller
                 $field->fid_status=1;
             }
             else{
-                $field=Transaksi::find($request->id);
+                $field=Transaksi::where('fid_anggota',Session::get('useractive')->no_anggota)->find($request->id);
+                if(empty($field)){
+                    return Redirect::back()->with('message','Transaksi tidak ditemukan')->with('message_type','warning');
+                }
+                if($request->action=='delete' && (int)$field->fid_status !== 1){
+                    return Redirect::back()->with('message','Transaksi tidak dapat dihapus karena sudah diproses')->with('message_type','warning');
+                }
+                if(in_array($request->action,array('edit','proses_ulang'),true) && !in_array((int)$field->fid_status,array(1,2),true)){
+                    return Redirect::back()->with('message','Transaksi tidak dapat diubah karena sudah diproses')->with('message_type','warning');
+                }
                 $field->updated_at=date('Y-m-d H:i:s');
                 $field->fid_status=1;
                 $field->bukti_transaksi=($request->action=='proses_ulang' ? null : $field->bukti_transaksi );
@@ -167,8 +179,53 @@ class TransaksiController extends Controller
         }
     }
 
+    private function proses_pinjaman_web(Request $request){
+        $actor = Session::get('useractive')->no_anggota;
+        if (!in_array($request->action, ['add', 'edit', 'proses_ulang'], true)) abort(422);
+        $existing = $request->action === 'add' ? null : Transaksi::where('fid_anggota', $actor)->findOrFail($request->id);
+        if ($existing && (!in_array((int)$existing->fid_jenis_transaksi, [9,10,11], true) ||
+            ($request->action === 'edit' && (int)$existing->fid_status !== 1) ||
+            ($request->action === 'proses_ulang' && (int)$existing->fid_status !== 2))) abort(403);
+        $nominal = str_replace('.', '', $request->nominal);
+        if (!ctype_digit((string)$nominal) || (float)$nominal <= 0 || (float)str_replace('.', '', $request->gaji_pokok) <= 0) abort(422);
+        $newRules = !$existing || $request->action === 'proses_ulang' || (string)$existing->fid_jenis_transaksi !== (string)$request->jenis_transaksi || (float)$existing->nominal !== -(float)$nominal;
+        $scheduleChanged = $newRules || (string)$existing->tenor !== (string)$request->tenor;
+        $tenorError = \App\Support\LoanApplicationRules::tenorError($request->jenis_transaksi, $request->tenor, $existing && !$scheduleChanged);
+        if ($tenorError) return Redirect::back()->withInput()->with('message', $tenorError)->with('message_type', 'warning');
+        if ($scheduleChanged) {
+            $request->merge(['total_angsuran_pinjaman' => round((float)$nominal / (int)$request->tenor) + round((float)$nominal * GlobalHelper::getBungaPinjaman())]);
+            $validasi = $this->validasi_transaksi($request, 'pinjaman');
+            if ($validasi !== 'success') return Redirect::back()->withInput()->with('message', $validasi)->with('message_type', 'warning');
+        }
+        $legacyNoDraft = $existing && empty($existing->draft_pengajuan) && !$scheduleChanged;
+        $draft = \App\Support\WebLoanDocuments::prepare($request, $existing, $request->jenis_transaksi, $nominal, $newRules, false, $actor, $legacyNoDraft);
+        $paths = [];
+        try {
+            $id = DB::transaction(function () use ($request, $actor, $existing, $nominal, $scheduleChanged, &$draft, &$paths) {
+                $field = $existing ? Transaksi::where('fid_anggota', $actor)->lockForUpdate()->findOrFail($existing->id) : new Transaksi;
+                if ($existing && $field->getRawOriginal() != $existing->getRawOriginal()) throw new \RuntimeException('Pengajuan telah berubah, silakan coba lagi');
+                \App\Support\WebLoanDocuments::store($request, $draft, $paths);
+                if (!$existing) { $field->created_by = $actor; $field->created_at = date('Y-m-d H:i:s'); }
+                $field->fid_status = 1; $field->fid_metode_transaksi = 3;
+                $field->fid_jenis_transaksi = $request->jenis_transaksi; $field->fid_anggota = $actor;
+                $field->nominal = -(float)$nominal; $field->tenor = $request->tenor;
+                $field->keterangan = $request->keterangan; $field->tanggal = date('Y-m-d');
+                if ($request->action === 'proses_ulang') $field->bukti_transaksi = null;
+                $field->draft_pengajuan = json_encode($draft); $field->save();
+                if ($scheduleChanged) $this->proses_angsuran($field->id, $request);
+                if ($request->action === 'proses_ulang') GlobalHelper::add_verifikasi_transaksi('transaksi',$field->id,'Transaksi diajukan ulang oleh',null);
+                return $field->id;
+            });
+        } catch (\Throwable $e) { \App\Support\WebLoanDocuments::rollbackFiles($paths); throw $e; }
+        if ($existing) \App\Support\WebLoanDocuments::cleanupReplaced($existing->draft_pengajuan, $draft);
+        return redirect('main/pinjaman/detail?id='.$id);
+    }
+
     public function proses_pembatalan(Request $request){
-        $field=Transaksi::find($request->id);
+        $field=Transaksi::where('fid_anggota',Session::get('useractive')->no_anggota)->find($request->id);
+        if(empty($field) || !in_array((int)$field->fid_status,array(1,2),true)){
+            return Redirect::back()->with('message','Transaksi tidak dapat dibatalkan karena sudah diproses')->with('message_type','warning');
+        }
         $field->fid_status=5;
         $field->save();
         GlobalHelper::add_verifikasi_transaksi('transaksi',$field->id,'Transaksi dibatalkan oleh',null);
@@ -216,7 +273,7 @@ class TransaksiController extends Controller
     }
 
     public function upload_bukti_transaksi(Request $request){
-        $field=Transaksi::find($request->id);
+        $field=Transaksi::where('fid_anggota',Session::get('useractive')->no_anggota)->find($request->id);
         if(!empty($field)){
             if($request->hasFile('bukti_transaksi')){
                 if(!empty($field->bukti_transaksi)){
@@ -250,6 +307,7 @@ class TransaksiController extends Controller
             ->join('metode_transaksi','metode_transaksi.id','=','transaksi.fid_metode_transaksi')
             ->join('jenis_transaksi','jenis_transaksi.id','=','transaksi.fid_jenis_transaksi')
             ->where('transaksi.id',$id)
+            ->where('transaksi.fid_anggota',Session::get('useractive')->no_anggota)
             ->first();
         if(!empty($data)){
             $anggota=Anggota::where('no_anggota',$data->created_by)->first();
@@ -356,8 +414,8 @@ class TransaksiController extends Controller
     }
 
     public function konfirmasi_angsuran(Request $request){
-        $field=Transaksi::find($request->id);
-        if(!empty($field)){
+        $field=Transaksi::where('fid_anggota',Session::get('useractive')->no_anggota)->find($request->id);
+        if(!empty($field) && (int)$field->fid_status === 0){
             $field->fid_status=1;
             $field->save();
             return redirect('main/pinjaman/detail?id='.$request->id);
@@ -369,7 +427,7 @@ class TransaksiController extends Controller
 
     public function pinjaman_detail(Request $request){
         $pinjaman=$this->detail_transaksi($request->id);
-        if(!empty($pinjaman)){
+        if(!empty($pinjaman) && $pinjaman->fid_anggota == Session::get('useractive')->no_anggota){
             $angsuran=Angsuran::where('fid_transaksi',$pinjaman->id)->first();
             if(!empty($angsuran)){
                 $pinjaman->total_angsuran=$angsuran->angsuran_pokok+$angsuran->angsuran_bunga;
@@ -418,7 +476,7 @@ class TransaksiController extends Controller
 
     //-----------------------------------------ANGSURAN---------------------------------------//
     public function get_angsuran($anggota,$modul='angsuran'){
-        $query=Angsuran::select('angsuran.id','angsuran.angsuran_ke','angsuran.angsuran_pokok','angsuran.angsuran_bunga','payroll_angsuran.created_at','jenis_transaksi.jenis_transaksi','payroll_angsuran.bulan','status_angsuran.status_angsuran','status_angsuran.color')
+        $query=Angsuran::select('angsuran.id','transaksi.tenor','angsuran.angsuran_ke','angsuran.angsuran_pokok','angsuran.angsuran_bunga','payroll_angsuran.created_at','jenis_transaksi.jenis_transaksi','payroll_angsuran.bulan','status_angsuran.status_angsuran','status_angsuran.color')
             ->join('transaksi','transaksi.id','=','angsuran.fid_transaksi')
             ->join('jenis_transaksi','jenis_transaksi.id','=','transaksi.fid_jenis_transaksi')
             ->join('status_angsuran','status_angsuran.id','=','angsuran.fid_status')
@@ -452,7 +510,22 @@ class TransaksiController extends Controller
     }
 
     public function angsuran(Request $request){
-        $data['angsuran']=$this->get_angsuran(Session::get('useractive')->no_anggota);
+        $anggota = Session::get('useractive')->no_anggota;
+        $data['angsuran']=$this->get_angsuran($anggota);
+        $loans = Transaksi::select('transaksi.*', 'jenis_transaksi.jenis_transaksi')
+            ->join('jenis_transaksi', 'jenis_transaksi.id', '=', 'transaksi.fid_jenis_transaksi')
+            ->where('transaksi.fid_anggota', $anggota)
+            ->whereIn('transaksi.fid_jenis_transaksi', [9, 10, 11])
+            ->whereIn('transaksi.fid_status', [3, 4, 6]);
+        $jenisFilter = Session::get('filter_transaksi')['angsuran']['jenis'] ?? 'all';
+        if ($jenisFilter !== 'all') {
+            $loans->where('transaksi.fid_jenis_transaksi', $jenisFilter);
+        }
+        $loans = $loans->orderBy('transaksi.tanggal', 'desc')->orderBy('transaksi.id', 'desc')->get();
+        $schedules = Angsuran::whereIn('fid_transaksi', $loans->pluck('id'))->get()->groupBy('fid_transaksi');
+        $data['ringkasan_pinjaman'] = $loans->map(function ($loan) use ($schedules) {
+            return \App\Support\LoanProgress::summarize($loan, $schedules->get($loan->id, collect()));
+        });
         $data['status-transaksi']=DB::table('status_angsuran')->whereIn('id',array(5,6))->get();
         $jenis_transkasi=DB::table('jenis_transaksi')->whereIn('id',array(9,10,11))->get();
         $total_sisa=0;

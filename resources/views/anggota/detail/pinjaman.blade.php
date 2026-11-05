@@ -65,6 +65,9 @@
             </div>
             <h6>{{\App\Helpers\GlobalHelper::tgl_indo($value->created_at)}}, {{\App\Helpers\GlobalHelper::dateFormat($value->created_at,'H:i:s')}}</h6>
             <p class="text-muted">{{$value->caption}} <span style="font-weight:500">{{$value->nama_lengkap}}</span></p>
+            @if(!is_null($value->keterangan) && trim($value->keterangan) !== '')
+              <p class="text-muted">Keterangan: {{\App\Helpers\GlobalHelper::public_loan_decision_reason($value->keterangan) ?? $value->keterangan}}</p>
+            @endif
           </li>
           @endforeach
         </ul>

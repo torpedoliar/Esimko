@@ -4,17 +4,33 @@ package com.esimko.mobile.util
  * Aturan dokumen pengajuan pinjaman. Key = nama part multipart di backend
  * (MobileController: attachment utk slip, dokumen_<key> utk sisanya).
  */
+data class DocGroup(val title: String, val keys: List<String>)
+
 object LoanDocs {
     /** Slot slip gaji — syarat Okt 2026: 3 bulan terakhir (key = jenis_dok di server). */
     val SLIP_SLOTS = listOf("slip_bulan_ini", "slip_bulan_lalu", "slip_dua_bulan_lalu")
     const val SLIP = "slip_bulan_ini" // slot pertama (part "attachment" di submit)
     const val KTP2 = "ktp2"
-    /** Surat Hutang bermaterai — wajib hanya utk Pinjaman Jangka Panjang (jenis 9). */
+    const val KTP_PENJAMIN = "ktp_penjamin"
     const val SURAT_HUTANG = "surat_hutang"
     const val JENIS_JANGKA_PANJANG = 9
 
     /** Urutan tampil di UI; slip ditangani slot sendiri tapi ikut dihitung wajib. */
-    val WAJIB = listOf("kk", "ktp1", "kartu_anggota", "id_card")
+    val WAJIB = listOf("kk", "ktp1", "kartu_anggota", "id_card", SURAT_HUTANG)
+
+    /** Dokumen dikelompokkan agar layar pengajuan tidak menumpuk semua slot. */
+    fun groupedDocuments(jenis: Int?, nominal: Long, ktp2Threshold: Long): List<DocGroup> {
+        val tambahan = buildList {
+            if (perluKtp2(nominal, ktp2Threshold)) add(KTP2)
+            if (jenis == JENIS_JANGKA_PANJANG) add(KTP_PENJAMIN)
+        }
+        return buildList {
+            add(DocGroup("Slip Gaji", SLIP_SLOTS))
+            add(DocGroup("Dokumen Identitas", listOf("kk", "ktp1", "kartu_anggota", "id_card")))
+            add(DocGroup("Surat Hutang", listOf(SURAT_HUTANG)))
+            if (tambahan.isNotEmpty()) add(DocGroup("Dokumen Tambahan", tambahan))
+        }
+    }
 
     fun label(key: String): String = when (key) {
         "slip_bulan_ini" -> "Slip Gaji — Bulan Ini"
@@ -23,6 +39,7 @@ object LoanDocs {
         "kk" -> "Kartu Keluarga"
         "ktp1" -> "KTP Peminjam"
         KTP2 -> "KTP Suami/Istri"
+        KTP_PENJAMIN -> "KTP Penjamin"
         "kartu_anggota" -> "Kartu Anggota"
         "id_card" -> "ID Card Pegawai"
         SURAT_HUTANG -> "Surat Hutang (Materai)"
@@ -33,10 +50,13 @@ object LoanDocs {
     fun perluKtp2(nominal: Long, ktp2Threshold: Long): Boolean = nominal > ktp2Threshold
 
     /** Dokumen wajib yang belum dilampirkan (kunci, urut sesuai tampilan). */
-    fun kurang(terlampir: Set<String>, nominal: Long, ktp2Threshold: Long): List<String> {
-        val perlu = SLIP_SLOTS + WAJIB + if (perluKtp2(nominal, ktp2Threshold)) listOf(KTP2) else emptyList()
-        return perlu.filter { it !in terlampir }
-    }
+    fun slotDokumen(jenis: Int?, nominal: Long, ktp2Threshold: Long): List<String> =
+        SLIP_SLOTS + WAJIB +
+            (if (perluKtp2(nominal, ktp2Threshold)) listOf(KTP2) else emptyList()) +
+            (if (jenis == JENIS_JANGKA_PANJANG) listOf(KTP_PENJAMIN) else emptyList())
+
+    fun kurang(terlampir: Set<String>, nominal: Long, ktp2Threshold: Long, jenis: Int? = null): List<String> =
+        slotDokumen(jenis, nominal, ktp2Threshold).filter { it !in terlampir }
 
     /** Mime yang diterima server (MobileController::validasi_dokumen). */
     fun mimeDiterima(mime: String?): Boolean =
@@ -55,7 +75,8 @@ object LoanDocs {
         KTP2 -> "Unggah foto KTP suami/istri Anda — dokumen ini muncul karena nominal pinjaman di atas Rp ${formatRingkas(ktp2Threshold)}. Boleh foto atau PDF."
         "kartu_anggota" -> "Unggah foto kartu anggota koperasi Anda — foto atau PDF (wajib)"
         "id_card" -> "Unggah foto ID Card pegawai Anda — foto atau PDF (wajib)"
-        SURAT_HUTANG -> "Unggah Surat Hutang yang sudah DITANDATANGANI dan BERMATERAI — foto atau PDF (wajib untuk Pinjaman Jangka Panjang)"
+        KTP_PENJAMIN -> "Unggah KTP penjamin — foto atau PDF (wajib untuk Pinjaman Jangka Panjang)"
+        SURAT_HUTANG -> "Unggah Surat Hutang yang sudah DITANDATANGANI dan BERMATERAI — foto atau PDF (wajib untuk semua jenis pinjaman)"
         else -> "Unggah ${label(key)} — foto atau PDF"
     }
 

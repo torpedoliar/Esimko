@@ -26,7 +26,7 @@ Pinjaman |
         <div class="card-body">
           <h5>Formulir Pinjaman</h5>
           <hr>
-          <form action="{{url('transaksi/proses')}}" id="proses_transkasi" method="post">
+          <form action="{{url('main/transaksi/proses')}}" id="proses_transkasi" method="post" enctype="multipart/form-data">
             {{ csrf_field() }}
             <div class="row mt-3">
               <div class="col-md-4">
@@ -48,7 +48,7 @@ Pinjaman |
               <div class="col-md-4">
                 <div class="form-group">
                   <label class="control-label">Tenor (bulan)</label>
-                  <input data-toggle="touchspin" onchange="calc_angsuran()" id="tenor" name="tenor" value="1" type="text" value="0" data-max='100'>
+                  <input data-toggle="touchspin" onchange="calc_angsuran()" id="tenor" name="tenor" value="1" type="text" data-min="1" data-max="60">
                 </div>
               </div>
             </div>
@@ -80,16 +80,8 @@ Pinjaman |
                   <div style="text-align:right;color:#e30000">Update gaji pokok anda</div>
                 </div>
               </div>
-              <div class="col-md-8">
-                <div class="form-group">
-                  <label>Upload Slip Gaji</label>
-                  <div class="custom-file">
-                    <input type="file" class="custom-file-input" id="customFile" name="attachment">
-                    <label class="custom-file-label" for="customFile">Choose file</label>
-                  </div>
-                </div>
-              </div>
             </div>
+            @include('include.loan_documents', ['adminLoanDocuments' => false])
             <div class="form-group">
               <label>Keterangan</label>
               <textarea name="keterangan" class="form-control" style="height:110px"></textarea>
@@ -139,6 +131,13 @@ Pinjaman |
   <script src="{{asset('assets/js/pages/form-advanced.init.js')}}"></script>
   <script src="{{asset('assets/js/accounting.js')}}"></script>
   <script>
+  var maxTenor = @json(\App\Support\LoanApplicationRules::MAX_TENOR);
+  function updateTenorLimit() {
+    var max = maxTenor[$('#jenis_pinjaman').val()] || 1;
+    $('#tenor').trigger('touchspin.updatesettings', {max: max});
+  }
+  $('#jenis_pinjaman').on('change', updateTenorLimit);
+  updateTenorLimit();
   function calc_angsuran(){
     jenis = $('#jenis_pinjaman').val();
 

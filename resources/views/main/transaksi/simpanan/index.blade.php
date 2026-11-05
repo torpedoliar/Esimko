@@ -51,8 +51,8 @@
                         <div class="dropdown">
                             <button class="btn btn-primary btn-block dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" >Formulir</button>
                             <div class="dropdown-menu dropdown-menu-right" style="">
-                                <a class="dropdown-item" href="javascript:;" onclick="form_transkasi('Setoran')">Setoran Simpanan</a>
-                                <a class="dropdown-item" href="javascript:;" onclick="form_transkasi('Penarikan')">Penarikan Simpanan</a>
+                                <a class="dropdown-item" href="javascript:;" onclick="form_transkasi('Setoran')">Setoran Simpanan Hari Raya</a>
+                                <a class="dropdown-item" href="javascript:;" onclick="form_transkasi('Penarikan')">Penarikan Simpanan Sukarela</a>
                             </div>
                         </div>
                     </div>
@@ -172,7 +172,7 @@
         function form_transkasi(jenis){
             $('#id').val(0);
             $('#action').val('add');
-            $('#title').html('Tambah '+jenis);
+            $('#title').text('Tambah '+jenis+' Simpanan '+(jenis=='Setoran' ? 'Hari Raya' : 'Sukarela'));
             $('#jenis').html(jenis);
             if(jenis=='Setoran'){
                 $('#sisa_saldo').hide();

@@ -3,26 +3,41 @@ package com.esimko.mobile.ui.installment
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.domain.model.DokumenFile
@@ -42,6 +57,7 @@ import com.esimko.mobile.ui.common.SkeletonListRows
 import com.esimko.mobile.ui.common.StaleBanner
 import com.esimko.mobile.ui.theme.MoneyRow
 import com.esimko.mobile.ui.theme.OnHero
+import com.esimko.mobile.util.DocGroup
 import com.esimko.mobile.util.LoanDocs
 import com.esimko.mobile.util.MoneyFormatter
 import com.esimko.mobile.util.compressForUpload
@@ -59,6 +75,12 @@ private const val PERSETUJUAN_PINJAMAN_FALLBACK =
     "Saya menyatakan bahwa data dan dokumen dalam pengajuan pinjaman ini benar, serta " +
         "menyetujui syarat dan ketentuan pinjaman koperasi — termasuk bunga, jadwal " +
         "angsuran, dan konsekuensi keterlambatan pembayaran."
+
+private enum class LoanStep(val label: String) {
+    DATA("Data Pinjaman"),
+    DOKUMEN("Dokumen"),
+    PERSETUJUAN("Persetujuan")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,7 +148,9 @@ private fun LoanFormBody(
     onSubmitted: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    // Picker bersama untuk semua slot; pickTarget menandai slot yang sedang diisi.
+    var step by rememberSaveable { mutableStateOf(LoanStep.DATA) }
+    var maxReached by rememberSaveable { mutableStateOf(LoanStep.DATA) }
+
     var pickTarget by remember { mutableStateOf<String?>(null) }
     val dokumenPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -135,7 +159,6 @@ private fun LoanFormBody(
         if (uri != null && key != null) {
             val mime = context.contentResolver.getType(uri)
             when {
-                // Foto/gambar: kompres dulu (kamera 3-8MB → ~200KB) supaya aman upload.
                 mime != null && mime.startsWith("image/") -> {
                     val compressed = context.contentResolver.openInputStream(uri)?.use { stream ->
                         stream.readBytes().compressForUpload()
@@ -144,19 +167,232 @@ private fun LoanFormBody(
                         onDokumenPicked(key, DokumenFile(compressed, "image/jpeg", uri.lastPathSegment ?: "dokumen.jpg"))
                     }
                 }
-                // PDF: dikirim apa adanya (sudah < 5 MB dicek ViewModel).
                 mime == "application/pdf" -> {
                     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     if (bytes != null) {
                         onDokumenPicked(key, DokumenFile(bytes, mime, uri.lastPathSegment ?: "dokumen.pdf"))
                     }
                 }
-                // Tipe tak dikenal: kirim dengan bytes kosong — ViewModel menolak dgn pesan.
                 else -> onDokumenPicked(key, DokumenFile(ByteArray(0), mime ?: "", uri.lastPathSegment ?: ""))
             }
         }
     }
 
+    val dataValid = state.selectedJenis != null && state.nominalValue > 0L &&
+        state.tenorValid && state.gajiValue > 0L
+    val docsComplete = state.dokumenKurang.isEmpty()
+
+    fun pick(key: String) {
+        pickTarget = key
+        dokumenPicker.launch("*/*")
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        StepIndicator(
+            current = step,
+            maxReached = maxReached,
+            onSelect = { target ->
+                if (target.ordinal <= maxReached.ordinal) {
+                    step = target
+                }
+            }
+        )
+
+        AnimatedContent(
+            targetState = step,
+            transitionSpec = {
+                val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                (slideInHorizontally(tween(260)) { it * dir } + fadeIn(tween(260))) togetherWith
+                    (slideOutHorizontally(tween(260)) { -it * dir } + fadeOut(tween(200)))
+            },
+            label = "loanSteps",
+            modifier = Modifier.weight(1f)
+        ) { current ->
+            when (current) {
+                LoanStep.DATA -> StepData(
+                    state = state,
+                    onGajiChange = onGajiChange,
+                    onNominalChange = onNominalChange,
+                    onTenorChange = onTenorChange,
+                    onSelectJenis = onSelectJenis
+                )
+                LoanStep.DOKUMEN -> StepDokumen(
+                    state = state,
+                    dokumenError = state.dokumenError,
+                    enabled = !state.isSubmitting,
+                    onPick = ::pick,
+                    onClear = onClearDokumen
+                )
+                LoanStep.PERSETUJUAN -> StepPersetujuan(
+                    state = state,
+                    onPersetujuanChange = onPersetujuanChange,
+                    onPersetujuanPinjamanChange = onPersetujuanPinjamanChange,
+                    submitError = state.submitError
+                )
+            }
+        }
+
+        WizardBar(
+            step = step,
+            canAdvanceNext = when (step) {
+                LoanStep.DATA -> dataValid
+                LoanStep.DOKUMEN -> docsComplete && state.dokumenError == null
+                LoanStep.PERSETUJUAN -> false
+            },
+            canSubmit = state.bisaKirim,
+            isSubmitting = state.isSubmitting,
+            onBack = { if (step.ordinal > 0) step = LoanStep.entries[step.ordinal - 1] },
+            onNext = {
+                val next = LoanStep.entries[step.ordinal + 1]
+                step = next
+                if (next.ordinal > maxReached.ordinal) maxReached = next
+            },
+            onSubmit = onSubmit
+        )
+    }
+
+    state.submitSuccess?.let { id ->
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Pengajuan Terkirim") },
+            text = { Text("Pengajuan pinjaman berhasil dikirim. Nomor transaksi: $id. Menunggu verifikasi pengurus.") },
+            confirmButton = { Button(onClick = onSubmitted) { Text("OK") } }
+        )
+    }
+}
+
+@Composable
+private fun StepIndicator(
+    current: LoanStep,
+    maxReached: LoanStep,
+    onSelect: (LoanStep) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        LoanStep.entries.forEachIndexed { index, step ->
+            val number = index + 1
+            val done = maxReached.ordinal > index
+            val active = current == step
+            val enabled = index <= maxReached.ordinal
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(50))
+                    .background(
+                        when {
+                            active -> MaterialTheme.colorScheme.primaryContainer
+                            enabled -> MaterialTheme.colorScheme.surfaceVariant
+                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        }
+                    )
+                    .clickable(enabled = enabled, onClick = { onSelect(step) })
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (active || done) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (done) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    } else {
+                        Text(
+                            "$number",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    step.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WizardBar(
+    step: LoanStep,
+    canAdvanceNext: Boolean,
+    canSubmit: Boolean,
+    isSubmitting: Boolean,
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+    onSubmit: () -> Unit
+) {
+    Surface(tonalElevation = 3.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (step != LoanStep.DATA) {
+                OutlinedButton(
+                    onClick = onBack,
+                    enabled = !isSubmitting,
+                    modifier = Modifier.heightIn(min = 48.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Kembali")
+                }
+            }
+            if (step == LoanStep.PERSETUJUAN) {
+                Button(
+                    onClick = onSubmit,
+                    enabled = canSubmit && !isSubmitting,
+                    modifier = Modifier.weight(1f).height(52.dp)
+                ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    } else {
+                        Text("Ajukan Pinjaman")
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onNext,
+                    enabled = canAdvanceNext && !isSubmitting,
+                    modifier = Modifier.weight(1f).height(52.dp)
+                ) {
+                    Text("Lanjut")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepData(
+    state: LoanApplicationState,
+    onGajiChange: (String) -> Unit,
+    onNominalChange: (String) -> Unit,
+    onTenorChange: (String) -> Unit,
+    onSelectJenis: (Int) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -164,7 +400,6 @@ private fun LoanFormBody(
             .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Hero gaji — draft, resmi saat admin approve (commit b7182d743, Opsi 1).
         HeroSurface(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Gaji Pokok per Bulan",
@@ -183,7 +418,6 @@ private fun LoanFormBody(
             )
         }
 
-        // 2. Jenis pinjaman.
         SectionHeader("Jenis Pinjaman", modifier = Modifier.padding(horizontal = 16.dp))
         state.loanTypes.forEachIndexed { index, type ->
             val selected = state.selectedJenis == type.id
@@ -197,7 +431,6 @@ private fun LoanFormBody(
             if (index < state.loanTypes.lastIndex) RowDivider(modifier = Modifier.padding(horizontal = 16.dp))
         }
 
-        // 3. Nominal.
         AmountField(
             value = state.nominal,
             onValueChange = onNominalChange,
@@ -206,7 +439,6 @@ private fun LoanFormBody(
             enabled = !state.isSubmitting
         )
 
-        // 4. Tenor — hanya jika jenis sudah dipilih; bukan uang, jadi bukan AmountField.
         if (state.selectedJenis != null) {
             OutlinedTextField(
                 value = state.tenor,
@@ -221,7 +453,6 @@ private fun LoanFormBody(
             )
         }
 
-        // 5. Estimasi angsuran — di atas tombol. Wajib label "Estimasi" + disclaimer (LoanMath ponytail).
         if (state.estimasiAngsuran > 0L) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Text(
@@ -229,11 +460,7 @@ private fun LoanFormBody(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Money(
-                    amount = state.estimasiAngsuran,
-                    style = MoneyRow,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Money(amount = state.estimasiAngsuran, style = MoneyRow, color = MaterialTheme.colorScheme.primary)
                 Text(
                     text = "Bunga flat ${java.math.BigDecimal.valueOf(state.bungaRate ?: 0.0).multiply(java.math.BigDecimal(100)).stripTrailingZeros().toPlainString().replace('.', ',')}% per bulan sesuai pengaturan koperasi. Angka resmi ditentukan saat verifikasi.",
                     style = MaterialTheme.typography.bodySmall,
@@ -250,101 +477,64 @@ private fun LoanFormBody(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
+    }
+}
 
-        // 6. Dokumen pengajuan — slip + KK/KTP/kartu, foto atau PDF. Slot KTP-2 hanya
-        //    muncul saat nominal di atas threshold (server yang memutuskan via syarat).
-        SectionHeader("Dokumen Pengajuan", modifier = Modifier.padding(horizontal = 16.dp))
-        Text(
-            text = "Lengkapi semua dokumen di bawah — semuanya boleh berupa foto atau PDF.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            state.slotDokumen.forEach { key ->
-                DokumenSlot(
-                    label = LoanDocs.label(key),
-                    info = LoanDocs.infoSlot(key, state.ktp2Threshold),
-                    file = state.dokumen[key],
-                    enabled = !state.isSubmitting,
-                    onPick = {
-                        pickTarget = key
-                        dokumenPicker.launch("*/*")
-                    },
-                    onClear = { onClearDokumen(key) }
-                )
-            }
-            state.dokumenError?.let { msg ->
-                Text(
-                    text = msg,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
+@Composable
+private fun StepDokumen(
+    state: LoanApplicationState,
+    dokumenError: String?,
+    enabled: Boolean,
+    onPick: (String) -> Unit,
+    onClear: (String) -> Unit
+) {
+    val groups = LoanDocs.groupedDocuments(state.selectedJenis, state.nominalValue, state.ktp2Threshold)
+    val total = state.slotDokumen.size
+    val filled = state.slotDokumen.count { state.dokumen.containsKey(it) }
+    val progress = if (total == 0) 0f else filled.toFloat() / total.toFloat()
 
-        // 7. Persetujuan data pribadi — gerbang submit (bukti versi+waktu disimpan server).
-        SectionHeader("Persetujuan Data Pribadi", modifier = Modifier.padding(horizontal = 16.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 24.dp)
+    ) {
+        // Ringkasan progres — jelas di atas, tidak menggulir jauh.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
-                .padding(12.dp),
+                .padding(16.dp)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = state.syarat?.persetujuanTeks ?: PERSETUJUAN_FALLBACK,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = state.persetujuanSetuju,
-                    onCheckedChange = onPersetujuanChange,
-                    enabled = !state.isSubmitting
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Dokumen dilengkapi",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "Saya menyetujui dan melanjutkan pengajuan",
-                    style = MaterialTheme.typography.bodyMedium
+                    "$filled dari $total",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().clip(CircleShape)
+            )
+            groups.forEach { group ->
+                val gFilled = group.keys.count { state.dokumen.containsKey(it) }
+                Text(
+                    "${group.title}: $gFilled/${group.keys.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        // 7b. Persetujuan pengajuan pinjaman (checkbox kedua) — syarat & ketentuan.
-        SectionHeader("Persetujuan Pengajuan Pinjaman", modifier = Modifier.padding(horizontal = 16.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = state.syarat?.persetujuanPinjamanTeks?.takeIf { it.isNotBlank() }
-                    ?: PERSETUJUAN_PINJAMAN_FALLBACK,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = state.persetujuanPinjamanSetuju,
-                    onCheckedChange = onPersetujuanPinjamanChange,
-                    enabled = !state.isSubmitting
-                )
-                Text(
-                    text = "Saya menyetujui syarat & ketentuan pinjaman",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-
-        // 8. Error kirim.
-        state.submitError?.let { msg ->
+        dokumenError?.let { msg ->
             Text(
                 text = msg,
                 color = MaterialTheme.colorScheme.error,
@@ -353,40 +543,107 @@ private fun LoanFormBody(
             )
         }
 
-        // 9. Tombol kirim — enabled = state.bisaKirim (dokumen lengkap + persetujuan).
-        Button(
-            onClick = onSubmit,
-            enabled = state.bisaKirim,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp)
-        ) {
-            if (state.isSubmitting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text("Ajukan Pinjaman")
+        groups.forEach { group ->
+            SectionHeader(
+                title = group.title,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                group.keys.forEach { key ->
+                    DokumenRow(
+                        label = LoanDocs.label(key),
+                        info = LoanDocs.infoSlot(key, state.ktp2Threshold),
+                        file = state.dokumen[key],
+                        enabled = enabled,
+                        onPick = { onPick(key) },
+                        onClear = { onClear(key) }
+                    )
+                }
             }
         }
     }
+}
 
-    // Sukses — dialog konfirmasi hasil, bukan input. Satu-satunya jalan keluar: OK -> onSubmitted().
-    state.submitSuccess?.let { id ->
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Pengajuan Terkirim") },
-            text = { Text("Pengajuan pinjaman berhasil dikirim. Nomor transaksi: $id. Menunggu verifikasi pengurus.") },
-            confirmButton = {
-                Button(onClick = onSubmitted) { Text("OK") }
-            }
+@Composable
+private fun StepPersetujuan(
+    state: LoanApplicationState,
+    onPersetujuanChange: (Boolean) -> Unit,
+    onPersetujuanPinjamanChange: (Boolean) -> Unit,
+    submitError: String?
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        ConsentBlock(
+            title = "Persetujuan Data Pribadi",
+            text = state.syarat?.persetujuanTeks ?: PERSETUJUAN_FALLBACK,
+            checked = state.persetujuanSetuju,
+            onCheckedChange = onPersetujuanChange,
+            enabled = !state.isSubmitting,
+            label = "Saya menyetujui dan melanjutkan pengajuan"
         )
+        ConsentBlock(
+            title = "Persetujuan Pengajuan Pinjaman",
+            text = state.syarat?.persetujuanPinjamanTeks?.takeIf { it.isNotBlank() }
+                ?: PERSETUJUAN_PINJAMAN_FALLBACK,
+            checked = state.persetujuanPinjamanSetuju,
+            onCheckedChange = onPersetujuanPinjamanChange,
+            enabled = !state.isSubmitting,
+            label = "Saya menyetujui syarat & ketentuan pinjaman"
+        )
+        submitError?.let { msg ->
+            Text(
+                text = msg,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
     }
 }
 
-/** Satu slot dokumen: preview (gambar) / ikon (PDF), nama file, pilih-ganti-hapus. */
 @Composable
-private fun DokumenSlot(
+private fun ConsentBlock(
+    title: String,
+    text: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean,
+    label: String
+) {
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title, modifier = Modifier.padding(horizontal = 16.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+                Text(label, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+/** Slot dokumen ringkas: baris sentuh penuh, bukan kartu besar. */
+@Composable
+private fun DokumenRow(
     label: String,
     info: String,
     file: DokumenFile?,
@@ -394,56 +651,68 @@ private fun DokumenSlot(
     onPick: () -> Unit,
     onClear: () -> Unit
 ) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .border(
+                1.dp,
+                if (file != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                else MaterialTheme.colorScheme.outlineVariant,
+                RoundedCornerShape(12.dp)
+            )
+            .clickable(enabled = enabled, onClick = onPick)
             .padding(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        if (file != null) {
-            if (file.isGambar) {
-                val bitmap = remember(file) { file.bytes.decodeSampled() }
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = label,
-                        modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
-                        contentScale = ContentScale.Fit
-                    )
-                }
-            } else {
-                Icon(
-                    imageVector = Icons.Outlined.Description,
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (file != null) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                file == null -> Icon(
+                    Icons.Outlined.CloudUpload,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                file.isGambar -> {
+                    val bitmap = remember(file) { file.bytes.decodeSampled() }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = label,
+                            modifier = Modifier.fillMaxSize().padding(4.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(Icons.Outlined.PictureAsPdf, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                else -> Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.primary)
             }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleSmall)
             Text(
-                text = file.nama,
+                text = if (file != null) (file.nama ?: "Terlampir") else info,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Outlined.CloudUpload,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = info,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (file != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onPick, enabled = enabled) {
-                Text(if (file != null) "Ganti" else "Pilih Foto/PDF")
-            }
-            if (file != null) {
-                TextButton(onClick = onClear, enabled = enabled) { Text("Hapus") }
-            }
+        Spacer(Modifier.width(8.dp))
+        if (file != null) {
+            TextButton(onClick = onClear, enabled = enabled) { Text("Hapus") }
+        } else {
+            FilledTonalButton(onClick = onPick, enabled = enabled) { Text("Tambah") }
         }
     }
 }

@@ -21,6 +21,9 @@
                 </div>
             </div>
         </div>
+        @if(isset($errors) && $errors->has('alasan'))
+            <div class="alert alert-danger" role="alert">{{$errors->first('alasan')}}</div>
+        @endif
         <div class="row">
             <div class="{{($data['pinjaman']->fid_status == 5 ? 'col-md-12' : 'col-md-8')}}">
                 <div class="card">
@@ -112,9 +115,11 @@
                                                 'kk' => 'Kartu Keluarga',
                                                 'ktp1' => 'KTP Peminjam',
                                                 'ktp2' => 'KTP Suami/Istri',
+                                                'ktp_penjamin' => 'KTP Penjamin',
                                                 'kartu_anggota' => 'Kartu Anggota',
                                                 'id_card' => 'ID Card Pegawai',
                                                 'surat_hutang' => 'Surat Hutang (Materai)',
+                                                'bukti_persetujuan' => 'Bukti persetujuan anggota ditandatangani',
                                             ];
                                             // Slip: bentuk baru array 3 bulan (Okt 2026), legacy string tunggal.
                                             $slips = [];
@@ -162,18 +167,21 @@
                                                 </td>
                                             </tr>
                                         @endforeach
+                                        @if(!empty($draft['bukti_persetujuan']['petugas']))
+                                            <tr><th>Pengunggah bukti persetujuan</th><th>:</th><td>{{ $draft['bukti_persetujuan']['petugas'] }} ({{ $draft['bukti_persetujuan']['waktu'] ?? '-' }})</td></tr>
+                                        @endif
                                         @if(!empty($draft['consent']))
                                             <tr>
                                                 <th>Persetujuan Data</th>
                                                 <th>:</th>
-                                                <td><span class="text-muted">Disetujui di app (versi {{$draft['consent']['versi'] ?? '-'}}, {{$draft['consent']['waktu'] ?? '-'}})</span></td>
+                                                <td><span class="text-muted">Disetujui melalui {{$draft['consent']['kanal'] ?? 'app'}} (versi {{$draft['consent']['versi'] ?? '-'}}, {{$draft['consent']['waktu'] ?? '-'}})</span></td>
                                             </tr>
                                         @endif
                                         @if(!empty($draft['persetujuan_pinjaman']))
                                             <tr>
                                                 <th>Persetujuan Pengajuan</th>
                                                 <th>:</th>
-                                                <td><span class="text-muted">Syarat & ketentuan disetujui di app (versi {{$draft['persetujuan_pinjaman']['versi'] ?? '-'}}, {{$draft['persetujuan_pinjaman']['waktu'] ?? '-'}})</span></td>
+                                                <td><span class="text-muted">Syarat & ketentuan disetujui melalui {{$draft['persetujuan_pinjaman']['kanal'] ?? 'app'}} (versi {{$draft['persetujuan_pinjaman']['versi'] ?? '-'}}, {{$draft['persetujuan_pinjaman']['waktu'] ?? '-'}})</span></td>
                                             </tr>
                                         @endif
                                     @endif
@@ -194,6 +202,9 @@
                                             </div>
                                             <h6>{{\App\Helpers\GlobalHelper::tgl_indo($value->created_at)}}, {{\App\Helpers\GlobalHelper::dateFormat($value->created_at,'H:i:s')}}</h6>
                                             <p class="text-muted">{{$value->caption}} <span style="font-weight:500">{{$value->nama_lengkap}}</span></p>
+                                            @if(!is_null($value->keterangan) && trim($value->keterangan) !== '')
+                                                <p class="text-muted">Keterangan: {{\App\Helpers\GlobalHelper::public_loan_decision_reason($value->keterangan) ?? $value->keterangan}}</p>
+                                            @endif
                                         </li>
                                     @endforeach
                                 </ul>
@@ -375,6 +386,7 @@
         {{ csrf_field() }}
         <input type="hidden" name="id" value="{{$id}}">
         <input type="hidden" name="status" id="status">
+        <input type="hidden" name="alasan" id="alasan_verifikasi">
     </form>
 @endsection
 @section('js')
@@ -387,7 +399,7 @@
                 text="Apakah anda yakin ingin membatalkan verifikasi pengajuan pinjaman anggota ini?";
             }
             else if(status==2){
-                text="Apakah anda yakin ingin menolak pengajuan pinjaman anggota ini?";
+                text="Apakah anda yakin ingin menolak pengajuan pinjaman anggota ini? Dokumen pengajuan, termasuk slip gaji dan dokumen identitas, akan dihapus otomatis dan tidak dapat dipulihkan.";
             }
             else if(status==3){
                 text="Apakah anda yakin ingin menerima pengajuan pinjaman anggota ini?";
@@ -402,7 +414,9 @@
                 text="Apakah anda yakin ingin membatalkan pelunasan pinjaman anggota ini?";
             }
             $('#status').val(status);
-            Swal.fire({
+            $('#alasan_verifikasi').val('');
+            var decision = status == 2 || status == 3;
+            var options = {
                 title: "Are you sure?",
                 type:"question",
                 text:text,
@@ -410,8 +424,22 @@
                 confirmButtonColor: '#16a085',
                 cancelButtonColor: '#cbcbcb',
                 confirmButtonText: 'Yes'
-            }).then((result) => {
-                if (result.value == true) {
+            };
+            if (decision) {
+                options.input = 'textarea';
+                options.inputPlaceholder = status == 2 ? 'Alasan penolakan (wajib)' : 'Alasan persetujuan (opsional)';
+                options.inputValidator = function (value) {
+                    if (status == 2 && !value.trim()) {
+                        return 'Alasan penolakan wajib diisi.';
+                    }
+                };
+            }
+            Swal.fire(options).then((result) => {
+                if (result.dismiss) return;
+                if (decision && typeof result.value === 'string') {
+                    $('#alasan_verifikasi').val(result.value.trim());
+                    $('#verifikasi_transaksi').submit();
+                } else if (!decision && result.value === true) {
                     $('#verifikasi_transaksi').submit();
                 }
             });

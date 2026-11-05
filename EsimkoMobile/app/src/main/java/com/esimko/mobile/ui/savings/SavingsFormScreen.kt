@@ -74,7 +74,7 @@ fun SavingsFormScreen(
     var konfirmasiKeluar by remember { mutableStateOf(false) }
     BackHandler(enabled = state.punyaDraft) { konfirmasiKeluar = true }
 
-    val judul = if (jenis == "setoran") "Setoran Simpanan" else "Penarikan Simpanan"
+    val judul = if (jenis == "setoran") "Setoran Simpanan Hari Raya" else "Penarikan Simpanan Sukarela"
 
     Scaffold(
         topBar = {
