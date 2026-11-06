@@ -36,6 +36,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -153,6 +155,12 @@ private fun LoanFormBody(
     onSubmitted: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    fun dismissKeyboard() {
+        keyboard?.hide()
+        focus.clearFocus()
+    }
     var step by rememberSaveable { mutableStateOf(LoanStep.DATA) }
     var maxReached by rememberSaveable { mutableStateOf(LoanStep.DATA) }
 
@@ -188,6 +196,7 @@ private fun LoanFormBody(
     val docsComplete = state.dokumenKurang.isEmpty()
 
     fun pick(key: String) {
+        dismissKeyboard()
         pickTarget = key
         dokumenPicker.launch("*/*")
     }
@@ -223,6 +232,7 @@ private fun LoanFormBody(
             maxReached = maxReached,
             onSelect = { target ->
                 if (target.ordinal <= maxReached.ordinal) {
+                    dismissKeyboard()
                     step = target
                 }
             }
@@ -272,13 +282,17 @@ private fun LoanFormBody(
             },
             canSubmit = state.bisaKirim,
             isSubmitting = state.isSubmitting,
-            onBack = { if (step.ordinal > 0) step = LoanStep.entries[step.ordinal - 1] },
+            onBack = {
+                dismissKeyboard()
+                if (step.ordinal > 0) step = LoanStep.entries[step.ordinal - 1]
+            },
             onNext = {
+                dismissKeyboard()
                 val next = LoanStep.entries[step.ordinal + 1]
                 step = next
                 if (next.ordinal > maxReached.ordinal) maxReached = next
             },
-            onSubmit = onSubmit
+            onSubmit = { dismissKeyboard(); onSubmit() }
         )
     }
 

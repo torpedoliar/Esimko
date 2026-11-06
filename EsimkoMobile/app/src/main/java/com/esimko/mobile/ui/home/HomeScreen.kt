@@ -1,6 +1,11 @@
 package com.esimko.mobile.ui.home
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -36,6 +41,7 @@ private enum class Tab(val label: String, val icon: ImageVector, val route: Stri
     AKUN("Akun", Icons.Outlined.AccountCircle, "akun")
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     onLogout: () -> Unit = {},
@@ -53,10 +59,11 @@ fun HomeScreen(
     // ENABLE_BELANJA=false → VM tidak di-request (Hilt tidak instantiate), tab Belanja hidden.
     val cartViewModel: ShoppingViewModel? = if (BuildConfig.ENABLE_BELANJA) hiltViewModel() else null
     val tabs = Tab.values().filter { it != Tab.BELANJA || BuildConfig.ENABLE_BELANJA }
+    val keyboardVisible = WindowInsets.isImeVisible
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            if (!keyboardVisible) NavigationBar {
                 tabs.forEach { tab ->
                     NavigationBarItem(
                         selected = current == tab.route,
@@ -84,12 +91,18 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(bottom = padding.calculateBottomPadding())) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = padding.calculateBottomPadding())
+                .consumeWindowInsets(androidx.compose.foundation.layout.PaddingValues(bottom = padding.calculateBottomPadding()))
+        ) {
             // Notifikasi pembaruan non-wajib — tampil di semua tab, cek otomatis.
             UpdateBanner()
             NavHost(
                 navController = tabNav,
-                startDestination = Tab.BERANDA.route
+                startDestination = Tab.BERANDA.route,
+                modifier = Modifier.weight(1f)
             ) {
             composable(Tab.BERANDA.route) {
                 DashboardTab(

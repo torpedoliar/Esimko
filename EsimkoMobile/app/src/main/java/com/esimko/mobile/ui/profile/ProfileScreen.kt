@@ -3,9 +3,15 @@ package com.esimko.mobile.ui.profile
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -66,7 +73,8 @@ import com.esimko.mobile.ui.common.ListRow
 import com.esimko.mobile.ui.common.Money
 import com.esimko.mobile.ui.common.RowDivider
 import com.esimko.mobile.ui.common.SectionHeader
-import com.esimko.mobile.ui.common.SkeletonProfile
+import com.esimko.mobile.ui.common.CooperativeLoading
+import com.esimko.mobile.ui.common.StatusBarAppearance
 import com.esimko.mobile.ui.common.UiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -111,9 +119,15 @@ fun ProfileScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    StatusBarAppearance(darkIcons = MaterialTheme.colorScheme.surfaceVariant.luminance() > 0.5f)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+    ) {
         when (val state = uiState) {
-            is UiState.Loading -> SkeletonProfile(modifier = Modifier.fillMaxSize())
+            is UiState.Loading -> CooperativeLoading(message = "Memuat akun Anda…")
             is UiState.Error -> ErrorView(
                 message = state.message ?: "Terjadi kesalahan",
                 onRetry = { viewModel.loadProfile() },
@@ -130,7 +144,10 @@ fun ProfileScreen(
                     onLogout()
                 }
             )
-            is UiState.Idle -> LaunchedEffect(Unit) { viewModel.loadProfile() }
+            is UiState.Idle -> {
+                CooperativeLoading(message = "Memuat akun Anda…")
+                LaunchedEffect(Unit) { viewModel.loadProfile() }
+            }
         }
 
         if (showPasswordDialog) {
@@ -143,7 +160,10 @@ fun ProfileScreen(
                 },
                 title = { Text("Ubah Password") },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         OutlinedTextField(
                             value = oldPassword,
                             onValueChange = { oldPassword = it; passwordMismatch = false },

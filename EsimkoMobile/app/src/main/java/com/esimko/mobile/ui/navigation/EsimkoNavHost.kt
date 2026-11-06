@@ -1,6 +1,8 @@
 package com.esimko.mobile.ui.navigation
 
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,7 +32,9 @@ fun EsimkoNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        // Pemilik inset keyboard tunggal; layar di dalamnya cukup memakai ruang yang tersisa.
+        modifier = Modifier.imePadding()
     ) {
         composable("login") {
             LoginScreen(

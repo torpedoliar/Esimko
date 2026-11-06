@@ -54,6 +54,8 @@ import com.esimko.mobile.util.compressForUpload
 import com.esimko.mobile.util.decodeSampled
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.ui.common.AmountField
@@ -69,6 +71,8 @@ fun SavingsFormScreen(
     viewModel: SavingsFormViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
     LaunchedEffect(jenis) { viewModel.start(jenis) }
 
     var konfirmasiKeluar by remember { mutableStateOf(false) }
@@ -129,7 +133,11 @@ fun SavingsFormScreen(
                     state = state,
                     onNominalChange = viewModel::onNominalChange,
                     onKeteranganChange = viewModel::onKeteranganChange,
-                    onSubmit = viewModel::submitNominal
+                    onSubmit = {
+                        keyboard?.hide()
+                        focus.clearFocus()
+                        viewModel.submitNominal()
+                    }
                 )
                 FormStep.BUKTI -> BuktiStep(
                     state = state,

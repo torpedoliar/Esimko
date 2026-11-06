@@ -9,6 +9,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -70,7 +75,7 @@ import com.esimko.mobile.ui.common.ListRow
 import com.esimko.mobile.ui.common.Money
 import com.esimko.mobile.ui.common.RowDivider
 import com.esimko.mobile.ui.common.SectionHeader
-import com.esimko.mobile.ui.common.SkeletonHero
+import com.esimko.mobile.ui.common.CooperativeLoading
 import com.esimko.mobile.ui.common.SkeletonListRows
 import com.esimko.mobile.ui.common.StaleBanner
 import com.esimko.mobile.ui.common.EsimkoPreview
@@ -118,8 +123,15 @@ fun DashboardTab(
     }
 
     when {
-        profile == null && state.isLoading -> SkeletonHero(Modifier.fillMaxWidth())
-        profile == null && state.error != null -> ErrorView(state.error!!, onRetry = viewModel::load)
+        profile == null && state.error == null -> CooperativeLoading(
+            message = "Menyiapkan beranda Anda…",
+            modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+        )
+        profile == null && state.error != null -> ErrorView(
+            state.error!!,
+            onRetry = viewModel::load,
+            modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+        )
         else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
                 DashboardHero(

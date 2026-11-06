@@ -15,8 +15,8 @@ android {
         applicationId = "com.esimko.mobile"
         minSdk = 28
         targetSdk = 34
-        versionCode = 21
-        versionName = "1.0.20"
+        versionCode = 22
+        versionName = "1.0.21"
         // ponytail: soft-lock Belanja mobile. Web app lain yang urus belanja online.
         // true + rebuild untuk aktifkan kembali tanpa sentuh code lain.
         buildConfigField("boolean", "ENABLE_BELANJA", "false")

@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
@@ -35,7 +39,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -56,6 +64,13 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    val submitLogin = {
+        keyboard?.hide()
+        focus.clearFocus()
+        viewModel.login()
+    }
 
     // Navigasi aman: LaunchedEffect, bukan panggilan langsung di compose (mencegah recoil berulang).
     LaunchedEffect(uiState.isLoggedIn) {
@@ -67,6 +82,8 @@ fun LoginScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
         // Hero header hijau pekat + wordmark putih
         Column(
@@ -112,7 +129,12 @@ fun LoginScreen(
                     label = { Text("No. Anggota") },
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, capitalization = KeyboardCapitalization.Characters),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        capitalization = KeyboardCapitalization.Characters,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
                     enabled = !uiState.isLoading,
                     singleLine = true
                 )
@@ -134,7 +156,8 @@ fun LoginScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (!uiState.isLoading) submitLogin() }),
                     enabled = !uiState.isLoading,
                     singleLine = true
                 )
@@ -148,7 +171,7 @@ fun LoginScreen(
                 }
                 Spacer(Modifier.height(24.dp))
                 Button(
-                    onClick = viewModel::login,
+                    onClick = submitLogin,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     enabled = !uiState.isLoading
                 ) {

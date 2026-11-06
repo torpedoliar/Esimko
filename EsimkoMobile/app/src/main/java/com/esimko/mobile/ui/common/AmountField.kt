@@ -13,6 +13,9 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -39,6 +42,8 @@ fun AmountField(
     // on-hero (putih). Default colors (onSurface gelap) tidak terbaca di atas hijau.
     hero: Boolean = false
 ) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
     val heroColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = OnHero,
         unfocusedTextColor = OnHero,
@@ -68,7 +73,14 @@ fun AmountField(
             keyboardType = KeyboardType.NumberPassword,
             imeAction = imeAction
         ),
-        keyboardActions = KeyboardActions(onDone = { onImeAction?.invoke() }),
+        keyboardActions = KeyboardActions(
+            onNext = { focus.moveFocus(FocusDirection.Down) },
+            onDone = {
+                keyboard?.hide()
+                focus.clearFocus()
+                onImeAction?.invoke()
+            }
+        ),
         visualTransformation = ThousandsTransformation()
     )
 }
