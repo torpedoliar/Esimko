@@ -24,6 +24,7 @@ class LoanDecisionReasonTest extends TestCase
             $t->integer('fid_jenis_transaksi')->default(9);
             $t->text('draft_pengajuan')->nullable(); $t->string('created_by')->nullable();
             $t->dateTime('created_at')->nullable(); $t->date('tanggal')->nullable();
+            $t->dateTime('ditolak_at')->nullable();
         });
         Schema::create('penjualan', function (Blueprint $t) {
             $t->increments('id'); $t->string('fid_anggota');
@@ -90,8 +91,9 @@ class LoanDecisionReasonTest extends TestCase
                 $this->assertSame(0, DB::table('verifikasi_transaksi')->count());
             }
             $this->decision(1, 2, '  Dokumen tidak sesuai  ')->assertSessionHasNoErrors();
-            $this->assertFileDoesNotExist($file);
+            $this->assertFileExists($file); // dokumen dipertahankan untuk ajukan ulang
             $this->assertSame(2, (int) DB::table('transaksi')->where('id', 1)->value('fid_status'));
+            $this->assertNotNull(DB::table('transaksi')->where('id', 1)->value('ditolak_at'));
             $this->assertSame(\App\Helpers\GlobalHelper::loan_decision_reason_for_log('Dokumen tidak sesuai'), DB::table('verifikasi_transaksi')->value('keterangan'));
         } finally {
             if (file_exists($file)) unlink($file);

@@ -2,6 +2,7 @@ package com.esimko.mobile.data.remote.api
 
 import com.esimko.mobile.data.remote.dto.ApiResponse
 import com.esimko.mobile.data.remote.dto.InstallmentResponse
+import com.esimko.mobile.data.remote.dto.PengajuanPinjamanResponse
 import com.esimko.mobile.data.remote.dto.SalaryResponse
 import com.esimko.mobile.data.remote.dto.SyaratPinjamanResponse
 import com.esimko.mobile.data.remote.dto.TransactionRequest
@@ -29,11 +30,15 @@ interface InstallmentApi {
     @GET("mobile/master/syarat_pinjaman")
     suspend fun getSyaratPinjaman(): ApiResponse<SyaratPinjamanResponse>
 
+    @GET("mobile/pinjaman/pengajuan")
+    suspend fun getPengajuanPinjaman(@Query("id") id: Long): ApiResponse<PengajuanPinjamanResponse>
+
     @Multipart
     @POST("mobile/transaksi/{jenis}/proses")
     suspend fun submitLoan(
         @Path("jenis") jenis: String,
         @Part("action") action: RequestBody,
+        @Part("id") id: RequestBody?,
         @Part("nominal") nominal: RequestBody,
         @Part("tenor") tenor: RequestBody,
         @Part("jenis_pinjaman") jenisPinjaman: RequestBody,

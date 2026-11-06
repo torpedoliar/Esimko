@@ -99,7 +99,7 @@ fun DashboardTab(
         listOf(
             ActionItem("Setor Hari Raya", Icons.Outlined.Savings, onClick = { onNavigate("savings_form/setoran") }),
             ActionItem("Tarik Sukarela", Icons.Outlined.MoveDown, onClick = { onNavigate("savings_form/penarikan") }),
-            ActionItem("Pinjaman", Icons.Outlined.RequestQuote, onClick = { onNavigate("installment/apply") }),
+            ActionItem("Pinjaman", Icons.Outlined.RequestQuote, onClick = { onNavigate("installment/apply?pengajuanId=-1") }),
             ActionItem("Angsuran", Icons.Outlined.EventRepeat, onClick = { onNavigate("installment") }),
             ActionItem("Angsuran Belanja", Icons.Outlined.ReceiptLong, onClick = { onNavigate("aktivitas?filter=angsuran_belanja") }),
             ActionItem("Retur Barang", Icons.Outlined.AssignmentReturn, onClick = { onNavigate("aktivitas?filter=retur") }),

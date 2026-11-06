@@ -143,6 +143,7 @@ class PinjamanController extends Controller
             return view('404');
         }
         else{
+            \App\Console\Commands\PurgeExpiredRejectedLoans::purgeExpired();
             $search=(!empty($request->search) ? $request->search : null);
             $jenis=(!empty($request->jenis) ? $request->jenis : 9);
             $tahun = $request->tahun ?? 'all';
@@ -384,6 +385,8 @@ class PinjamanController extends Controller
         }
         $field=Transaksi::findOrFail($request->id);
         $field->fid_status=($request->status==6 ? 4 : $request->status);
+        // Ditolak → tandai tenggat ajukan ulang (7 hari). Status lain → bersihkan tenggat.
+        $field->ditolak_at = ($request->status == 2 ? date('Y-m-d H:i:s') : null);
         $field->save();
         if($request->status==3){
             // Disetujui → gaji draft (dari app) diresmikan ke tabel gaji_pokok.
@@ -418,31 +421,9 @@ class PinjamanController extends Controller
             }
         }
         if($request->status==2){
-            // Ditolak → dokumen pengajuan (slip + KK/KTP/kartu) dihapus otomatis.
-            // Kebijakan retensi data pribadi: yang disetujui dihapus manual, yang
-            // ditolak tidak ada alasan menyimpan KTP/KK anggota.
-            $draft=json_decode($field->draft_pengajuan,true);
-            if(is_array($draft)){
-                // Slip bisa string (pengajuan lama) atau array 3 bulan (aturan Okt 2026).
-                $slipPaths=[];
-                if(!empty($draft['slip'])){
-                    if(is_array($draft['slip'])){
-                        foreach($draft['slip'] as $p){ if(!empty($p)) $slipPaths[]=$p; }
-                    } else {
-                        $slipPaths[]=$draft['slip'];
-                    }
-                }
-                $paths=$slipPaths;
-                foreach((array)($draft['dokumen'] ?? []) as $p){
-                    if(!empty($p)) $paths[]=$p;
-                }
-                unset($draft['slip'],$draft['dokumen']);
-                $field->draft_pengajuan=json_encode($draft);
-                $field->save();
-                foreach(array_unique($paths) as $p){
-                    \App\Support\WebLoanDocuments::deleteIfUnreferenced($p);
-                }
-            }
+            // Ditolak → dokumen DIPERTAHANKAN utk ajukan ulang selama 7 hari.
+            // Penghapusan file lama dilakukan oleh loan:purge-expired-rejected
+            // (scheduler/lazy), bukan di sini — anggota boleh pakai draf lama lagi.
         }
         if($request->status!=6){
             $this->update_status_angsuran($field->id,$request->status);

@@ -24,7 +24,9 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Retensi dokumen pengajuan ditolak: hapus bila lewat 7 hari tanpa ajukan ulang.
+        // Jalankan dgn Windows Task Scheduler: php artisan schedule:run (tiap menit).
+        $schedule->command('loan:purge-expired-rejected')->dailyAt('03:10');
     }
 
     /**

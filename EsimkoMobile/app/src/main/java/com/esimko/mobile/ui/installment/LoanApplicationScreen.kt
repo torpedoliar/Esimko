@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.domain.model.DokumenFile
 import com.esimko.mobile.domain.model.Salary
@@ -62,6 +64,7 @@ import com.esimko.mobile.util.LoanDocs
 import com.esimko.mobile.util.MoneyFormatter
 import com.esimko.mobile.util.compressForUpload
 import com.esimko.mobile.util.decodeSampled
+import java.io.File
 
 // Fallback teks persetujuan kalau endpoint syarat gagal dimuat (sama dgn server v1).
 private const val PERSETUJUAN_FALLBACK =
@@ -87,9 +90,11 @@ private enum class LoanStep(val label: String) {
 fun LoanApplicationScreen(
     onBack: () -> Unit,
     onSubmitted: () -> Unit = {},
+    pengajuanId: Long? = null,
     viewModel: LoanApplicationViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    LaunchedEffect(pengajuanId) { if (pengajuanId != null) viewModel.load(pengajuanId) }
 
     Scaffold(
         topBar = {
@@ -187,6 +192,31 @@ private fun LoanFormBody(
         dokumenPicker.launch("*/*")
     }
 
+    var cameraTarget by remember { mutableStateOf<String?>(null) }
+    val cameraUriState = remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { ok ->
+        val key = cameraTarget
+        val uri = cameraUriState.value
+        if (ok && key != null && uri != null) {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }?.compressForUpload()
+            if (bytes != null) {
+                onDokumenPicked(key, DokumenFile(bytes, "image/jpeg", "foto.jpg"))
+            }
+        }
+        cameraTarget = null
+        cameraUriState.value = null
+    }
+
+    fun pickCamera(key: String) {
+        val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, context.packageName + ".provider", file)
+        cameraUriState.value = uri
+        cameraTarget = key
+        cameraLauncher.launch(uri)
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         StepIndicator(
             current = step,
@@ -220,7 +250,8 @@ private fun LoanFormBody(
                     state = state,
                     dokumenError = state.dokumenError,
                     enabled = !state.isSubmitting,
-                    onPick = ::pick,
+                    onPickGallery = ::pick,
+                    onPickCamera = ::pickCamera,
                     onClear = onClearDokumen
                 )
                 LoanStep.PERSETUJUAN -> StepPersetujuan(
@@ -485,12 +516,13 @@ private fun StepDokumen(
     state: LoanApplicationState,
     dokumenError: String?,
     enabled: Boolean,
-    onPick: (String) -> Unit,
+    onPickGallery: (String) -> Unit,
+    onPickCamera: (String) -> Unit,
     onClear: (String) -> Unit
 ) {
     val groups = LoanDocs.groupedDocuments(state.selectedJenis, state.nominalValue, state.ktp2Threshold)
     val total = state.slotDokumen.size
-    val filled = state.slotDokumen.count { state.dokumen.containsKey(it) }
+    val filled = state.slotDokumen.count { state.dokumen.containsKey(it) || it in state.existingDokumen }
     val progress = if (total == 0) 0f else filled.toFloat() / total.toFloat()
 
     Column(
@@ -499,6 +531,27 @@ private fun StepDokumen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 24.dp)
     ) {
+        // Banner ajukan ulang: tampilkan alasan & tenggat bila dokumen lama dipakai.
+        if (state.pengajuanId != null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("Ajukan Ulang", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                state.alasanPenolakan?.takeIf { it.isNotBlank() }?.let {
+                    Text("Alasan ditolak: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+                state.batasAjukanUlang?.let {
+                    Text("Ajukan ulang sebelum $it. Jika lewat, dokumen lama akan dihapus otomatis.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+                Text("Dokumen lama tetap terpakai — cukup ganti dokumen yang perlu diperbaiki.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+        }
+
         // Ringkasan progres — jelas di atas, tidak menggulir jauh.
         Column(
             modifier = Modifier
@@ -525,7 +578,7 @@ private fun StepDokumen(
                 modifier = Modifier.fillMaxWidth().clip(CircleShape)
             )
             groups.forEach { group ->
-                val gFilled = group.keys.count { state.dokumen.containsKey(it) }
+                val gFilled = group.keys.count { state.dokumen.containsKey(it) || it in state.existingDokumen }
                 Text(
                     "${group.title}: $gFilled/${group.keys.size}",
                     style = MaterialTheme.typography.labelMedium,
@@ -557,8 +610,10 @@ private fun StepDokumen(
                         label = LoanDocs.label(key),
                         info = LoanDocs.infoSlot(key, state.ktp2Threshold),
                         file = state.dokumen[key],
+                        hasExisting = key in state.existingDokumen,
                         enabled = enabled,
-                        onPick = { onPick(key) },
+                        onPickGallery = { onPickGallery(key) },
+                        onPickCamera = { onPickCamera(key) },
                         onClear = { onClear(key) }
                     )
                 }
@@ -647,21 +702,23 @@ private fun DokumenRow(
     label: String,
     info: String,
     file: DokumenFile?,
+    hasExisting: Boolean,
     enabled: Boolean,
-    onPick: () -> Unit,
+    onPickGallery: () -> Unit,
+    onPickCamera: () -> Unit,
     onClear: () -> Unit
 ) {
+    val filled = file != null || hasExisting
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .border(
                 1.dp,
-                if (file != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                if (filled) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                 else MaterialTheme.colorScheme.outlineVariant,
                 RoundedCornerShape(12.dp)
             )
-            .clickable(enabled = enabled, onClick = onPick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -670,18 +727,13 @@ private fun DokumenRow(
                 .size(40.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(
-                    if (file != null) MaterialTheme.colorScheme.primaryContainer
+                    if (filled) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.surfaceVariant
                 ),
             contentAlignment = Alignment.Center
         ) {
             when {
-                file == null -> Icon(
-                    Icons.Outlined.CloudUpload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                file.isGambar -> {
+                file?.isGambar == true -> {
                     val bitmap = remember(file) { file.bytes.decodeSampled() }
                     if (bitmap != null) {
                         Image(
@@ -694,16 +746,22 @@ private fun DokumenRow(
                         Icon(Icons.Outlined.PictureAsPdf, null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
-                else -> Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.primary)
+                file != null -> Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.primary)
+                hasExisting -> Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                else -> Icon(Icons.Outlined.CloudUpload, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.titleSmall)
             Text(
-                text = if (file != null) (file.nama ?: "Terlampir") else info,
+                text = when {
+                    file != null -> (file.nama ?: "Terlampir")
+                    hasExisting -> "Sudah dilampirkan — ganti bila perlu"
+                    else -> info
+                },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (file != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -712,7 +770,14 @@ private fun DokumenRow(
         if (file != null) {
             TextButton(onClick = onClear, enabled = enabled) { Text("Hapus") }
         } else {
-            FilledTonalButton(onClick = onPick, enabled = enabled) { Text("Tambah") }
+            Column(horizontalAlignment = Alignment.End) {
+                TextButton(onClick = onPickCamera, enabled = enabled) {
+                    Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Foto")
+                }
+                TextButton(onClick = onPickGallery, enabled = enabled) { Text(if (hasExisting) "Ganti" else "Galeri") }
+            }
         }
     }
 }

@@ -42,6 +42,11 @@ data class LoanApplicationState(
     val tenor: String = "",
     val gajiPokok: String = "",
     val dokumen: Map<String, DokumenFile> = emptyMap(),
+    // Mode "ajukan ulang": draf lama disimpan server, hanya slot yang diunggah ulang dikirim.
+    val pengajuanId: Long? = null,
+    val existingDokumen: Set<String> = emptySet(),
+    val alasanPenolakan: String? = null,
+    val batasAjukanUlang: String? = null,
     val persetujuanSetuju: Boolean = false,
     /** Checkbox kedua: pernyataan pengajuan pinjaman (syarat & ketentuan). */
     val persetujuanPinjamanSetuju: Boolean = false
@@ -72,7 +77,7 @@ data class LoanApplicationState(
         get() = LoanDocs.slotDokumen(selectedJenis, nominalValue, ktp2Threshold)
 
     val dokumenKurang: List<String>
-        get() = slotDokumen.filter { it !in dokumen.keys }
+        get() = slotDokumen.filter { it !in dokumen.keys && it !in existingDokumen }
 
     val bisaKirim: Boolean
         get() = !isSubmitting && selectedJenis != null && nominalValue > 0L &&
@@ -96,7 +101,7 @@ class LoanApplicationViewModel @Inject constructor(
         load()
     }
 
-    fun load() {
+    fun load(pengajuanId: Long? = null) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             loadSalary()
@@ -112,6 +117,31 @@ class LoanApplicationViewModel @Inject constructor(
                 )
                 is Result.Loading -> Unit
             }
+            if (pengajuanId != null) loadPengajuan(pengajuanId)
+        }
+    }
+
+    private suspend fun loadPengajuan(id: Long) {
+        when (val result = installmentRepository.getPengajuanPinjaman(id)) {
+            is Result.Success -> {
+                val p = result.data
+                _state.value = _state.value.copy(
+                    pengajuanId = p.id,
+                    selectedJenis = p.jenisPinjaman,
+                    nominal = p.nominal.toString(),
+                    tenor = p.tenor.toString(),
+                    gajiPokok = p.gajiPokok.toString(),
+                    existingDokumen = p.dokumenTerlampir.toSet(),
+                    alasanPenolakan = p.alasanPenolakan,
+                    batasAjukanUlang = p.batasAjukanUlang,
+                    isLoading = false
+                )
+            }
+            is Result.Error -> _state.value = _state.value.copy(
+                error = result.message,
+                isLoading = false
+            )
+            is Result.Loading -> Unit
         }
     }
 
@@ -196,8 +226,13 @@ class LoanApplicationViewModel @Inject constructor(
             val ts = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
             val keterangan = "Pengajuan $jenisLabel dari Esimko Mobile App $ts"
             when (val result = installmentRepository.submitLoan(
-                jenis, s.nominalValue, s.tenorValue, s.gajiValue, keterangan,
-                s.syarat?.persetujuanVersi, s.syarat?.persetujuanPinjamanVersi, s.dokumen
+                action = if (s.pengajuanId != null) "proses_ulang" else "add",
+                id = s.pengajuanId,
+                jenisPinjaman = jenis, nominal = s.nominalValue, tenor = s.tenorValue,
+                gajiPokok = s.gajiValue, keterangan = keterangan,
+                persetujuanVersi = s.syarat?.persetujuanVersi,
+                persetujuanPinjamanVersi = s.syarat?.persetujuanPinjamanVersi,
+                dokumen = s.dokumen
             )) {
                 is Result.Success -> _state.value = _state.value.copy(
                     isSubmitting = false,

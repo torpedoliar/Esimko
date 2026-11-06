@@ -5,6 +5,7 @@ import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.remote.api.InstallmentApi
 import com.esimko.mobile.domain.model.DokumenFile
 import com.esimko.mobile.domain.model.Installment
+import com.esimko.mobile.domain.model.PengajuanPinjaman
 import com.esimko.mobile.domain.model.Salary
 import com.esimko.mobile.domain.model.SyaratPinjaman
 import com.esimko.mobile.domain.repository.InstallmentRepository
@@ -67,7 +68,22 @@ class InstallmentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getPengajuanPinjaman(id: Long): Result<PengajuanPinjaman> {
+        return try {
+            val response = api.getPengajuanPinjaman(id)
+            if (response.success && response.data != null) {
+                Result.Success(response.data.toDomain())
+            } else {
+                Result.Error(response.message ?: "Gagal memuat pengajuan")
+            }
+        } catch (e: Exception) {
+            Result.Error(apiErrorMessage(e, "Network error"))
+        }
+    }
+
     override suspend fun submitLoan(
+        action: String,
+        id: Long?,
         jenisPinjaman: Int,
         nominal: Long,
         tenor: Int,
@@ -102,7 +118,8 @@ class InstallmentRepositoryImpl @Inject constructor(
                 } + slipLainParts
             val response = api.submitLoan(
                 "pinjaman",
-                toPart("add"),
+                toPart(action),
+                id?.let { toPart(it.toString()) },
                 toPart(nominal.toString()),
                 toPart(tenor.toString()),
                 toPart(jenisPinjaman.toString()),

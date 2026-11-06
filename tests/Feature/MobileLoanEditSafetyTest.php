@@ -36,6 +36,7 @@ class MobileLoanEditSafetyTest extends TestCase
             $t->text('draft_pengajuan')->nullable(); $t->string('keterangan')->nullable();
             $t->date('tanggal')->nullable(); $t->integer('fid_metode_transaksi')->nullable();
             $t->string('created_by')->nullable(); $t->timestamps();
+            $t->dateTime('ditolak_at')->nullable();
         });
         Schema::create('angsuran', function (Blueprint $t) {
             $t->increments('id'); $t->integer('fid_transaksi'); $t->string('marker');

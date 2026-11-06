@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +58,7 @@ fun ActivityDetailScreen(
     transactionId: Long,
     modul: String,
     onBack: () -> Unit,
+    onReapply: (Long) -> Unit = {},
     viewModel: ActivityDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -96,7 +99,7 @@ fun ActivityDetailScreen(
                 if (error != null) {
                     StaleBanner(onRetry = viewModel::retry, modifier = Modifier.padding(padding))
                 }
-                DetailContent(state, Modifier.padding(padding))
+                DetailContent(state, Modifier.padding(padding), onReapply = onReapply)
             }
         }
     }
@@ -112,7 +115,8 @@ private fun judulModul(modul: String): String = when (modul) {
 @Composable
 private fun DetailContent(
     state: ActivityDetailState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onReapply: (Long) -> Unit = {}
 ) {
     val transaksi = state.transaksi
     val belanja = state.belanja
@@ -153,6 +157,22 @@ private fun DetailContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
+            }
+        }
+
+        // Pengajuan pinjaman yang ditolak bisa diajukan ulang memakai dokumen lama.
+        val isRejectedLoan = transaksi != null &&
+            transaksi.statusLabel.contains("Ditolak", ignoreCase = true) &&
+            transaksi.jenis.contains("Pinjaman", ignoreCase = true)
+        if (isRejectedLoan) {
+            item(key = "reapply") {
+                Button(
+                    onClick = { onReapply(transaksi!!.id) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .heightIn(min = 48.dp)
+                ) { Text("Ajukan Ulang") }
             }
         }
 

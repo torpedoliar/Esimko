@@ -41,6 +41,7 @@ Route::group(['prefix' => 'mobile'], function () {
         Route::get('master/jenis_transaksi/{modul}', 'MobileController@jenis_transaksi');
         Route::get('master/status_transaksi/{modul}', 'MobileController@status_transaksi');
         Route::get('master/syarat_pinjaman', 'MobileController@syarat_pinjaman');
+        Route::get('pinjaman/pengajuan', 'MobileController@pengajuan_pinjaman');
 
         Route::get('berita', 'MobileController@berita');
         Route::get('berita/detail', 'MobileController@detail_berita');

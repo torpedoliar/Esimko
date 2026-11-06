@@ -96,7 +96,8 @@ fun EsimkoNavHost(
             ActivityDetailScreen(
                 transactionId = entry.arguments?.getLong("id") ?: 0L,
                 modul = entry.arguments?.getString("module") ?: "transaksi",
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onReapply = { id -> navController.navigate("installment/apply?pengajuanId=$id") }
             )
         }
 
@@ -114,16 +115,22 @@ fun EsimkoNavHost(
         composable("installment") {
             InstallmentScreen(
                 onBack = { navController.popBackStack() },
-                onApplyLoan = { navController.navigate("installment/apply") }
+                onApplyLoan = { navController.navigate("installment/apply?pengajuanId=-1") }
             )
         }
 
-        composable("installment/apply") {
+        composable(
+            route = "installment/apply?pengajuanId={pengajuanId}",
+            arguments = listOf(navArgument("pengajuanId") {
+                type = NavType.LongType
+                defaultValue = -1L
+            })
+        ) { entry ->
+            val pengajuanId = entry.arguments?.getLong("pengajuanId")?.takeIf { it > 0L }
             LoanApplicationScreen(
+                pengajuanId = pengajuanId,
                 onBack = { navController.popBackStack() },
-                onSubmitted = {
-                    navController.popBackStack()
-                }
+                onSubmitted = { navController.popBackStack() }
             )
         }
 

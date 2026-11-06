@@ -603,17 +603,25 @@ class MobileController extends Controller
 
   private function proses_pinjaman_mobile(Request $request)
   {
-    if (!in_array($request->action, ['add', 'edit'], true)) {
+    if (!in_array($request->action, ['add', 'edit', 'proses_ulang'], true)) {
       return ApiResponse::error('Aksi pengajuan tidak valid', 422);
     }
+    $isResubmit = $request->action === 'proses_ulang';
     $existing = null;
-    if ($request->action === 'edit') {
+    if ($request->action === 'edit' || $isResubmit) {
       $existing = Transaksi::where('fid_anggota', $request->no_anggota)->find($request->id);
       if (!$existing || !in_array((int) $existing->fid_jenis_transaksi, [9, 10, 11], true)) {
         return ApiResponse::error('Data transaksi tidak ditemukan', 404);
       }
-      // Jadwal yang sudah diverifikasi atau dibayar tidak boleh dibuat ulang.
-      if ((int) $existing->fid_status !== 1) {
+      if ($isResubmit) {
+        if ((int) $existing->fid_status !== 2) {
+          return ApiResponse::error('Pengajuan tidak dalam status ditolak', 422);
+        }
+        if (!empty($existing->ditolak_at) && strtotime($existing->ditolak_at) < strtotime('-7 days')) {
+          return ApiResponse::error('Masa ajukan ulang (7 hari) telah berakhir. Silakan buat pengajuan baru.', 422);
+        }
+      } elseif ((int) $existing->fid_status !== 1) {
+        // Jadwal yang sudah diverifikasi atau dibayar tidak boleh dibuat ulang.
         return ApiResponse::error('Pengajuan tidak dapat diubah', 422);
       }
     }
@@ -626,8 +634,8 @@ class MobileController extends Controller
     $draft = $this->prospective_loan_draft($existing, $request);
     $candidate = (object) ['fid_jenis_transaksi' => $request->jenis_pinjaman, 'draft_pengajuan' => json_encode($draft)];
     $nominalChanged = $existing && (float) $existing->nominal !== -(float) str_replace('.', '', $request->nominal);
-    $newRules = !$existing || (string) $existing->fid_jenis_transaksi !== (string) $request->jenis_pinjaman || $nominalChanged;
-    $scheduleChanged = $newRules || (string) $existing->tenor !== (string) $request->tenor;
+    $newRules = !$existing || $isResubmit || (string) $existing->fid_jenis_transaksi !== (string) $request->jenis_pinjaman || $nominalChanged;
+    $scheduleChanged = $isResubmit || $newRules || (string) $existing->tenor !== (string) $request->tenor;
     if ($newRules && ($request->persetujuan_versi !== self::PERSETUJUAN_VERSI
         || $request->persetujuan_pinjaman_versi !== self::PERSETUJUAN_PINJAMAN_VERSI)) {
       return ApiResponse::error('Persetujuan data pribadi dan persetujuan pinjaman versi terbaru wajib disetujui', 422);
@@ -637,14 +645,17 @@ class MobileController extends Controller
 
     $newPaths = [];
     try {
-      $result = DB::transaction(function () use ($request, $existing, $draft, $scheduleChanged, &$newPaths) {
+      $result = DB::transaction(function () use ($request, $existing, $draft, $scheduleChanged, $isResubmit, &$newPaths) {
         $field = $existing ? Transaksi::where('fid_anggota', $request->no_anggota)->lockForUpdate()->find($existing->id) : new Transaksi;
         if ($existing) {
+          $expectedStatus = $isResubmit ? 2 : 1;
           // Do not overwrite another request after validating against an older draft.
-          if (!$field || (int) $field->fid_status !== 1 || $field->getRawOriginal() != $existing->getRawOriginal()) {
+          if (!$field || (int) $field->fid_status !== $expectedStatus || $field->getRawOriginal() != $existing->getRawOriginal()) {
             throw new \RuntimeException('Pengajuan telah berubah, silakan coba lagi');
           }
           $field->updated_at = date('Y-m-d H:i:s');
+          $field->fid_status = 1;
+          $field->ditolak_at = null;
         } else {
           $field->created_at = date('Y-m-d H:i:s');
           $field->created_by = $request->no_anggota;
@@ -854,6 +865,50 @@ class MobileController extends Controller
       'persetujuan_teks' => self::PERSETUJUAN_TEKS,
       'persetujuan_pinjaman_versi' => self::PERSETUJUAN_PINJAMAN_VERSI,
       'persetujuan_pinjaman_teks' => self::PERSETUJUAN_PINJAMAN_TEKS,
+    ]);
+  }
+
+  // Ringkasan pengajuan milik anggota (untuk "ajukan ulang" setelah ditolak).
+  public function pengajuan_pinjaman(Request $request)
+  {
+    \App\Console\Commands\PurgeExpiredRejectedLoans::purgeExpired();
+    $t = Transaksi::where('fid_anggota', $request->no_anggota)
+      ->where('id', $request->id)
+      ->whereIn('fid_jenis_transaksi', [9, 10, 11])
+      ->first();
+    if (!$t) return ApiResponse::error('Pengajuan tidak ditemukan', 404);
+
+    $draft = json_decode($t->draft_pengajuan, true);
+    $draft = is_array($draft) ? $draft : [];
+    $docs = [];
+    $slip = $draft['slip'] ?? [];
+    $slip = is_array($slip) ? $slip : (($slip !== null && $slip !== '') ? ['bulan_ini' => $slip] : []);
+    if (!empty($slip['bulan_ini'])) $docs[] = 'slip_bulan_ini';
+    if (!empty($slip['bulan_lalu'])) $docs[] = 'slip_bulan_lalu';
+    if (!empty($slip['dua_bulan_lalu'])) $docs[] = 'slip_dua_bulan_lalu';
+    foreach (['kk', 'ktp1', 'ktp2', 'ktp_penjamin', 'kartu_anggota', 'id_card', 'surat_hutang'] as $k) {
+      if (!empty($draft['dokumen'][$k])) $docs[] = $k;
+    }
+
+    $alasan = null;
+    $last = \App\VerifikasiTransaksi::where('fid_transaksi', $t->id)
+      ->where('jenis', 'transaksi')
+      ->whereNotNull('keterangan')
+      ->orderBy('created_at', 'desc')
+      ->first();
+    if ($last) $alasan = GlobalHelper::public_loan_decision_reason($last->keterangan);
+
+    return ApiResponse::success([
+      'id' => $t->id,
+      'status' => (int) $t->fid_status,
+      'jenis_pinjaman' => (int) $t->fid_jenis_transaksi,
+      'nominal' => abs((float) $t->nominal),
+      'tenor' => (int) $t->tenor,
+      'gaji_pokok' => (float) ($draft['gaji'] ?? 0),
+      'dokumen_terlampir' => $docs,
+      'ditolak_at' => $t->ditolak_at,
+      'batas_ajukan_ulang' => (!empty($t->ditolak_at) ? date('Y-m-d', strtotime($t->ditolak_at . ' +7 days')) : null),
+      'alasan_penolakan' => $alasan,
     ]);
   }
 
