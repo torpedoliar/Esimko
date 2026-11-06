@@ -52,7 +52,7 @@ fun CooperativeLoading(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically)
     ) {
-        Box(Modifier.size(116.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(124.dp), contentAlignment = Alignment.Center) {
             if (animate) {
                 CircularProgressIndicator(
                     modifier = Modifier.fillMaxSize(),
@@ -81,12 +81,13 @@ fun CooperativeLoading(
                     )
                 }
             }
-            // Alas putih menjaga warna lambang koperasi terbaca di tema gelap.
-            Surface(shape = CircleShape, color = Color.White, modifier = Modifier.size(92.dp)) {
+            // Logo aplikasi eSIMKO (bukan lambang Koperasi Indonesia).
+            Surface(shape = CircleShape, color = Color.White, modifier = Modifier.size(104.dp)) {
                 Image(
-                    painter = painterResource(R.drawable.logo_esimko_seal),
-                    contentDescription = "Logo Koperasi SIMKO",
-                    modifier = Modifier.padding(8.dp)
+                    painter = painterResource(R.mipmap.ic_launcher_foreground),
+                    contentDescription = "Logo eSIMKO",
+                    modifier = Modifier.padding(4.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
                 )
             }
         }
