@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
@@ -90,6 +92,29 @@ fun SkeletonListRows(count: Int = 6, modifier: Modifier = Modifier) {
             }
             if (i < count - 1) RowDivider()
         }
+    }
+}
+
+@Composable
+fun SkeletonProfile(modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Meniru header profil: avatar + nama + nomor anggota + chip status.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SkeletonBox(modifier = Modifier.size(96.dp).clip(CircleShape))
+            Spacer(Modifier.height(12.dp))
+            SkeletonBox(modifier = Modifier.fillMaxWidth(0.6f).height(20.dp))
+            Spacer(Modifier.height(8.dp))
+            SkeletonBox(modifier = Modifier.fillMaxWidth(0.4f).height(14.dp))
+            Spacer(Modifier.height(16.dp))
+            SkeletonBox(modifier = Modifier.width(120.dp).height(32.dp).clip(MaterialTheme.shapes.large))
+        }
+        SkeletonListRows(count = 6, modifier = Modifier.padding(top = 8.dp))
     }
 }
 

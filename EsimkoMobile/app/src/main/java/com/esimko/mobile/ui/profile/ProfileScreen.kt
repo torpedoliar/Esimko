@@ -66,7 +66,7 @@ import com.esimko.mobile.ui.common.ListRow
 import com.esimko.mobile.ui.common.Money
 import com.esimko.mobile.ui.common.RowDivider
 import com.esimko.mobile.ui.common.SectionHeader
-import com.esimko.mobile.ui.common.SkeletonListRows
+import com.esimko.mobile.ui.common.SkeletonProfile
 import com.esimko.mobile.ui.common.UiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,7 +113,7 @@ fun ProfileScreen(
 
     Box(Modifier.fillMaxSize()) {
         when (val state = uiState) {
-            is UiState.Loading -> SkeletonListRows(count = 6, modifier = Modifier.fillMaxSize())
+            is UiState.Loading -> SkeletonProfile(modifier = Modifier.fillMaxSize())
             is UiState.Error -> ErrorView(
                 message = state.message ?: "Terjadi kesalahan",
                 onRetry = { viewModel.loadProfile() },

@@ -10,6 +10,8 @@ import com.esimko.mobile.domain.model.Profile
 import com.esimko.mobile.domain.repository.ProfileRepository
 import com.esimko.mobile.domain.repository.TransactionRepository
 import com.esimko.mobile.util.StatusMeta
+import com.esimko.mobile.util.MoneyFormatter
+import kotlin.math.abs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -72,11 +74,13 @@ class DashboardViewModel @Inject constructor(
             )
             result.data.items.forEach { trx ->
                 val key = trx.status.trim().lowercase()
+                val jenis = trx.jenis.ifBlank { "Pengajuan" }
+                val nominal = if (trx.nominal != 0L) " ${MoneyFormatter.format(abs(trx.nominal))}" else ""
                 val (title, message) = when {
-                    key == "ditolak" -> "Pengajuan ditolak" to "Pengajuan #${trx.id} ditolak. Lihat alasan dan ajukan ulang."
+                    key == "ditolak" -> "Pengajuan ditolak" to "$jenis$nominal ditolak. Cek alasan dan ajukan ulang."
                     key in setOf("disetujui", "selesai", "pinjaman lunas", "dibayar", "kredit lunas") ->
-                        "Pengajuan disetujui" to "Pengajuan #${trx.id} selesai diproses."
-                    else -> "Pengajuan menunggu verifikasi" to "Pengajuan #${trx.id} sedang menunggu verifikasi."
+                        "Pengajuan disetujui" to "$jenis$nominal selesai diproses."
+                    else -> "Pengajuan menunggu verifikasi" to "$jenis$nominal sedang menunggu verifikasi."
                 }
                 notificationRepository.capture(
                     AppNotification(
