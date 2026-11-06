@@ -91,4 +91,8 @@ object NetworkModule {
     @Provides @Singleton
     fun provideTransactionHistoryApi(retrofit: Retrofit): com.esimko.mobile.data.remote.api.TransactionHistoryApi =
         retrofit.create(com.esimko.mobile.data.remote.api.TransactionHistoryApi::class.java)
+
+    @Provides @Singleton
+    fun provideDeviceApi(retrofit: Retrofit): com.esimko.mobile.data.remote.api.DeviceApi =
+        retrofit.create(com.esimko.mobile.data.remote.api.DeviceApi::class.java)
 }

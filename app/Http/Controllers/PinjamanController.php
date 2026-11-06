@@ -425,6 +425,27 @@ class PinjamanController extends Controller
             // Penghapusan file lama dilakukan oleh loan:purge-expired-rejected
             // (scheduler/lazy), bukan di sini — anggota boleh pakai draf lama lagi.
         }
+        // Push notifikasi status pengajuan (best-effort — gagal tidak menggagalkan proses).
+        try {
+            if (in_array((string) $request->status, ['2', '3'], true)) {
+                if ($request->status == 2) {
+                    \App\Support\FcmSender::pushToAnggota(
+                        $field->fid_anggota,
+                        'Pengajuan Pinjaman Ditolak',
+                        trim('Pengajuan ditolak' . ($alasan ? ': ' . $alasan : '') . '. Ajukan ulang sebelum 7 hari.'),
+                        ['jenis' => 'status_pengajuan', 'id' => (string) $field->id]
+                    );
+                } else {
+                    \App\Support\FcmSender::pushToAnggota(
+                        $field->fid_anggota,
+                        'Pengajuan Pinjaman Disetujui',
+                        'Pengajuan pinjaman Anda telah disetujui.',
+                        ['jenis' => 'status_pengajuan', 'id' => (string) $field->id]
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+        }
         if($request->status!=6){
             $this->update_status_angsuran($field->id,$request->status);
             $status=DB::table('status_transaksi')->find($field->fid_status);

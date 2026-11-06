@@ -9,6 +9,7 @@ import com.esimko.mobile.data.repository.NewsRepositoryImpl
 import com.esimko.mobile.data.repository.MasterRepositoryImpl
 import com.esimko.mobile.data.repository.VersionRepositoryImpl
 import com.esimko.mobile.data.repository.TransactionHistoryRepositoryImpl
+import com.esimko.mobile.data.repository.DeviceRepositoryImpl
 import com.esimko.mobile.domain.repository.AuthRepository
 import com.esimko.mobile.domain.repository.ProfileRepository
 import com.esimko.mobile.domain.repository.TransactionRepository
@@ -18,6 +19,7 @@ import com.esimko.mobile.domain.repository.NewsRepository
 import com.esimko.mobile.domain.repository.MasterRepository
 import com.esimko.mobile.domain.repository.VersionRepository
 import com.esimko.mobile.domain.repository.TransactionHistoryRepository
+import com.esimko.mobile.domain.repository.DeviceRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -54,4 +56,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindTransactionHistoryRepository(impl: TransactionHistoryRepositoryImpl): TransactionHistoryRepository
+
+    @Binds @Singleton
+    abstract fun bindDeviceRepository(impl: DeviceRepositoryImpl): DeviceRepository
 }

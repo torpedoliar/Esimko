@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -14,8 +15,8 @@ android {
         applicationId = "com.esimko.mobile"
         minSdk = 28
         targetSdk = 34
-        versionCode = 20
-        versionName = "1.0.19"
+        versionCode = 21
+        versionName = "1.0.20"
         // ponytail: soft-lock Belanja mobile. Web app lain yang urus belanja online.
         // true + rebuild untuk aktifkan kembali tanpa sentuh code lain.
         buildConfigField("boolean", "ENABLE_BELANJA", "false")
@@ -52,6 +53,10 @@ android {
 }
 
 dependencies {
+    // Firebase Cloud Messaging (push notification)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.4"))
+    implementation("com.google.firebase:firebase-messaging")
+
     // Compose BOM
     val composeBom = platform("androidx.compose:compose-bom:2024.09.00")
     implementation(composeBom)

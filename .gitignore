@@ -51,3 +51,8 @@ public/storage/
 EsimkoMobile/app/outputs/
 *.keystore
 *.jks
+
+# Firebase (kredensial push notification) — JANGAN di-commit:
+Firebase/
+EsimkoMobile/app/google-services.json
+*firebase-adminsdk*.json

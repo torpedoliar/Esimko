@@ -912,6 +912,22 @@ class MobileController extends Controller
     ]);
   }
 
+  // Daftarkan/refresh token device FCM milik anggota yang login.
+  public function register_device(Request $request)
+  {
+    $token = trim((string) $request->input('token', ''));
+    if ($token === '' || strlen($token) > 600) {
+      return ApiResponse::error('Token perangkat tidak valid');
+    }
+    \App\DeviceToken::where('token', $token)->delete();
+    \App\DeviceToken::create([
+      'fid_anggota' => $request->no_anggota,
+      'token' => $token,
+      'platform' => 'android',
+    ]);
+    return ApiResponse::success(null, 'Perangkat terdaftar');
+  }
+
   // Validasi file dokumen: hanya JPG/PNG/PDF (cek mime server-side, bukan sekadar
   // ekstensi), maksimal 5 MB per file. Return pesan error atau null jika lolos.
   private function validasi_dokumen($file, $label)

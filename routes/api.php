@@ -58,6 +58,7 @@ Route::group(['prefix' => 'mobile'], function () {
         Route::post('transaksi/slip_gaji', 'MobileController@upload_slip_gaji');
         Route::post('transaksi/upload_dokumen', 'MobileController@upload_dokumen');
         Route::post('transaksi/batalkan', 'MobileController@batalkan_transaksi');
+        Route::post('device/register', 'MobileController@register_device');
 
         Route::get('angsuran', 'MobileController@angsuran_pinjaman');
 
