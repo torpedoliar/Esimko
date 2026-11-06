@@ -45,12 +45,21 @@ class UpdateViewModel @Inject constructor(
 
     private var installer: ApkInstaller? = null
     private var receiver: BroadcastReceiver? = null
+    private var lastCheckAt = 0L
 
     init {
         cek()
     }
 
+    /** Cek saat app kembali ke depan, maksimal sekali per 5 menit. */
+    fun cekJikaPerlu() {
+        if (_state.value.sedangUnduh) return
+        if (System.currentTimeMillis() - lastCheckAt < 5 * 60 * 1000L) return
+        cek()
+    }
+
     fun cek() {
+        lastCheckAt = System.currentTimeMillis()
         viewModelScope.launch {
             _state.value = _state.value.copy(sedangCek = true, error = null)
             // Retry hingga 3x: kegagalan sekali (jaringan/edge) dulu membuat dialog

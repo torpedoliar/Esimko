@@ -103,7 +103,14 @@ class FcmSender
             CURLOPT_POSTFIELDS => $body,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_TIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
         ]);
+        // Server ini belum punya CA bundle di php.ini; pakai cacert.pem di root proyek.
+        $ca = base_path('cacert.pem');
+        if (is_file($ca)) {
+            curl_setopt($ch, CURLOPT_CAINFO, $ca);
+        }
         $out = curl_exec($ch);
         curl_close($ch);
         return $out === false ? '' : (string) $out;

