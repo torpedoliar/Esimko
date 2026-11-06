@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.HourglassTop
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.MoveDown
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.RequestQuote
@@ -53,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.activity.ComponentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -75,6 +77,7 @@ import com.esimko.mobile.ui.common.EsimkoPreview
 import com.esimko.mobile.ui.common.LightDarkPreview
 import com.esimko.mobile.ui.dashboard.DashboardViewModel
 import com.esimko.mobile.ui.news.NewsViewModel
+import com.esimko.mobile.ui.notifications.NotificationViewModel
 import com.esimko.mobile.ui.theme.GoldOnHero
 import com.esimko.mobile.ui.theme.HeroDivider
 import com.esimko.mobile.ui.theme.MoneyHero
@@ -93,6 +96,12 @@ fun DashboardTab(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val newsState by newsViewModel.state.collectAsStateWithLifecycle()
+    // ViewModel notifikasi harus sama dengan yang dipakai layar riwayat (Activity-scoped),
+    // bukan instance NavBackStackEntry terpisah.
+    val activity = LocalContext.current as? ComponentActivity
+    val notificationViewModel: NotificationViewModel =
+        if (activity != null) hiltViewModel(viewModelStoreOwner = activity) else hiltViewModel()
+    val unread by notificationViewModel.unread.collectAsStateWithLifecycle()
     val profile = state.profile
     var expanded by remember { mutableStateOf(false) }
     val actions = remember(onNavigate) {
@@ -116,8 +125,10 @@ fun DashboardTab(
                 DashboardHero(
                     profile = profile,
                     expanded = expanded,
+                    unreadCount = unread,
                     onToggleExpand = { expanded = !expanded },
                     onOpenAccount = { onNavigate("akun") },
+                    onOpenNotifications = { onNavigate("notifications") },
                     onOpenInstallments = { onNavigate("installment") }
                 )
             }
@@ -176,8 +187,10 @@ fun DashboardTab(
 private fun DashboardHero(
     profile: Profile?,
     expanded: Boolean,
+    unreadCount: Int,
     onToggleExpand: () -> Unit,
     onOpenAccount: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onOpenInstallments: () -> Unit
 ) {
     HeroSurface {
@@ -188,6 +201,27 @@ private fun DashboardHero(
                 modifier = Modifier.height(20.dp)
             )
             Spacer(Modifier.weight(1f))
+            // Lonceng notifikasi + badge jumlah belum dibaca.
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                IconButton(onClick = onOpenNotifications, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        Icons.Outlined.Notifications,
+                        contentDescription = "Notifikasi",
+                        tint = OnHero
+                    )
+                }
+                if (unreadCount > 0) {
+                    Text(
+                        text = if (unreadCount > 99) "99+" else "$unreadCount",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onError,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .background(MaterialTheme.colorScheme.error, CircleShape)
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                }
+            }
             IconButton(
                 onClick = onOpenAccount,
                 modifier = Modifier.size(48.dp)
@@ -387,7 +421,8 @@ private fun DashboardHeroPreview() {
                     saldoSimpananSukarela = 1_100_000, saldoSimpananHariRaya = 250_000
                 ),
                 expanded = true,
-                onToggleExpand = {}, onOpenAccount = {}, onOpenInstallments = {}
+                unreadCount = 3,
+                onToggleExpand = {}, onOpenAccount = {}, onOpenNotifications = {}, onOpenInstallments = {}
             )
         }
     }

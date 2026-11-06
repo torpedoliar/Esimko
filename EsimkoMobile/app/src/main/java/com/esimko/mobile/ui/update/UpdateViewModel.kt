@@ -5,6 +5,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.data.repository.NotificationRepository
+import com.esimko.mobile.domain.model.AppNotification
+import com.esimko.mobile.domain.model.NotificationType
 import com.esimko.mobile.domain.repository.VersionRepository
 import com.esimko.mobile.update.ApkInstaller
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +36,8 @@ data class UpdateState(
 @HiltViewModel
 class UpdateViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val versionRepository: VersionRepository
+    private val versionRepository: VersionRepository,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(UpdateState())
@@ -52,17 +56,31 @@ class UpdateViewModel @Inject constructor(
             // Retry hingga 3x: kegagalan sekali (jaringan/edge) dulu membuat dialog
             // pembaruan tak pernah muncul senyap — anggota tak tahu ada rilis baru.
             var hasil: Result<com.esimko.mobile.domain.model.VersionCheck> = Result.Error("Gagal memeriksa versi")
-            cek@ for (percobaan in 0..2) {
+            loop@ for (percobaan in 0..2) {
                 when (val r = versionRepository.checkVersion()) {
-                    is Result.Success -> { hasil = r; break@cek }
+                    is Result.Success -> { hasil = r; break@loop }
                     is Result.Error -> hasil = r
                     is Result.Loading -> Unit
                 }
                 if (percobaan < 2) kotlinx.coroutines.delay(2000)
             }
             when (hasil) {
-                is Result.Success -> _state.value = _state.value.copy(info = (hasil as Result.Success).data, sedangCek = false)
-                is Result.Error -> _state.value = _state.value.copy(sedangCek = false, error = (hasil as Result.Error).message)
+                is Result.Success -> {
+                    _state.value = _state.value.copy(info = hasil.data, sedangCek = false)
+                    val vc = hasil.data
+                    if (vc.updateAvailable) {
+                        notificationRepository.capture(
+                            AppNotification(
+                                id = "update:${vc.latestVersion ?: "baru"}",
+                                type = NotificationType.UPDATE,
+                                title = "Pembaruan tersedia",
+                                message = "Versi v${vc.latestVersion ?: "-"} tersedia. Ketuk untuk membuka Pengaturan.",
+                                createdAt = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                }
+                is Result.Error -> _state.value = _state.value.copy(sedangCek = false, error = hasil.message)
                 is Result.Loading -> Unit
             }
         }
@@ -112,7 +130,8 @@ class UpdateViewModel @Inject constructor(
                     _state.value = _state.value.copy(tahap = "Memverifikasi berkas…")
                     val hash = inst.sha256(path)
                     val diharapkan = info.apkSha256
-                    if (!diharapkan.isNullOrBlank() && hash != diharapkan) {
+                    val hashValid = diharapkan.isNullOrBlank() || (hash != null && hash.equals(diharapkan, ignoreCase = true))
+                    if (!hashValid) {
                         _state.value = _state.value.copy(sedangUnduh = false, tahap = null, error = "Berkas rusak (verifikasi gagal) — coba lagi, atau Unduh via Browser")
                         return@launch
                     }

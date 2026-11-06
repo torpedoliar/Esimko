@@ -17,7 +17,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.activity.ComponentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -27,7 +29,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
  * Pembaruan wajib tetap lewat dialog pengunci di UpdateGate.
  */
 @Composable
-fun UpdateBanner(viewModel: UpdateViewModel = hiltViewModel()) {
+fun UpdateBanner() {
+    // hiltViewModel() di dalam NavHost terikat ke NavBackStackEntry → beda instance
+    // dari UpdateGate (Activity). Pakai pemilik Activity supaya state update (unduh,
+    // error, progres) sama antara banner dan gerbang pembaruan.
+    val activity = LocalContext.current as? ComponentActivity
+    val viewModel: UpdateViewModel =
+        if (activity != null) hiltViewModel(viewModelStoreOwner = activity) else hiltViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val info = state.info ?: return
     if (!info.updateAvailable || info.forceUpdate) return

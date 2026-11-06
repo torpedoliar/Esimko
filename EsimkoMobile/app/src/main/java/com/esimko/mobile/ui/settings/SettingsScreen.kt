@@ -27,7 +27,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.activity.ComponentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.BuildConfig
 import com.esimko.mobile.ui.common.EsimkoPreview
@@ -108,7 +110,9 @@ fun SettingsScreen(
                 )
                 // Self-update: unduh + pasang langsung dari app (dialog gerbang ada di MainActivity).
                 if (info.updateAvailable) {
-                    val updateVm: UpdateViewModel = hiltViewModel()
+                    val activity = LocalContext.current as? ComponentActivity
+                    val updateVm: UpdateViewModel =
+                        if (activity != null) hiltViewModel(viewModelStoreOwner = activity) else hiltViewModel()
                     val updateState by updateVm.state.collectAsState()
                     Button(
                         onClick = updateVm::unduhDanPasang,

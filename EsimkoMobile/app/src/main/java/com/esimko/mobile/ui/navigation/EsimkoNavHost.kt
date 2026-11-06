@@ -17,6 +17,7 @@ import com.esimko.mobile.ui.shopping.ShoppingDetailScreen
 import com.esimko.mobile.ui.shopping.CartScreen
 import com.esimko.mobile.ui.settings.SettingsScreen
 import com.esimko.mobile.ui.settings.AboutScreen
+import com.esimko.mobile.ui.notifications.NotificationCenterScreen
 import com.esimko.mobile.ui.activity.ActivityDetailScreen
 import com.esimko.mobile.ui.home.SavingsTab
 import com.esimko.mobile.ui.savings.SavingsFormScreen
@@ -105,6 +106,13 @@ fun EsimkoNavHost(
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenAbout = { navController.navigate("about") }
+            )
+        }
+
+        composable("notifications") {
+            NotificationCenterScreen(
+                onBack = { navController.popBackStack() },
+                onOpen = { route -> navController.navigate(route) }
             )
         }
 

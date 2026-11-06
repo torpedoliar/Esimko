@@ -3,6 +3,9 @@ package com.esimko.mobile.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.data.repository.NotificationRepository
+import com.esimko.mobile.domain.model.AppNotification
+import com.esimko.mobile.domain.model.NotificationType
 import com.esimko.mobile.domain.model.Profile
 import com.esimko.mobile.domain.repository.ProfileRepository
 import com.esimko.mobile.domain.repository.TransactionRepository
@@ -24,7 +27,8 @@ data class DashboardState(
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
@@ -66,6 +70,25 @@ class DashboardViewModel @Inject constructor(
             _state.value = _state.value.copy(
                 pendingCount = result.data.items.count { !StatusMeta.isFinal(it.status) }
             )
+            result.data.items.forEach { trx ->
+                val key = trx.status.trim().lowercase()
+                val (title, message) = when {
+                    key == "ditolak" -> "Pengajuan ditolak" to "Pengajuan #${trx.id} ditolak. Lihat alasan dan ajukan ulang."
+                    key in setOf("disetujui", "selesai", "pinjaman lunas", "dibayar", "kredit lunas") ->
+                        "Pengajuan disetujui" to "Pengajuan #${trx.id} selesai diproses."
+                    else -> "Pengajuan menunggu verifikasi" to "Pengajuan #${trx.id} sedang menunggu verifikasi."
+                }
+                notificationRepository.capture(
+                    AppNotification(
+                        id = "status:${trx.id}:$key",
+                        type = NotificationType.STATUS,
+                        title = title,
+                        message = message,
+                        createdAt = System.currentTimeMillis(),
+                        refId = trx.id
+                    )
+                )
+            }
         }
     }
 }
