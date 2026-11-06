@@ -30,15 +30,27 @@ class ProfileViewModel @Inject constructor(
     private val _avatarUploadState = MutableStateFlow<UiState<Unit>>(UiState.Idle)
     val avatarUploadState: StateFlow<UiState<Unit>> = _avatarUploadState.asStateFlow()
 
-    fun loadProfile() {
+    init {
+        // ProfileRepository menyimpan profil (memori+disk) & menyegarkannya di latar.
+        // Ikuti pembaruan itu agar layar Akun menampilkan data segar tanpa spinner.
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            when (val result = profileRepository.getProfile()) {
+            profileRepository.profile.collect { p ->
+                if (p != null) _uiState.value = UiState.Success(p)
+            }
+        }
+    }
+
+    fun loadProfile(forceRefresh: Boolean = false) {
+        viewModelScope.launch {
+            val cached = profileRepository.profile.value
+            if (cached == null) _uiState.value = UiState.Loading
+            when (val result = profileRepository.getProfile(forceRefresh)) {
                 is Result.Success -> {
                     _uiState.value = UiState.Success(result.data)
                 }
                 is Result.Error -> {
-                    _uiState.value = UiState.Error(result.message)
+                    // Masih ada cache: jangan ganti konten dengan layar error.
+                    if (cached == null) _uiState.value = UiState.Error(result.message)
                 }
                 is Result.Loading -> {
                     // Already handled
@@ -72,7 +84,7 @@ class ProfileViewModel @Inject constructor(
             when (val result = profileRepository.uploadAvatar(part)) {
                 is Result.Success -> {
                     _avatarUploadState.value = UiState.Success(Unit)
-                    loadProfile()
+                    loadProfile(forceRefresh = true)
                 }
                 is Result.Error -> {
                     _avatarUploadState.value = UiState.Error(result.message)

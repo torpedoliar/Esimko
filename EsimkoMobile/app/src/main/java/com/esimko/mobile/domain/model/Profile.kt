@@ -1,5 +1,8 @@
 package com.esimko.mobile.domain.model
 
+import com.squareup.moshi.JsonClass
+
+@JsonClass(generateAdapter = true)
 data class Profile(
     val noAnggota: String,
     val nama: String,

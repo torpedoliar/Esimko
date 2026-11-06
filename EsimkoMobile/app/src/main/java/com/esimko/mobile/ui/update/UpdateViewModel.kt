@@ -25,7 +25,9 @@ data class UpdateState(
     val tahap: String? = null,
     val error: String? = null,
     /** Android 8+ belum mengizinkan app ini memasang APK — arahkan ke setelan (sekali per HP). */
-    val mintaIzin: Boolean = false
+    val mintaIzin: Boolean = false,
+    /** Unduhan selesai & SHA-256 lolos; layar (foreground) akan memicu pemasangan. */
+    val siapPasang: String? = null
 )
 
 /**
@@ -144,17 +146,30 @@ class UpdateViewModel @Inject constructor(
                         _state.value = _state.value.copy(sedangUnduh = false, tahap = null, error = "Berkas rusak (verifikasi gagal) — coba lagi, atau Unduh via Browser")
                         return@launch
                     }
-                    val ok = inst.pasang(path)
+                    // Jangan buka installer langsung dari receiver: Android 10+ memblokir
+                    // peluncuran activity dari broadcast background. Simpan path; UpdateGate
+                    // (foreground) yang memanggil pasangSiap() lewat LaunchedEffect.
                     _state.value = _state.value.copy(
                         sedangUnduh = false,
                         tahap = null,
-                        error = if (ok) null else "Tidak bisa membuka installer — gunakan Unduh via Browser"
+                        siapPasang = path
                     )
                 }
             }
         } catch (e: Exception) {
             // DownloadManager bermasalah (OEM) — jangan crash, arahkan ke browser.
             _state.value = _state.value.copy(sedangUnduh = false, tahap = null, error = "Unduhan gagal dimulai (${e.javaClass.simpleName}) — gunakan Unduh via Browser")
+        }
+    }
+
+    /** Dipanggil dari layar (foreground) setelah unduh + verifikasi selesai. */
+    fun pasangSiap() {
+        val path = _state.value.siapPasang ?: return
+        _state.value = _state.value.copy(siapPasang = null)
+        val inst = installer ?: ApkInstaller(appContext).also { installer = it }
+        val ok = inst.pasang(path)
+        if (!ok) {
+            _state.value = _state.value.copy(error = "Tidak bisa membuka installer — gunakan Unduh via Browser")
         }
     }
 

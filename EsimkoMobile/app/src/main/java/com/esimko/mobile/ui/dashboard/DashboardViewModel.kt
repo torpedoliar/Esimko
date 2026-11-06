@@ -38,6 +38,15 @@ class DashboardViewModel @Inject constructor(
 
     init {
         load()
+        // Profil sudah ter-cache di repository (memori/disk). Saat refresh latar selesai,
+        // hero Beranda ikut ter-update tanpa perlu membuka layar Akun.
+        viewModelScope.launch {
+            profileRepository.profile.collect { p ->
+                if (p != null) {
+                    _state.value = _state.value.copy(profile = p, isLoading = false, error = null)
+                }
+            }
+        }
     }
 
     fun load() {
