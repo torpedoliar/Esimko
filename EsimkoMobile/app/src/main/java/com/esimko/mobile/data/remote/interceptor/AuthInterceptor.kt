@@ -14,7 +14,9 @@ class AuthInterceptor @Inject constructor(
         val request = chain.request()
         val builder = request.newBuilder()
 
-        val token = tokenStore.token
+        val (token, revision) = synchronized(tokenStore) {
+            tokenStore.token to tokenStore.sessionRevision
+        }
         Log.d("AuthInterceptor", "Token from store: ${if (token.isNullOrEmpty()) "NULL/EMPTY" else "present (${token.length} chars)"}")
 
         token?.let {
@@ -32,8 +34,7 @@ class AuthInterceptor @Inject constructor(
         // Bersihkan token + notify agar UI balik ke login. Jangan untuk login/logout request sendiri.
         if (response.code == 401 && token?.isNotEmpty() == true) {
             Log.w("AuthInterceptor", "401 on ${request.url} — clearing session")
-            tokenStore.clear()
-            AuthEvents.emitLoggedOut()
+            if (tokenStore.clearIfCurrent(revision)) AuthEvents.emitLoggedOut()
         }
 
         return response

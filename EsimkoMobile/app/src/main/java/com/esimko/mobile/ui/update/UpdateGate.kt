@@ -1,7 +1,10 @@
 package com.esimko.mobile.ui.update
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -11,15 +14,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.esimko.mobile.BuildConfig
 
@@ -47,9 +48,15 @@ fun UpdateGate(
     }
     // Unduh selesai (path tersimpan di state) → buka installer dari foreground. Meluncurkan
     // activity dari broadcast receiver diblokir Android 10+, jadi pemicunya dipindah ke sini.
-    val siapPasang = state.siapPasang
-    LaunchedEffect(siapPasang) {
-        if (siapPasang != null) viewModel.pasangSiap()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(lifecycleOwner, context, viewModel) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.state.collect { update ->
+                if (update.siapPasang != null && update.otomatisPasang) {
+                    viewModel.pasangSiap(context)
+                }
+            }
+        }
     }
     val info = state.info ?: return
 
@@ -60,7 +67,10 @@ fun UpdateGate(
             onDismissRequest = { },
             title = { Text("Pembaruan Wajib") },
             text = {
-                Column {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
                         "Versi ${BuildConfig.VERSION_NAME} sudah tidak didukung. " +
                             "Perbarui ke v${info.latestVersion ?: "-"} untuk melanjutkan menggunakan aplikasi."
@@ -79,7 +89,7 @@ fun UpdateGate(
             },
             confirmButton = {
                 Button(onClick = viewModel::unduhDanPasang, enabled = !state.sedangUnduh) {
-                    Text(if (state.sedangUnduh) "Mengunduh…" else "Perbarui Sekarang")
+                    Text(if (state.sedangUnduh) "Mengunduh…" else if (state.siapPasang != null) "Pasang Pembaruan" else "Perbarui Sekarang")
                 }
             },
             // Pintu darurat: jalur browser tidak pernah terpengaruh bug in-app.
@@ -100,7 +110,7 @@ fun UpdateGate(
             text = {
                 Text(
                     "Untuk memasang pembaruan, izinkan eSIMKO memasang aplikasi. " +
-                        "Buka setelan, aktifkan \"Izinkan dari sumber ini\", lalu kembali dan tean Perbarui lagi."
+                        "Buka setelan, aktifkan \"Izinkan dari sumber ini\", lalu kembali dan tekan Perbarui lagi."
                 )
             },
             dismissButton = {

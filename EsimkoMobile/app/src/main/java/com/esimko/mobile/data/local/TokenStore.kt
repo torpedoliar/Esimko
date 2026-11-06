@@ -54,6 +54,7 @@ class TokenStore @Inject constructor(
     /** Nilai lama tak terdekripsi (kunci berubah) → buang file, lanjut plain. */
     private fun pulihkan(penyebab: Exception) {
         android.util.Log.w("TokenStore", "Prefs tak terbaca — reset sesi (login ulang diperlukan)", penyebab)
+        invalidateSession()
         gunaPlain = true
         try {
             context.deleteSharedPreferences("esimko_secure_prefs")
@@ -61,6 +62,30 @@ class TokenStore @Inject constructor(
         }
     }
 
+    // Synchronous invalidation lets session-bound caches clear before credentials change.
+    internal var sessionRevision: Long = 0
+        private set
+    private val sessionListeners = mutableListOf<() -> Unit>()
+
+    @Synchronized
+    internal fun addSessionListener(listener: () -> Unit) {
+        sessionListeners += listener
+    }
+
+    private fun invalidateSession() {
+        sessionRevision++
+        sessionListeners.forEach { it() }
+    }
+
+    @Synchronized
+    internal fun clearIfCurrent(revision: Long): Boolean {
+        if (sessionRevision != revision) return false
+        clear()
+        return true
+    }
+
+    @get:Synchronized
+    @set:Synchronized
     var token: String?
         get() = try {
             prefs.getString("auth_token", null)
@@ -69,6 +94,7 @@ class TokenStore @Inject constructor(
             null
         }
         set(value) {
+            invalidateSession()
             try {
                 prefs.edit().putString("auth_token", value).apply()
             } catch (e: Exception) {
@@ -77,6 +103,8 @@ class TokenStore @Inject constructor(
             }
         }
 
+    @get:Synchronized
+    @set:Synchronized
     var noAnggota: String?
         get() = try {
             prefs.getString("no_anggota", null)
@@ -85,6 +113,7 @@ class TokenStore @Inject constructor(
             null
         }
         set(value) {
+            invalidateSession()
             try {
                 prefs.edit().putString("no_anggota", value).apply()
             } catch (e: Exception) {
@@ -93,7 +122,9 @@ class TokenStore @Inject constructor(
             }
         }
 
+    @Synchronized
     fun clear() {
+        invalidateSession()
         try {
             prefs.edit().clear().apply()
         } catch (e: Exception) {

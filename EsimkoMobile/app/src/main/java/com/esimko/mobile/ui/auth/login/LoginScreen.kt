@@ -39,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
+import com.esimko.mobile.ui.common.StatusBarAppearance
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -63,6 +65,7 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit = {},
     viewModel: LoginViewModel = hiltViewModel()
 ) {
+    StatusBarAppearance(darkIcons = MaterialTheme.colorScheme.background.luminance() > 0.5f)
     val uiState = viewModel.uiState
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current

@@ -1,6 +1,5 @@
 package com.esimko.mobile.ui.update
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,6 +15,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import com.esimko.mobile.update.validUpdateHash
 import javax.inject.Inject
 
 data class UpdateState(
@@ -27,7 +30,10 @@ data class UpdateState(
     /** Android 8+ belum mengizinkan app ini memasang APK — arahkan ke setelan (sekali per HP). */
     val mintaIzin: Boolean = false,
     /** Unduhan selesai & SHA-256 lolos; layar (foreground) akan memicu pemasangan. */
-    val siapPasang: String? = null
+    val siapPasang: String? = null,
+    val otomatisPasang: Boolean = false,
+    val siapVersiCode: Int? = null,
+    val siapHash: String? = null
 )
 
 /**
@@ -46,7 +52,6 @@ class UpdateViewModel @Inject constructor(
     val state: StateFlow<UpdateState> = _state.asStateFlow()
 
     private var installer: ApkInstaller? = null
-    private var receiver: BroadcastReceiver? = null
     private var lastCheckAt = 0L
 
     init {
@@ -77,8 +82,20 @@ class UpdateViewModel @Inject constructor(
             }
             when (hasil) {
                 is Result.Success -> {
-                    _state.value = _state.value.copy(info = hasil.data, sedangCek = false)
+                    val changed = _state.value.info?.let {
+                        it.latestVersionCode != hasil.data.latestVersionCode || it.apkSha256 != hasil.data.apkSha256
+                    } ?: false
+                    _state.value = _state.value.copy(
+                        info = hasil.data, sedangCek = false,
+                        siapPasang = if (changed) null else _state.value.siapPasang,
+                        otomatisPasang = if (changed) false else _state.value.otomatisPasang,
+                        siapVersiCode = if (changed) null else _state.value.siapVersiCode,
+                        siapHash = if (changed) null else _state.value.siapHash
+                    )
                     val vc = hasil.data
+                    val inst = installer ?: ApkInstaller(appContext).also { installer = it }
+                    if (vc.updateAvailable && inst.adaUnduhan(vc.latestVersion.orEmpty()) &&
+                        !_state.value.sedangUnduh && _state.value.siapPasang == null) unduhDanPasang()
                     if (vc.updateAvailable) {
                         notificationRepository.capture(
                             AppNotification(
@@ -97,7 +114,7 @@ class UpdateViewModel @Inject constructor(
         }
     }
 
-    /** Pintu darurat yang tak mungkin gagal: buka halaman unduh di browser. */
+    /** Jalur alternatif bila pemasangan dalam aplikasi tidak tersedia pada ROM perangkat. */
     fun unduhViaBrowser() {
         val url = _state.value.info?.apkUrl ?: "https://esimko.com/apk"
         try {
@@ -105,72 +122,84 @@ class UpdateViewModel @Inject constructor(
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             appContext.startActivity(i)
         } catch (_: Exception) {
+            _state.value = _state.value.copy(error = "Browser tidak tersedia. Buka https://esimko.com/apk di browser perangkat.")
         }
     }
 
     fun unduhDanPasang() {
+        if (_state.value.sedangUnduh) return
+        if (_state.value.siapPasang != null) {
+            _state.value = _state.value.copy(otomatisPasang = true, error = null)
+            return
+        }
         val info = _state.value.info ?: return
         val inst = installer ?: ApkInstaller(appContext).also { installer = it }
         val url = info.apkUrl
-        if (url.isNullOrBlank()) {
-            _state.value = _state.value.copy(error = "Paket pembaruan belum tersedia — unduh manual di esimko.com/apk")
+        if (url.isNullOrBlank() || !url.startsWith("https://")) {
+            _state.value = _state.value.copy(error = "URL pembaruan aman belum tersedia")
             return
         }
-        try {
-            if (!inst.bisaMintaInstall()) {
-                _state.value = _state.value.copy(mintaIzin = true)
-                return
-            }
-        } catch (_: Exception) {
-            // perangkat OEM aneh: anggap boleh, biarkan installer yang menolak nanti.
+        if (!inst.bisaMintaInstall()) {
+            _state.value = _state.value.copy(mintaIzin = true)
+            return
         }
         _state.value = _state.value.copy(
-            sedangUnduh = true,
-            mintaIzin = false,
-            error = null,
+            sedangUnduh = true, mintaIzin = false, error = null,
             tahap = "Mengunduh pembaruan — progres ada di notifikasi."
         )
-        receiver?.let { r -> try { appContext.unregisterReceiver(r) } catch (_: Exception) {} }
-        try {
-            receiver = inst.unduh(url, info.latestVersion ?: "baru") { path ->
-                viewModelScope.launch {
-                    if (path == null) {
-                        _state.value = _state.value.copy(sedangUnduh = false, tahap = null, error = "Unduhan gagal — coba lagi, atau gunakan Unduh via Browser")
-                        return@launch
-                    }
-                    _state.value = _state.value.copy(tahap = "Memverifikasi berkas…")
-                    val hash = inst.sha256(path)
-                    val diharapkan = info.apkSha256
-                    val hashValid = diharapkan.isNullOrBlank() || (hash != null && hash.equals(diharapkan, ignoreCase = true))
-                    if (!hashValid) {
-                        _state.value = _state.value.copy(sedangUnduh = false, tahap = null, error = "Berkas rusak (verifikasi gagal) — coba lagi, atau Unduh via Browser")
-                        return@launch
-                    }
-                    // Jangan buka installer langsung dari receiver: Android 10+ memblokir
-                    // peluncuran activity dari broadcast background. Simpan path; UpdateGate
-                    // (foreground) yang memanggil pasangSiap() lewat LaunchedEffect.
-                    _state.value = _state.value.copy(
-                        sedangUnduh = false,
-                        tahap = null,
-                        siapPasang = path
-                    )
+        viewModelScope.launch {
+            try {
+                val path = inst.unduh(url, info.latestVersion.orEmpty())
+                    ?: error("Unduhan gagal — coba lagi atau gunakan browser")
+                _state.value = _state.value.copy(tahap = "Memverifikasi berkas…")
+                val valid = withContext(Dispatchers.IO) {
+                    validUpdateHash(inst.sha256(path), info.apkSha256) &&
+                        inst.paketValid(path, info.latestVersion, info.latestVersionCode)
                 }
+                if (!valid) {
+                    inst.hapusUnduhan()
+                    error("APK tidak sesuai hash/versi rilis. Coba lagi atau gunakan browser.")
+                }
+                val current = _state.value.info
+                if (current?.latestVersionCode != info.latestVersionCode || current.apkSha256 != info.apkSha256) {
+                    inst.hapusUnduhan()
+                    error("Rilis berubah saat mengunduh. Tekan Perbarui untuk versi terbaru.")
+                }
+                _state.value = _state.value.copy(
+                    sedangUnduh = false, tahap = "Unduhan siap. Konfirmasikan pemasangan di Android.",
+                    siapPasang = path, otomatisPasang = true,
+                    siapVersiCode = info.latestVersionCode, siapHash = info.apkSha256
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                try { inst.hapusUnduhan() } catch (_: Exception) { }
+                _state.value = _state.value.copy(
+                    sedangUnduh = false, tahap = null,
+                    error = e.message ?: "Pembaruan gagal — gunakan Unduh via Browser"
+                )
             }
-        } catch (e: Exception) {
-            // DownloadManager bermasalah (OEM) — jangan crash, arahkan ke browser.
-            _state.value = _state.value.copy(sedangUnduh = false, tahap = null, error = "Unduhan gagal dimulai (${e.javaClass.simpleName}) — gunakan Unduh via Browser")
         }
     }
 
-    /** Dipanggil dari layar (foreground) setelah unduh + verifikasi selesai. */
-    fun pasangSiap() {
+    /** Path tetap disimpan bila installer dibatalkan: tombol Pasang dapat dicoba lagi. */
+    fun pasangSiap(foregroundContext: Context) {
         val path = _state.value.siapPasang ?: return
-        _state.value = _state.value.copy(siapPasang = null)
-        val inst = installer ?: ApkInstaller(appContext).also { installer = it }
-        val ok = inst.pasang(path)
-        if (!ok) {
-            _state.value = _state.value.copy(error = "Tidak bisa membuka installer — gunakan Unduh via Browser")
+        val info = _state.value.info
+        if (info?.latestVersionCode != _state.value.siapVersiCode || info?.apkSha256 != _state.value.siapHash) {
+            _state.value = _state.value.copy(siapPasang = null, otomatisPasang = false, error = "Rilis berubah. Unduh versi terbaru.")
+            return
         }
+        val inst = installer ?: ApkInstaller(appContext).also { installer = it }
+        _state.value = _state.value.copy(otomatisPasang = false)
+        if (!inst.bisaMintaInstall()) {
+            _state.value = _state.value.copy(mintaIzin = true)
+            return
+        }
+        val ok = inst.pasang(path, foregroundContext)
+        _state.value = _state.value.copy(
+            error = if (ok) null else "Tidak bisa membuka installer — gunakan Unduh via Browser"
+        )
     }
 
     fun bukaIzinInstall() {
@@ -186,8 +215,4 @@ class UpdateViewModel @Inject constructor(
         _state.value = _state.value.copy(error = null)
     }
 
-    override fun onCleared() {
-        receiver?.let { r -> try { appContext.unregisterReceiver(r) } catch (_: Exception) {} }
-        super.onCleared()
-    }
 }

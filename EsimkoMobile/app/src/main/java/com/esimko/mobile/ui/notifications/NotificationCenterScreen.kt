@@ -3,6 +3,11 @@ package com.esimko.mobile.ui.notifications
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.ui.graphics.luminance
+import com.esimko.mobile.ui.common.StatusBarAppearance
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,7 +55,9 @@ fun NotificationCenterScreen(
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val unread by viewModel.unread.collectAsStateWithLifecycle()
 
+    StatusBarAppearance(darkIcons = MaterialTheme.colorScheme.surface.luminance() > 0.5f)
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             TopAppBar(
                 title = { Text("Notifikasi") },
@@ -71,11 +78,11 @@ fun NotificationCenterScreen(
             EmptyStateView(
                 message = "Belum ada notifikasi.",
                 icon = Icons.Outlined.Notifications,
-                modifier = Modifier.fillMaxSize().padding(padding)
+                modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             )
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
             ) {
                 items(notifications, key = { it.id }) { notification ->

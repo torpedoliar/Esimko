@@ -13,6 +13,8 @@ import com.esimko.mobile.util.StatusMeta
 import com.esimko.mobile.util.MoneyFormatter
 import kotlin.math.abs
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -36,34 +38,36 @@ class DashboardViewModel @Inject constructor(
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state
 
+    private var loadJob: Job? = null
+
     init {
-        load()
-        // Profil sudah ter-cache di repository (memori/disk). Saat refresh latar selesai,
-        // hero Beranda ikut ter-update tanpa perlu membuka layar Akun.
-        viewModelScope.launch {
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             profileRepository.profile.collect { p ->
-                if (p != null) {
-                    _state.value = _state.value.copy(profile = p, isLoading = false, error = null)
-                }
+                if (p != null) _state.value = _state.value.copy(profile = p)
+                else if (_state.value.profile != null) _state.value = DashboardState(isLoading = true)
             }
         }
+        load(forceRefresh = false)
     }
 
-    fun load() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            when (val result = profileRepository.getProfile()) {
-                is Result.Success -> _state.value = _state.value.copy(
-                    profile = result.data,
-                    isLoading = false
-                )
-                is Result.Error -> _state.value = _state.value.copy(
-                    isLoading = false,
-                    error = result.message
-                )
+    fun load() = load(forceRefresh = true)
+
+    private fun load(forceRefresh: Boolean) {
+        if (loadJob?.isActive == true) return
+        loadJob = viewModelScope.launch {
+            // Hide the financial snapshot until this refresh is verified.
+            _state.value = DashboardState(isLoading = true)
+            when (val result = profileRepository.getProfile(forceRefresh)) {
+                is Result.Success -> {
+                    val current = profileRepository.profile.value
+                    _state.value = if (current != null && current == result.data)
+                        DashboardState(profile = current)
+                    else DashboardState(error = "Sesi berakhir. Silakan masuk kembali.")
+                    if (_state.value.profile != null) loadPending()
+                }
+                is Result.Error -> _state.value = DashboardState(error = result.message)
                 is Result.Loading -> Unit
             }
-            loadPending()
         }
     }
 
@@ -76,7 +80,9 @@ class DashboardViewModel @Inject constructor(
      * kalau itu pernah terjadi.
      */
     private suspend fun loadPending() {
+        val expectedProfile = profileRepository.profile.value ?: return
         val result = transactionRepository.getTransactions("transaksi", page = 1, perPage = 20)
+        if (profileRepository.profile.value !== expectedProfile) return
         if (result is Result.Success) {
             _state.value = _state.value.copy(
                 pendingCount = result.data.items.count { !StatusMeta.isFinal(it.status) }

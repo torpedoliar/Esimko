@@ -144,10 +144,7 @@ fun ProfileScreen(
                     onLogout()
                 }
             )
-            is UiState.Idle -> {
-                CooperativeLoading(message = "Memuat akun Anda…")
-                LaunchedEffect(Unit) { viewModel.loadProfile() }
-            }
+            is UiState.Idle -> CooperativeLoading(message = "Memuat akun Anda…")
         }
 
         if (showPasswordDialog) {

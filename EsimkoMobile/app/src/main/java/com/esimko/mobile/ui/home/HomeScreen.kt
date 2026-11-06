@@ -1,8 +1,15 @@
 package com.esimko.mobile.ui.home
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.luminance
+import com.esimko.mobile.ui.common.StatusBarAppearance
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
@@ -61,6 +68,7 @@ fun HomeScreen(
     val tabs = Tab.values().filter { it != Tab.BELANJA || BuildConfig.ENABLE_BELANJA }
     val keyboardVisible = WindowInsets.isImeVisible
 
+    StatusBarAppearance(darkIcons = MaterialTheme.colorScheme.background.luminance() > 0.5f)
     Scaffold(
         bottomBar = {
             if (!keyboardVisible) NavigationBar {
@@ -94,6 +102,9 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // Satu pemilik inset untuk banner + semua tab; child otomatis mengonsumsi
+                // sisa inset nol, sehingga hero/Akun tidak menambah ruang status bar dua kali.
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .padding(bottom = padding.calculateBottomPadding())
                 .consumeWindowInsets(androidx.compose.foundation.layout.PaddingValues(bottom = padding.calculateBottomPadding()))
         ) {

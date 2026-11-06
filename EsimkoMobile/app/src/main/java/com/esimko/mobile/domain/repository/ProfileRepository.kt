@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import okhttp3.MultipartBody
 
 interface ProfileRepository {
-    /** Profil ter-cache yang ikut ter-update saat refresh latar selesai. */
+    /** Session-bound memory snapshot; null on invalidation or unverified refresh. */
     val profile: StateFlow<Profile?>
 
     suspend fun getProfile(forceRefresh: Boolean = false): Result<Profile>

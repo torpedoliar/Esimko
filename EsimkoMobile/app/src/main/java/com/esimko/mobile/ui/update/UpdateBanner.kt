@@ -1,7 +1,9 @@
 package com.esimko.mobile.ui.update
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -15,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
  * versi baru yang TIDAK wajib. Bisa ditutup (muncul lagi next launch / versi baru).
  * Pembaruan wajib tetap lewat dialog pengunci di UpdateGate.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun UpdateBanner() {
     // hiltViewModel() di dalam NavHost terikat ke NavBackStackEntry → beda instance
@@ -65,9 +67,9 @@ fun UpdateBanner() {
                     )
                 }
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = viewModel::unduhDanPasang) {
-                        Text("Perbarui")
+                        Text(if (state.siapPasang != null) "Pasang Pembaruan" else "Perbarui")
                     }
                     TextButton(onClick = { ditutup = true }) { Text("Nanti") }
                 }
