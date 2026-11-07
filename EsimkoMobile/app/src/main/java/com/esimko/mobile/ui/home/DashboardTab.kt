@@ -110,7 +110,7 @@ fun DashboardTab(
     var expanded by remember { mutableStateOf(false) }
     val actions = remember(onNavigate) {
         listOf(
-            ActionItem("Setor Hari Raya", Icons.Outlined.Savings, onClick = { onNavigate("savings_form/setoran") }),
+            ActionItem("Setor Sukarela", Icons.Outlined.Savings, onClick = { onNavigate("savings_form/setoran") }),
             ActionItem("Tarik Sukarela", Icons.Outlined.MoveDown, onClick = { onNavigate("savings_form/penarikan") }),
             ActionItem("Pinjaman", Icons.Outlined.RequestQuote, onClick = { onNavigate("installment/apply?pengajuanId=-1") }),
             ActionItem("Angsuran", Icons.Outlined.EventRepeat, onClick = { onNavigate("installment") }),

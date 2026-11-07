@@ -95,7 +95,7 @@ fun SavingsTab(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Setoran Hari Raya")
+                        Text("Setoran Sukarela")
                     }
                     FilledTonalButton(
                         onClick = { onOpenForm("penarikan") },

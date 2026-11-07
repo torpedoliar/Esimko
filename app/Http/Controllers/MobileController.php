@@ -544,7 +544,9 @@ class MobileController extends Controller
         $field->tanggal = date('Y-m-d');
         $field->fid_metode_transaksi = 1; // cash / tunai
         if ($jenis == 'setoran') {
-          $field->fid_jenis_transaksi = 4;
+          // Anggota menyetor sendiri dari aplikasi → Simpanan Sukarela (tipe 3).
+          // Simpanan Hari Raya (tipe 4) diproses petugas dari web, bukan dari mobile.
+          $field->fid_jenis_transaksi = 3;
           $field->nominal = str_replace('.', '', $request->nominal);
           $field->tenor = null;
         } elseif ($jenis == 'penarikan') {
