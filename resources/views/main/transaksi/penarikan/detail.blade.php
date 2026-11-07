@@ -51,8 +51,8 @@ Penarikan |
         <div class="card-body">
           <div class="center mb-5">
             <img src="{{asset('assets/images/'.$data['penarikan']->icon)}}" style="width:80px">
-            <h4 class="mt-3">{{$data['keterangan']->label}}</h4>
-            <p>{{$data['keterangan']->keterangan}}</p>
+            <h4 class="mt-3">{{$data['keterangan']->label ?? '-'}}</h4>
+            <p>{{$data['keterangan']->keterangan ?? ''}}</p>
           </div>
           <h5 class="mb-3">Informasi Transaksi</h5>
           <table class="table table-informasi">

@@ -27,8 +27,8 @@ Pinjaman |
         <div class="card-body">
           <div class="center mb-3">
             <img src="{{asset('assets/images/'.$data['pinjaman']->icon)}}" style="width:80px">
-            <h4 class="mt-3">{{$data['keterangan']->label}}</h4>
-            <p>{{$data['keterangan']->keterangan}}</p>
+            <h4 class="mt-3">{{$data['keterangan']->label ?? '-'}}</h4>
+            <p>{{$data['keterangan']->keterangan ?? ''}}</p>
           </div>
         </div>
         <div class="card-header" style="background:#eaecef">

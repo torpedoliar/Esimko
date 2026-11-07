@@ -139,7 +139,7 @@
     <div class="media">
       <img src="{{asset('assets/images/'.$data['detail-periode']->icon)}}" class="align-self-center" style="width:90px;margin-right:20px">
       <div class="media-body align-self-center">
-        <h5 class="mb-2">{{$data['keterangan']->label}}</h5>
+        <h5 class="mb-2">{{$data['keterangan']->label ?? '-'}}</h5>
         @if($data['detail-periode']->fid_status==1 )
         <p class="mb-2">Harap segera melakukan verifikasi pada proses penarikan simpanan hari raya ini.</p>
         <button class="btn btn-danger" onclick="confirm_verifikasi(2)">Ditolak</button>

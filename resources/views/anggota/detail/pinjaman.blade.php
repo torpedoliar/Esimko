@@ -6,8 +6,8 @@
         @if(!empty($data['keterangan']))
         <div class="center mb-5">
           <img src="{{asset('assets/images/'.$data['detail-transaksi']->icon)}}" style="width:80px">
-          <h4 class="mt-3">{{$data['keterangan']->label}}</h4>
-          <p>{{$data['keterangan']->keterangan}}</p>
+          <h4 class="mt-3">{{$data['keterangan']->label ?? '-'}}</h4>
+          <p>{{$data['keterangan']->keterangan ?? ''}}</p>
         </div>
         @else
           <div class="center mb-5">
