@@ -6,13 +6,38 @@ import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.esimko.mobile.data.local.FcmTokenStore
+import com.esimko.mobile.domain.repository.DeviceRepository
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class FcmMessagingService : FirebaseMessagingService() {
 
+    @Inject
+    lateinit var deviceRepository: DeviceRepository
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * PENTING: token yang dibuat/diperbarui FCM harus DIKIRIM ke server, bukan hanya
+     * disimpan lokal. Sebelumnya hanya disimpan lokal, sehingga perangkat baru
+     * (mis. tablet yang baru login) tidak pernah terdaftar dan tidak menerima notifikasi.
+     */
     override fun onNewToken(token: String) {
         FcmTokenStore.save(this, token)
+        scope.launch { deviceRepository.registerToken(token) }
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

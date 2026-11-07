@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
@@ -32,6 +33,8 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var deviceRepository: DeviceRepository
+
+    private var lastRegisteredToken: String? = null
 
     private val requestNotifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -69,6 +72,19 @@ class MainActivity : ComponentActivity() {
                     if (loggedIn) daftarkanToken()
                 }
 
+                // Cadangan: kalau token FCM baru tersedia SETELAH login (perangkat baru
+                // sering begini), daftarkan lagi saat aplikasi kembali ke depan.
+                val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner, loggedIn) {
+                    val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                        if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && loggedIn) {
+                            daftarkanToken()
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+
                 UpdateGate {
                     EsimkoNavHost(
                         navController = navController,
@@ -93,7 +109,11 @@ class MainActivity : ComponentActivity() {
             val token = if (task.isSuccessful) task.result else FcmTokenStore.get(applicationContext)
             token?.let { t ->
                 FcmTokenStore.save(applicationContext, t)
-                lifecycleScope.launch { deviceRepository.registerToken(t) }
+                // Kirim ulang hanya bila tokennya berbeda — hindari POST berulang tiap resume.
+                if (t != lastRegisteredToken) {
+                    lastRegisteredToken = t
+                    lifecycleScope.launch { deviceRepository.registerToken(t) }
+                }
             }
         }
     }
