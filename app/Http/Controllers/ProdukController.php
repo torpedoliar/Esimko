@@ -336,7 +336,7 @@ class ProdukController extends Controller
                 unlink(storage_path('app/'.$field->foto));
             }
             $uploadedFile = $request->file('foto');
-            $path = $uploadedFile->store('foto_produk');
+            $path = $uploadedFile->store('foto_produk', 'public');
             $field->foto=$path;
         }
         $field->fid_produk=$id;

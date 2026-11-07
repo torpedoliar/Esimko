@@ -11,13 +11,13 @@ Route::get('storage/{path?}', function ($path = null){
     $path = str_replace('\\', '/', (string) $path);
     $path = ltrim(preg_replace('#/+#', '/', $path), '/');
     $lower = strtolower($path);
-    $dilindungi = ['dokumen_pengajuan/', 'slip_gaji/'];
+    $dilindungi = ['dokumen_pengajuan/', 'slip_gaji/', 'bukti_transaksi/'];
     $dotSegment = preg_match('#(^|/)\.\.?(/|$)#', $path);
     // Windows mengabaikan titik/spasi di akhir nama dan mendukung ADS (`:`);
     // segmen semacam itu bisa menjadi alias ke folder terlindungi.
     foreach (explode('/', $path) as $seg) {
         if ($seg === '' || $seg !== rtrim($seg, " .") || strpos($seg, ':') !== false
-            || in_array(strtolower(rtrim($seg, " .")), ['slip_gaji', 'dokumen_pengajuan'], true)) {
+            || in_array(strtolower(rtrim($seg, " .")), ['slip_gaji', 'dokumen_pengajuan', 'bukti_transaksi'], true)) {
             $dotSegment = true;
         }
     }
@@ -32,7 +32,7 @@ Route::get('storage/{path?}', function ($path = null){
     }
     // Alias Windows (nama pendek 8.3, huruf besar, dll.) diselesaikan realpath:
     // tolak jika file hasil resolve berada di folder data pribadi.
-    foreach (['slip_gaji', 'dokumen_pengajuan'] as $protectedDir) {
+    foreach (['slip_gaji', 'dokumen_pengajuan', 'bukti_transaksi'] as $protectedDir) {
         $dirReal = realpath(storage_path('app/' . $protectedDir));
         if ($dirReal && \Illuminate\Support\Str::startsWith(strtolower($norm($full)), strtolower(rtrim($norm($dirReal), '/') . '/'))) {
             abort(404);

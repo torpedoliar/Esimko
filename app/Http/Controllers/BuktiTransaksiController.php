@@ -40,10 +40,6 @@ class BuktiTransaksiController extends Controller
         $user = Session::get('useractive');
         abort_unless($row && $user && !empty($row->bukti_transaksi), 404);
 
-        $root = realpath(storage_path('app'));
-        $real = realpath(storage_path('app/' . $row->bukti_transaksi));
-        abort_unless($root && $real && is_file($real) && strpos($real, $root . DIRECTORY_SEPARATOR) === 0, 404);
-
         if ((int) $user->hak_akses === 2) {
             abort_unless((string) $user->no_anggota === (string) $row->fid_anggota, 404);
         } else {
@@ -52,6 +48,24 @@ class BuktiTransaksiController extends Controller
                 ->where('fid_hak_akses', $user->hak_akses)->where('fid_modul', $module)->first();
             abort_unless($permission && $permission->is_view === 'Y', 404);
         }
+        return $this->streamLampiran($row->bukti_transaksi);
+    }
+
+    /** Lampiran yang sama untuk aplikasi mobile (autentikasi token, hanya pemilik). */
+    public function lampiranMobile(Request $request, $id)
+    {
+        $row = DB::table('transaksi')->where('id', $id)->first();
+        abort_unless($row && !empty($row->bukti_transaksi), 404);
+        abort_unless((string) $request->no_anggota === (string) $row->fid_anggota, 404);
+        return $this->streamLampiran($row->bukti_transaksi);
+    }
+
+    /** Aliran berkas lampiran dari penyimpanan privat (tanpa membuffer ke memori). */
+    private function streamLampiran($relative)
+    {
+        $root = realpath(storage_path('app'));
+        $real = realpath(storage_path('app/' . $relative));
+        abort_unless($root && $real && is_file($real) && strpos($real, $root . DIRECTORY_SEPARATOR) === 0, 404);
         $mime = mime_content_type($real) ?: 'application/octet-stream';
         return response()->stream(function () use ($real) {
             $out = fopen('php://output', 'wb');

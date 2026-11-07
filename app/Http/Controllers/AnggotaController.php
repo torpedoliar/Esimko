@@ -153,7 +153,7 @@ class AnggotaController extends Controller
           unlink(storage_path('app/'.$field->avatar));
         }
         $uploadedFile = $request->file('avatar');
-        $path = $uploadedFile->store('avatar');
+        $path = $uploadedFile->store('avatar', 'public');
         $field->avatar=$path;
       }
 

@@ -339,7 +339,7 @@ class MasterController extends Controller
           unlink(storage_path('app/'.$field->logo));
         }
         $uploadedFile = $request->file('logo');
-        $path = $uploadedFile->store('logo');
+        $path = $uploadedFile->store('logo', 'public');
         $field->logo=$path;
       }
 
@@ -454,7 +454,7 @@ class MasterController extends Controller
           unlink(storage_path('app/'.$field->gambar));
         }
         $uploadedFile = $request->file('gambar');
-        $path = $uploadedFile->store('berita');
+        $path = $uploadedFile->store('berita', 'public');
         $field->gambar=$path;
       }
       if($request->action=='delete'){
@@ -491,7 +491,7 @@ class MasterController extends Controller
           unlink(storage_path('app/'.$field->attachment));
         }
         $uploadedFile = $request->file('attachment');
-        $path = $uploadedFile->store('attachment_berita');
+        $path = $uploadedFile->store('attachment_berita', 'public');
         $field->attachment=$path;
       }
       if($request->action=='delete'){

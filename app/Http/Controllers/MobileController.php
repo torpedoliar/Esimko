@@ -1617,7 +1617,7 @@ class MobileController extends Controller
                   }
               }
               $uploadedFile = $request->file('avatar');
-              $path = $uploadedFile->store('avatar');
+              $path = $uploadedFile->store('avatar', 'public');
               $field->avatar = $path;
               $field->save();
               return ApiResponse::success(null, 'success');
