@@ -2,6 +2,7 @@ package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.data.remote.api.ReceiptApi
+import com.esimko.mobile.util.readBounded
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -88,6 +89,23 @@ class ReceiptRepository @Inject constructor(
         }
     }
 
+    /** Lampiran bukti unggahan anggota: ambil byte dengan klien ber-token, batas ukuran aman. */
+    suspend fun loadLampiran(id: Long): ByteArray = withContext(Dispatchers.IO) {
+        require(id > 0)
+        synchronized(tokenStore) { check(!tokenStore.token.isNullOrBlank()) { "Sesi berakhir. Silakan masuk kembali." } }
+        val response = api.lampiran(id)
+        if (!response.isSuccessful) {
+            response.errorBody()?.close()
+            error(when (response.code()) {
+                401 -> "Sesi berakhir. Silakan masuk kembali."
+                403, 404 -> "Lampiran tidak tersedia atau bukan milik akun ini."
+                else -> "Gagal memuat lampiran. Coba lagi."
+            })
+        }
+        val body = response.body() ?: error("Lampiran kosong.")
+        body.use { it.source().inputStream().readBounded(MAX_LAMPIRAN_BYTES) }
+    }
+
     private fun checkOwner(owner: Long) {
         synchronized(tokenStore) {
             check(tokenStore.token != null && tokenStore.sessionRevision == owner) {
@@ -98,6 +116,7 @@ class ReceiptRepository @Inject constructor(
 }
 
 internal const val MAX_RECEIPT_BYTES = 10L * 1024 * 1024
+internal const val MAX_LAMPIRAN_BYTES = 8 * 1024 * 1024
 
 /** Validate without buffering the whole response or trusting Content-Length. */
 internal suspend fun copyValidatedPdf(body: ResponseBody, target: File) {

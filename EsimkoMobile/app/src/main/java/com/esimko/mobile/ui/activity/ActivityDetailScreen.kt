@@ -1,5 +1,7 @@
 package com.esimko.mobile.ui.activity
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,14 +30,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.esimko.mobile.domain.model.TransactionDetail
 import com.esimko.mobile.domain.model.TransactionHistory
@@ -51,6 +59,50 @@ import com.esimko.mobile.ui.common.StatusChip
 import com.esimko.mobile.ui.theme.MoneyHero
 import com.esimko.mobile.util.ActivityGrouping
 import com.esimko.mobile.util.MoneyFormatter
+import com.esimko.mobile.util.decodeSampled
+
+/** Tampilkan lampiran bukti unggahan anggota lewat endpoint ber-token (server membatasi akses). */
+@Composable
+private fun BuktiLampiranImage(
+    transactionId: Long,
+    viewModel: BuktiLampiranViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(transactionId) { viewModel.load(transactionId) }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .aspectRatio(4f / 3f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        when (val s = state) {
+            is LampiranState.Loading -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            is LampiranState.Error -> Text(
+                text = s.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(12.dp)
+            )
+            is LampiranState.Success -> {
+                val bitmap = remember(s.bytes) { s.bytes.decodeSampled() }
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "Bukti transaksi",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text("Lampiran tidak dapat ditampilkan.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -241,22 +293,12 @@ private fun DetailContent(
             }
         }
 
-        // Bukti transaksi (hanya transaksi).
+        // Bukti transaksi (hanya transaksi): diunduh lewat endpoint ber-token, bukan URL publik
+        // (jalur /storage untuk lampiran kini dibatasi aksesnya di server).
         val bukti = transaksi?.buktiTransaksi
-        if (!bukti.isNullOrBlank()) {
+        if (!bukti.isNullOrBlank() && transaksi != null) {
             item(key = "bukti-header") { SectionHeader(title = "Bukti Transaksi") }
-            item(key = "bukti-image") {
-                AsyncImage(
-                    model = bukti,
-                    contentDescription = "Bukti transaksi",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .aspectRatio(4f / 3f)
-                        .clip(RoundedCornerShape(8.dp))
-                )
-            }
+            item(key = "bukti-image") { BuktiLampiranImage(transactionId = transaksi.id) }
         }
 
         // Timeline.

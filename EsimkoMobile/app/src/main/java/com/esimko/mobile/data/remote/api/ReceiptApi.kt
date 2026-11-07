@@ -10,4 +10,9 @@ interface ReceiptApi {
     @Streaming
     @GET("mobile/bukti/{jenis}/{id}")
     suspend fun download(@Path("jenis") jenis: String, @Path("id") id: Long): Response<ResponseBody>
+
+    /** Lampiran bukti yang diunggah anggota (foto transfer) — dialirkan dengan token login. */
+    @Streaming
+    @GET("mobile/bukti/lampiran/{id}")
+    suspend fun lampiran(@Path("id") id: Long): Response<ResponseBody>
 }
