@@ -114,6 +114,15 @@ class BuktiTransaksiTest extends TestCase
         $this->assertStringContainsString(config('koperasi.logo'), $page->getContent());
     }
 
+    public function test_web_print_returns_inline_pdf()
+    {
+        $this->withSession(['useractive' => (object) ['no_anggota' => 'A', 'hak_akses' => 2]])
+            ->get('/receipt-web/transaksi/1?inline=1')
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'inline; filename="bukti-transaksi-1.pdf"');
+    }
+
     public function test_verification_masks_personal_data_and_detects_tampering_and_changes()
     {
         $data=BuktiTransaksi::load('transaksi',1);

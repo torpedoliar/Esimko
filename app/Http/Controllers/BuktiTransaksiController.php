@@ -23,6 +23,9 @@ class BuktiTransaksiController extends Controller
             $permission = DB::table('otoritas_user')->where('fid_hak_akses', $user->hak_akses)->where('fid_modul', $bukti['module'])->first();
             abort_unless($permission && $permission->is_view === 'Y' && $permission->is_print === 'Y', 404);
         }
+        if ($request->query('inline') === '1') {
+            return $this->download($bukti, true);
+        }
         return $this->download($bukti);
     }
 
@@ -33,11 +36,11 @@ class BuktiTransaksiController extends Controller
         return $this->download($bukti);
     }
 
-    private function download(array $bukti)
+    private function download(array $bukti, $inline = false)
     {
         return response(BuktiTransaksi::pdf($bukti), 200, $this->headers() + [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="bukti-' . $bukti['jenis'] . '-' . $bukti['id'] . '.pdf"',
+            'Content-Disposition' => ($inline ? 'inline' : 'attachment') . '; filename="bukti-' . $bukti['jenis'] . '-' . $bukti['id'] . '.pdf"',
         ]);
     }
 

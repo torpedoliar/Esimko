@@ -17,4 +17,7 @@
   <a href="{{ url('bukti-transaksi/'.$jenis.'/'.$id) }}" class="btn btn-success" target="_blank" rel="noopener">
     <i class="bx bx-download"></i> {{ $__label }}
   </a>
+  <a href="{{ url('bukti-transaksi/'.$jenis.'/'.$id.'?inline=1') }}" class="btn btn-secondary" target="_blank" rel="noopener">
+    <i class="bx bx-printer"></i> Cetak
+  </a>
 @endif
