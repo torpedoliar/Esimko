@@ -25,8 +25,8 @@ class SimpananController extends Controller
         $query=Transaksi::select('transaksi.*','anggota.no_anggota','anggota.nama_lengkap','rekening_pembayaran.keterangan as metode_transaksi','anggota.avatar','status_transaksi.status','status_transaksi.color')
             ->join('anggota','anggota.no_anggota','=','transaksi.fid_anggota')
             ->join('status_transaksi','status_transaksi.id','=','transaksi.fid_status')
-            ->join('rekening_pembayaran','rekening_pembayaran.id','=','transaksi.fid_metode_transaksi');
-//            ->where('transaksi.fid_jenis_transaksi','4');
+            ->join('rekening_pembayaran','rekening_pembayaran.id','=','transaksi.fid_metode_transaksi')
+            ->whereIn('transaksi.fid_jenis_transaksi',[1,2,3,4,5,6,7,8]);
         if(!empty($search)){
             $query=$query->where(function ($i) use ($search) {
                 $i->where('anggota.nama_lengkap', 'like', "%{$search}%")
@@ -110,15 +110,17 @@ class SimpananController extends Controller
                 ->join('status_transaksi','status_transaksi.id','=','transaksi.fid_status')
                 ->join('rekening_pembayaran','rekening_pembayaran.id','=','transaksi.fid_metode_transaksi')
                 ->join('jenis_transaksi','jenis_transaksi.id','=','transaksi.fid_jenis_transaksi')
-                ->where('transaksi.fid_jenis_transaksi','4')
+                ->whereIn('transaksi.fid_jenis_transaksi',[1,2,3,4,5,6,7,8])
                 ->where('transaksi.id',$request->id)
                 ->first();
             if(!empty($simpanan)){
                 $anggota=Anggota::where('no_anggota',$simpanan->created_by)->first();
                 $simpanan->nama_petugas=(!empty($anggota) ? $anggota->nama_lengkap : 'Tidak Diketahui');
                 $data['simpanan']=$simpanan;
+                // Label status mengikuti kelompok transaksi (penarikan 6-8, sisanya setoran/bunga).
+                $jenisKeterangan=in_array((int)$simpanan->fid_jenis_transaksi,array(6,7,8)) ? 'penarikan' : 'simpanan';
                 $data['keterangan']=DB::table('keterangan_status_transaksi')
-                    ->where('jenis_transaksi','penarikan')
+                    ->where('jenis_transaksi',$jenisKeterangan)
                     ->where('fid_status',$simpanan->fid_status)
                     ->where('user_page','admin')
                     ->first();
@@ -128,7 +130,10 @@ class SimpananController extends Controller
                     ->with('id',$request->id);
             }
             else{
-                return Redirect::back();
+                // Jangan Redirect::back(): referer bisa menunjuk halaman detail itu sendiri
+                // (terlihat "loading tak kemana"). Arahkan eksplisit ke daftar.
+                return redirect('simpanan/sukarela')
+                    ->with('message','Transaksi tidak ditemukan')->with('message_type','warning');
             }
         }
     }
