@@ -176,6 +176,17 @@ private fun DetailContent(
             }
         }
 
+        // Availability is exclusively decided by the authenticated detail response.
+        if (transaksi?.buktiTersedia == true) {
+            item(key = "receipt-pdf") {
+                com.esimko.mobile.ui.common.ReceiptDownloadButton("transaksi", transaksi.id, true)
+            }
+        } else if (belanja?.buktiTersedia == true) {
+            item(key = "receipt-pdf") {
+                com.esimko.mobile.ui.common.ReceiptDownloadButton("penjualan", belanja.id, true)
+            }
+        }
+
         // Rincian.
         item(key = "rincian-header") {
             SectionHeader(title = "Rincian")

@@ -207,6 +207,7 @@
                         </div>
                     </div>
                     <div class="card-footer">
+                        @include('bukti.tombol', ['jenis' => 'penjualan', 'id' => $data['belanja']->id, 'row' => $data['belanja'], 'otoritas' => $data['otoritas']])
                         <a class="btn btn-dark pull-right" href="{{url('pos/belanja/'.$jenis)}}" >Kembali</a>
                         {{-- @if($data['belanja']->fid_status <= 2 )
                         <a class="btn btn-primary"  href="{{url('pos/belanja/'.$jenis.'/form?id='.$id)}}">Ubah Data</a>

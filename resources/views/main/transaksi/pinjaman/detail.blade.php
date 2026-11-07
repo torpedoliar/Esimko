@@ -155,6 +155,7 @@ Pinjaman |
           </div>
         </div>
         <div class="card-footer">
+          @include('bukti.tombol', ['jenis' => 'transaksi', 'id' => $id, 'row' => $data['pinjaman']])
           <a href="{{url('main/pinjaman')}}" class="btn btn-dark pull-right">Kembali</a>
         </div>
       </div>

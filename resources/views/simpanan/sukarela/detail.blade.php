@@ -111,6 +111,7 @@
         </div>
         <div class="card-footer">
           <div class=" pull-right">
+            @include('bukti.tombol', ['jenis' => 'transaksi', 'id' => $data['simpanan']->id, 'row' => $data['simpanan'], 'otoritas' => $data['otoritas']])
             <a class="btn btn-dark" href="{{url('simpanan/sukarela')}}" >Kembali</a>
             @if($data['simpanan']->fid_status <= 2 )
             <a class="btn btn-primary"  href="{{url('simpanan/sukarela/form?id='.$id)}}">Edit Setoran</a>

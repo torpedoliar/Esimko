@@ -430,6 +430,7 @@ class MobileController extends Controller
 
       $anggota = Anggota::where('no_anggota', $data->created_by)->first();
       $data->nama_petugas = (!empty($anggota) ? $anggota->nama_lengkap : 'Tidak Diketahui');
+      $data->bukti_tersedia = \App\Support\BuktiTransaksi::eligible('transaksi', $data);
       return ApiResponse::success($data);
     } else {
       return ApiResponse::error('Data tidak Ditemukan', 404);
@@ -761,7 +762,7 @@ class MobileController extends Controller
 
   public function angsuran_pinjaman(Request $request)
   {
-    $query = Angsuran::select('transaksi.id', 'jenis_transaksi.jenis_transaksi', 'payroll_angsuran.bulan', 'angsuran.angsuran_ke', 'angsuran.angsuran_pokok', 'angsuran.angsuran_bunga', 'status_angsuran.status_angsuran', 'status_angsuran.color')
+    $query = Angsuran::select('transaksi.id', 'angsuran.id as angsuran_id', 'angsuran.fid_status', 'jenis_transaksi.jenis_transaksi', 'payroll_angsuran.bulan', 'angsuran.angsuran_ke', 'angsuran.angsuran_pokok', 'angsuran.angsuran_bunga', 'status_angsuran.status_angsuran', 'status_angsuran.color')
       ->join('transaksi', 'transaksi.id', '=', 'angsuran.fid_transaksi')
       ->join('jenis_transaksi', 'jenis_transaksi.id', '=', 'transaksi.fid_jenis_transaksi')
       ->join('status_angsuran', 'status_angsuran.id', '=', 'angsuran.fid_status')
@@ -789,6 +790,7 @@ class MobileController extends Controller
     $data = $query->get();
     foreach ($data as $key => $value) {
       $data[$key]->nama_bulan = (!empty($request->id) ? null : GlobalHelper::nama_bulan($value->bulan));
+      $data[$key]->bukti_tersedia = \App\Support\BuktiTransaksi::eligible('angsuran', $value);
     }
     return ApiResponse::success($data);
   }
@@ -1382,6 +1384,8 @@ class MobileController extends Controller
       ->join('rekening_pembayaran', 'rekening_pembayaran.id', '=', 'penjualan.fid_metode_pembayaran')
       ->join('status_belanja', 'status_belanja.id', '=', 'penjualan.fid_status')
       ->where('penjualan.id', $request->id)
+      ->where('penjualan.fid_anggota', $request->no_anggota)
+      ->where('penjualan.jenis_belanja', $jenis)
       ->first();
 
     if (!empty($penjualan)) {
@@ -1423,6 +1427,7 @@ class MobileController extends Controller
         $penjualan->label_status = '';
         $penjualan->keterangan_status = '';
       }
+      $penjualan->bukti_tersedia = \App\Support\BuktiTransaksi::eligible('penjualan', $penjualan);
       return ApiResponse::success($penjualan);
     }
     return ApiResponse::error('Belanja tidak ditemukan', 404);
@@ -1514,7 +1519,8 @@ class MobileController extends Controller
     $query = AngsuranBelanja::select('penjualan.id', 'penjualan.no_transaksi', 'penjualan.jenis_belanja', 'penjualan.total_pembayaran', 'payroll_angsuran_belanja.bulan', 'angsuran_belanja.total_angsuran', 'angsuran_belanja.angsuran_ke', 'status_angsuran.status_angsuran', 'status_angsuran.color')
       ->join('penjualan', 'penjualan.id', '=', 'angsuran_belanja.fid_penjualan')
       ->join('status_angsuran', 'status_angsuran.id', '=', 'angsuran_belanja.fid_status')
-      ->leftJoin('payroll_angsuran_belanja', 'payroll_angsuran_belanja.id', '=', 'angsuran_belanja.fid_payroll');
+      ->leftJoin('payroll_angsuran_belanja', 'payroll_angsuran_belanja.id', '=', 'angsuran_belanja.fid_payroll')
+      ->where('penjualan.fid_anggota', $request->no_anggota);
     if (!empty($request->id)) {
       $query = $query->where('penjualan.id', $request->id);
     } else {
@@ -1553,9 +1559,12 @@ class MobileController extends Controller
 
   public function batalkan_belanja(Request $request)
   {
-    $field = Penjualan::find($request->id);
+    $field = Penjualan::where('fid_anggota', $request->no_anggota)->find($request->id);
     if (!empty($field)) {
-      $field->fid_status = ($request->jenis == 'toko' ? 3 : 5);
+      if ((int) $field->fid_status !== 1) {
+        return ApiResponse::error('Hanya transaksi menunggu yang dapat dibatalkan', 422);
+      }
+      $field->fid_status = ($field->jenis_belanja == 'toko' ? 3 : 5);
       $field->save();
       $this->add_riwayat_transaksi('penjualan', $field->id, 'Transaksi dibatalkan oleh', $request->no_anggota);
       return ApiResponse::success(null, 'success');

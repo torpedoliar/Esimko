@@ -214,6 +214,7 @@
     </div>
   </div>
   <div class="card-footer">
+    @include('bukti.tombol', ['jenis' => 'penjualan', 'id' => $data['penjualan']->id, 'row' => $data['penjualan']])
     <div class="pull-right">
       @if($data['penjualan']->fid_status==1)
       <a href="{{url('main/belanja/riwayat/toko')}}" class="btn btn-secondary">Kembali</a>

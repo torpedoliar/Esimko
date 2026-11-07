@@ -106,6 +106,7 @@ data class PurchaseHistoryResponse(
 
 @JsonClass(generateAdapter = true)
 data class PurchaseDetailResponse(
+    @Json(name = "bukti_tersedia") val buktiTersedia: Boolean = false,
     @Json(name = "id") val id: Long,
     @Json(name = "no_transaksi") val noTransaksi: String? = null,
     // SUM/round MySQL bisa datang sebagai desimal → Double, dibulatkan di mapper.

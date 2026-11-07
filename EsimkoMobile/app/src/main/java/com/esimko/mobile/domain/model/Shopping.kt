@@ -78,7 +78,8 @@ data class PurchaseDetail(
     val subtotal: Long = 0L,
     val diskonNominal: Long = 0L,
     val sisaAngsuran: Long = 0L,
-    val sisaTenor: Int = 0
+    val sisaTenor: Int = 0,
+    val buktiTersedia: Boolean = false
 ) {
     /** Yang ditampilkan sebagai status: label dulu, `status` teks hanya cadangan. */
     val statusTampil: String get() = labelStatus.ifBlank { status }

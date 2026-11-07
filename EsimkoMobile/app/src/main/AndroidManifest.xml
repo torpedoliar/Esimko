@@ -7,9 +7,9 @@
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <!-- Self-update: unduh APK (DownloadManager) lalu minta sistem memasangnya. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- Pengambilan foto dokumen pengajuan via kamera. -->
+    <!-- Foto didelegasikan ke aplikasi kamera sistem; tidak mengakses Camera API langsung.
+         Jangan deklarasikan CAMERA tanpa runtime grant: ACTION_IMAGE_CAPTURE dapat ditolak. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-permission android:name="android.permission.CAMERA" />
     <!-- Notifikasi push (Android 13+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

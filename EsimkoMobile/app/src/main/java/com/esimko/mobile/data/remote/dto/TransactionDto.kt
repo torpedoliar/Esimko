@@ -28,6 +28,7 @@ data class TransactionResponse(
 
 @JsonClass(generateAdapter = true)
 data class TransactionDetailResponse(
+    @Json(name = "bukti_tersedia") val buktiTersedia: Boolean = false,
     @Json(name = "id") val id: Long,
     @Json(name = "jenis_transaksi") val jenisTransaksi: String? = null,
     // Double, bukan Long: transaksi.nominal kolom DB double. Dibulatkan di mapper.

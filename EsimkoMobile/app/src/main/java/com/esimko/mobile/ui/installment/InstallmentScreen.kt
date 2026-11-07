@@ -180,6 +180,10 @@ private fun InstallmentBody(
                             }
                         }
                     )
+                    // There is no installment detail route; expose the server-authorized receipt on its row.
+                    inst.angsuranId?.takeIf { it > 0 && inst.buktiTersedia }?.let { receiptId ->
+                        com.esimko.mobile.ui.common.ReceiptDownloadButton("angsuran", receiptId, true)
+                    }
                     if (index < state.installments.lastIndex) RowDivider()
                 }
                 item { Spacer(Modifier.height(24.dp)) }

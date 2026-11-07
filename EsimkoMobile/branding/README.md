@@ -5,12 +5,16 @@
 Run `python scripts/generate-branding.py` to regenerate:
 - dark combined logo, unchanged from source;
 - white-text combined logo, preserving the original coloured crest and alpha;
-- square stacked launcher foregrounds in five densities, contained inside the adaptive safe circle;
-- monochrome notification small icon (Android requires an alpha silhouette, not a full-colour/adaptive icon);
+- unchanged full-colour stacked crest + wordmark foregrounds, inside the adaptive safe circle;
+- legacy/default `ic_launcher.png` and circular `ic_launcher_round.png` at mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi (48/72/96/144/192px), with a white background;
+- Android 26 adaptive XML and Android 33 variants with a separate white-alpha `monochrome` layer. The themed layer preserves the complete foreground alpha; it never replaces the colour foreground;
+- white-alpha notification icons at 24dp in all five densities (24/36/48/72/96px). The old 96px `drawable-nodpi` small icon is removed to avoid density-independent sizing. No full-colour/adaptive launcher is used as a small icon;
 - local preview `app/build/branding-preview.png`.
 
-All Compose logo uses go through `EsimkoLogo`, using actual background luminance. The Android 12+ system splash uses the launcher icon; it is not a separate outdated wordmark asset.
+All Compose logo uses go through `EsimkoLogo`, using actual background luminance. Splash audit: both existing themes inherit native `android:Theme.Material.Light.NoActionBar`; neither overrides `windowSplashScreenAnimatedIcon` or `windowBackground`. Android 12+ therefore uses the launcher icon and native theme background. Older Android keeps the native starting-window defaults. No splash dependency, Activity change, or custom splash asset is needed.
 
-Run `python scripts/verify-branding.py [signed.apk]` to validate alpha, crest preservation, safe icon geometry, and the actual PNG pixels packaged inside the APK. Pillow is required. Then use `scripts/verify-release.sh` to verify embedded APK version and signing certificate.
+Run `python scripts/verify-branding.py --self-test` for local image/resource checks plus optimized-name parser, density/API selection, and PNG normalization self-tests. Pillow is required. Existing colour foregrounds and combined logos remain unchanged.
+
+After building/signing separately, run `python scripts/verify-branding.py path/to/signed.apk`. APK checks use SDK `aapt2 dump resources` to resolve logical resource names/configurations to packaged paths, including shortened names from `aapt2 optimize`; they compare decoded pixels at every density, verify adaptive layer bindings (including API33 monochrome), and check manifest launcher bindings. Invisible RGB changes from PNG crunching are ignored. Pass `--aapt2 path/to/aapt2` or set `ANDROID_BUILD_TOOLS`; SDK lookup also supports `ANDROID_HOME`, `ANDROID_SDK_ROOT`, and `local.properties`. This reads an APK only: no Gradle, device, install, network, or signing operation. A stale APK without the new resources must fail. Then use `scripts/verify-release.sh` separately to verify embedded APK version and signing certificate; the branding verifier does not authenticate signatures.
 
 Local release prepared: 1.0.26 / code 27. Publication and Git push are separate actions, not performed by these scripts.

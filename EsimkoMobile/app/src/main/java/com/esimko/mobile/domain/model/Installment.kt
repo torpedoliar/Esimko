@@ -7,7 +7,9 @@ data class Installment(
     val bunga: Long,
     val status: String,
     val jenisTransaksi: String? = null,
-    val namaBulan: String? = null
+    val namaBulan: String? = null,
+    val buktiTersedia: Boolean = false,
+    val angsuranId: Long? = null
 )
 
 data class Salary(

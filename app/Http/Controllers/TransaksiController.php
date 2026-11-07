@@ -539,7 +539,7 @@ class TransaksiController extends Controller
     }
 
     public function angsuran_detail(Request $request){
-        $angsuran=Angsuran::select('angsuran.id','angsuran.angsuran_ke','angsuran.angsuran_pokok','angsuran.angsuran_bunga','payroll_angsuran.created_at','jenis_transaksi.jenis_transaksi','payroll_angsuran.bulan','status_angsuran.status_angsuran','status_angsuran.color')
+        $angsuran=Angsuran::select('angsuran.id','angsuran.fid_status','angsuran.angsuran_ke','angsuran.angsuran_pokok','angsuran.angsuran_bunga','payroll_angsuran.created_at','jenis_transaksi.jenis_transaksi','payroll_angsuran.bulan','status_angsuran.status_angsuran','status_angsuran.color')
             ->join('transaksi','transaksi.id','=','angsuran.fid_transaksi')
             ->join('jenis_transaksi','jenis_transaksi.id','=','transaksi.fid_jenis_transaksi')
             ->join('status_angsuran','status_angsuran.id','=','angsuran.fid_status')

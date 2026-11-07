@@ -108,6 +108,7 @@ Simpanan |
           @endif
         </div>
         <div class="card-footer">
+          @include('bukti.tombol', ['jenis' => 'transaksi', 'id' => $id, 'row' => $data['simpanan']])
           <a href="{{url('main/simpanan')}}" class="btn btn-dark pull-right">Kembali</a>
         </div>
       </div>

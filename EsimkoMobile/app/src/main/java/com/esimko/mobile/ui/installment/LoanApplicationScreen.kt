@@ -67,6 +67,11 @@ import com.esimko.mobile.util.MoneyFormatter
 import com.esimko.mobile.util.compressForUpload
 import com.esimko.mobile.util.decodeSampled
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import com.esimko.mobile.util.readBounded
 
 // Fallback teks persetujuan kalau endpoint syarat gagal dimuat (sama dgn server v1).
 private const val PERSETUJUAN_FALLBACK =
@@ -164,31 +169,56 @@ private fun LoanFormBody(
     var step by rememberSaveable { mutableStateOf(LoanStep.DATA) }
     var maxReached by rememberSaveable { mutableStateOf(LoanStep.DATA) }
 
-    var pickTarget by remember { mutableStateOf<String?>(null) }
-    val dokumenPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        val key = pickTarget
-        if (uri != null && key != null) {
-            val mime = context.contentResolver.getType(uri)
-            when {
-                mime != null && mime.startsWith("image/") -> {
-                    val compressed = context.contentResolver.openInputStream(uri)?.use { stream ->
-                        stream.readBytes().compressForUpload()
-                    }
-                    if (compressed != null) {
-                        onDokumenPicked(key, DokumenFile(compressed, "image/jpeg", uri.lastPathSegment ?: "dokumen.jpg"))
-                    }
+    val scope = rememberCoroutineScope()
+    var attachmentError by rememberSaveable { mutableStateOf<String?>(null) }
+    var processingPhoto by remember { mutableStateOf(false) }
+    var pickTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var cameraTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var cameraUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var cameraPath by rememberSaveable { mutableStateOf<String?>(null) }
+
+    fun readDocument(uri: Uri, key: String, isCamera: Boolean, tempPath: String? = null) {
+        processingPhoto = true
+        attachmentError = null
+        scope.launch {
+            try {
+                val document = withContext(Dispatchers.IO) {
+                    val mime = if (isCamera) "image/jpeg" else context.contentResolver.getType(uri).orEmpty()
+                    require(mime.startsWith("image/") || mime == "application/pdf") { "Pilih gambar atau PDF." }
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBounded() }
+                        ?: error("Berkas tidak dapat dibaca. Silakan pilih ulang.")
+                    if (mime.startsWith("image/")) {
+                        val compressed = bytes.compressForUpload() ?: error("Foto tidak dapat diproses. Silakan ambil ulang.")
+                        DokumenFile(compressed, "image/jpeg", if (isCamera) "foto.jpg" else "dokumen.jpg")
+                    } else DokumenFile(bytes, mime, "dokumen.pdf")
                 }
-                mime == "application/pdf" -> {
-                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    if (bytes != null) {
-                        onDokumenPicked(key, DokumenFile(bytes, mime, uri.lastPathSegment ?: "dokumen.pdf"))
-                    }
-                }
-                else -> onDokumenPicked(key, DokumenFile(ByteArray(0), mime ?: "", uri.lastPathSegment ?: ""))
+                onDokumenPicked(key, document)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                attachmentError = e.message ?: "Foto tidak dapat dibaca. Silakan coba lagi."
+            } finally {
+                tempPath?.let { File(it).delete() }
+                processingPhoto = false
             }
         }
+    }
+
+    val dokumenPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val key = pickTarget
+        pickTarget = null
+        if (uri != null && key != null) readDocument(uri, key, false)
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val key = cameraTarget
+        val uri = cameraUri
+        val path = cameraPath
+        cameraTarget = null
+        cameraUri = null
+        cameraPath = null
+        if (ok && key != null && uri != null) {
+            readDocument(Uri.parse(uri), key, true, path)
+        } else path?.let { File(it).delete() }
     }
 
     val dataValid = state.selectedJenis != null && state.nominalValue > 0L &&
@@ -197,36 +227,44 @@ private fun LoanFormBody(
 
     fun pick(key: String) {
         dismissKeyboard()
+        attachmentError = null
         pickTarget = key
-        dokumenPicker.launch("*/*")
-    }
-
-    var cameraTarget by remember { mutableStateOf<String?>(null) }
-    val cameraUriState = remember { mutableStateOf<Uri?>(null) }
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { ok ->
-        val key = cameraTarget
-        val uri = cameraUriState.value
-        if (ok && key != null && uri != null) {
-            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }?.compressForUpload()
-            if (bytes != null) {
-                onDokumenPicked(key, DokumenFile(bytes, "image/jpeg", "foto.jpg"))
-            }
+        try {
+            dokumenPicker.launch("*/*")
+        } catch (_: Exception) {
+            pickTarget = null
+            attachmentError = "Pemilih berkas tidak tersedia. Coba kamera atau periksa aplikasi perangkat."
         }
-        cameraTarget = null
-        cameraUriState.value = null
     }
 
     fun pickCamera(key: String) {
-        val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
-        val uri = FileProvider.getUriForFile(context, context.packageName + ".provider", file)
-        cameraUriState.value = uri
-        cameraTarget = key
-        cameraLauncher.launch(uri)
+        dismissKeyboard()
+        attachmentError = null
+        try {
+            val dir = File(context.cacheDir, "loan_camera").apply { check(mkdirs() || isDirectory) }
+            val file = File.createTempFile("foto_", ".jpg", dir)
+            cameraPath = file.absolutePath
+            val uri = FileProvider.getUriForFile(context, context.packageName + ".provider", file)
+            cameraUri = uri.toString()
+            cameraTarget = key
+            cameraLauncher.launch(uri)
+        } catch (_: Exception) {
+            cameraPath?.let { File(it).delete() }
+            cameraTarget = null
+            cameraUri = null
+            cameraPath = null
+            attachmentError = "Kamera tidak dapat dibuka. Pastikan aplikasi kamera tersedia, atau pilih berkas dari galeri."
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        attachmentError?.let { message ->
+            Text(message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+        }
+        if (processingPhoto) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text("Memproses foto…", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        }
         StepIndicator(
             current = step,
             maxReached = maxReached,
@@ -259,7 +297,7 @@ private fun LoanFormBody(
                 LoanStep.DOKUMEN -> StepDokumen(
                     state = state,
                     dokumenError = state.dokumenError,
-                    enabled = !state.isSubmitting,
+                    enabled = !state.isSubmitting && !processingPhoto,
                     onPickGallery = ::pick,
                     onPickCamera = ::pickCamera,
                     onClear = onClearDokumen

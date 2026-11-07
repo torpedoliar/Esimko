@@ -5,7 +5,9 @@ import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
 data class InstallmentResponse(
+    @Json(name = "bukti_tersedia") val buktiTersedia: Boolean = false,
     @Json(name = "id") val id: Long? = null,
+    @Json(name = "angsuran_id") val angsuranId: Long? = null,
     @Json(name = "jenis_transaksi") val jenisTransaksi: String? = null,
     @Json(name = "bulan") val bulan: String? = null,
     @Json(name = "nama_bulan") val namaBulan: String? = null,

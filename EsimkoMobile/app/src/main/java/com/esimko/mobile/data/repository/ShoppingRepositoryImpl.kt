@@ -203,7 +203,8 @@ class ShoppingRepositoryImpl @Inject constructor(
                         subtotal = Math.round(dto.subtotal ?: 0.0),
                         diskonNominal = Math.round(dto.diskonNominal ?: 0.0),
                         sisaAngsuran = Math.round(dto.sisaAngsuran ?: 0.0),
-                        sisaTenor = dto.sisaTenor ?: 0
+                        sisaTenor = dto.sisaTenor ?: 0,
+                        buktiTersedia = dto.buktiTersedia
                     )
                 )
             } else {

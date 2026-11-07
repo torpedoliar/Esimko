@@ -47,6 +47,8 @@ Route::group(['prefix' => 'mobile'], function () {
         Route::get('berita/detail', 'MobileController@detail_berita');
 
         Route::get('riwayat_transaksi', 'MobileController@riwayat_transaksi');
+        Route::get('bukti/{jenis}/{id}', 'BuktiTransaksiController@mobile')
+            ->where(['jenis' => 'transaksi|angsuran|penjualan', 'id' => '[0-9]+']);
 
         Route::get('transaksi/{modul}', 'MobileController@transaksi');
         Route::get('transaksi/{modul}/detail', 'MobileController@detail_transaksi');

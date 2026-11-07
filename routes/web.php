@@ -119,6 +119,7 @@ Route::get('zzzz', function () {
 });
 
 Route::get('/', 'HomeController@landing_page');
+Route::get('cek-bukti', 'BuktiTransaksiController@verify')->middleware('throttle:30,1');
 
 Route::get('auth/login','AuthController@login');
 Route::post('auth/login/proses','AuthController@proses_login');
@@ -129,6 +130,8 @@ Route::post('auth/login/proses','AuthController@proses_login');
 
 Route::group(['middleware' => ['ceklogin']],function(){
     Route::get('dashboard', 'HomeController@dashboard');
+    Route::get('bukti-transaksi/{jenis}/{id}', 'BuktiTransaksiController@web')
+        ->where(['jenis' => 'transaksi|angsuran|penjualan', 'id' => '[0-9]+']);
     
     // System Update Routes
     Route::get('pengaturan/system-update', 'SystemUpdateController@index')->name('system-update');

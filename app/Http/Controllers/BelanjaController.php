@@ -92,6 +92,8 @@ class BelanjaController extends Controller
         ->leftJoin('anggota','anggota.no_anggota','=','penjualan.fid_anggota')
         ->join('rekening_pembayaran','rekening_pembayaran.id','=','penjualan.fid_metode_pembayaran')
         ->where('penjualan.id',$request->id)
+        ->where('penjualan.fid_anggota',Session::get('useractive')->no_anggota)
+        ->where('penjualan.jenis_belanja',$jenis)
         ->first();
       if(!empty($penjualan)){
         $id=$request->id;
@@ -153,8 +155,11 @@ class BelanjaController extends Controller
     }
 
     public function proses_pembatalan(Request $request,$jenis){
-      $field=Penjualan::find($request->id);
-      $field->fid_status=($jenis=='toko' ? 3 : 5);
+      $field=Penjualan::where('fid_anggota',Session::get('useractive')->no_anggota)
+        ->where('jenis_belanja',$jenis)->find($request->id);
+      abort_if(empty($field),404);
+      abort_if((int)$field->fid_status!==1,422,'Hanya transaksi menunggu yang dapat dibatalkan');
+      $field->fid_status=($field->jenis_belanja=='toko' ? 3 : 5);
       $field->save();
       GlobalHelper::add_verifikasi_transaksi('penjualan',$field->id,'Transaksi dibatalkan oleh',null);
       return redirect('main/belanja/riwayat/'.$jenis)

@@ -40,7 +40,8 @@ data class TransactionDetail(
     val namaPetugas: String? = null,
     val metodePembayaran: String? = null,
     val noAnggota: String = "",
-    val namaLengkap: String = ""
+    val namaLengkap: String = "",
+    val buktiTersedia: Boolean = false
 )
 
 data class TransactionItem(

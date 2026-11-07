@@ -31,7 +31,9 @@ class InstallmentRepositoryImpl @Inject constructor(
                         bunga = dto.angsuranBunga?.let { Math.round(it) } ?: 0,
                         status = dto.statusAngsuran.orEmpty(),
                         jenisTransaksi = dto.jenisTransaksi,
-                        namaBulan = dto.namaBulan
+                        namaBulan = dto.namaBulan,
+                        buktiTersedia = dto.buktiTersedia,
+                        angsuranId = dto.angsuranId
                     )
                 })
             } else {

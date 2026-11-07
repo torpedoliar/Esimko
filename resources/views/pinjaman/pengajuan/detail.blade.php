@@ -249,6 +249,7 @@
                     </div>
                     <div class="card-footer">
                         <div class="pull-right">
+                            @include('bukti.tombol', ['jenis' => 'transaksi', 'id' => $data['pinjaman']->id, 'row' => $data['pinjaman'], 'otoritas' => $data['otoritas']])
                             <a href="{{url('pinjaman/pengajuan')}}" class="btn btn-dark">Kembali</a>
                             @if($data['pinjaman']->fid_status <= 2 )
                                 <a class="btn btn-primary"  href="{{url('pinjaman/pengajuan/form?id='.$id)}}">Edit Pinjaman</a>

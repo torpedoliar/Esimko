@@ -83,7 +83,8 @@ class TransactionRepositoryImpl @Inject constructor(
                         namaPetugas = dto.namaPetugas,
                         metodePembayaran = dto.metodePembayaran,
                         noAnggota = dto.noAnggota.orEmpty(),
-                        namaLengkap = dto.namaLengkap.orEmpty()
+                        namaLengkap = dto.namaLengkap.orEmpty(),
+                        buktiTersedia = dto.buktiTersedia
                     )
                 )
             } else {

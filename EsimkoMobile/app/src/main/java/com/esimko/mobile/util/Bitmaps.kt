@@ -9,10 +9,8 @@ import java.io.ByteArrayOutputStream
 fun ByteArray.decodeSampled(maxPx: Int = 1024): Bitmap? {
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(this, 0, size, opts)
-    if (opts.outWidth <= 0) return null
-    var s = 1
-    while (opts.outWidth / (s * 2) >= maxPx && opts.outHeight / (s * 2) >= maxPx) s *= 2
-    opts.inSampleSize = s
+    if (opts.outWidth <= 0 || opts.outHeight <= 0) return null
+    opts.inSampleSize = imageSampleSize(opts.outWidth, opts.outHeight, maxPx)
     opts.inJustDecodeBounds = false
     return try { BitmapFactory.decodeByteArray(this, 0, size, opts) } catch (e: Exception) { null }
 }
@@ -27,8 +25,7 @@ fun ByteArray.compressForUpload(maxPx: Int = 1280, quality: Int = 80): ByteArray
     val bmp = decodeSampled(maxPx) ?: return null
     return try {
         ByteArrayOutputStream().use { out ->
-            bmp.compress(Bitmap.CompressFormat.JPEG, quality, out)
-            out.toByteArray()
+            if (bmp.compress(Bitmap.CompressFormat.JPEG, quality, out)) out.toByteArray() else null
         }
     } finally {
         if (!bmp.isRecycled) bmp.recycle()

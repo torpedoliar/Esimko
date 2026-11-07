@@ -78,6 +78,7 @@ Angsuran |
       </table>
     </div>
     <div class="card-footer">
+      @include('bukti.tombol', ['jenis' => 'angsuran', 'id' => $data['angsuran']->id, 'row' => $data['angsuran']])
       <a href="{{url('main/angsuran')}}" class="btn btn-dark pull-right">Kembali</a>
     </div>
   </div>

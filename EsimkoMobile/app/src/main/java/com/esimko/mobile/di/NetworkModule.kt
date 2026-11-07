@@ -36,9 +36,14 @@ object NetworkModule {
             .readTimeout(30, TimeUnit.SECONDS)
 
         if (BuildConfig.DEBUG) {
-            builder.addInterceptor(
-                HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
-            )
+            // BASIC never logs credentials, JSON bodies, or buffers a streaming PDF.
+            // Receipt requests bypass logging entirely, including failures with JSON bodies.
+            val logger = HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BASIC)
+            builder.addInterceptor { chain ->
+                if (chain.request().url.encodedPath.contains("/mobile/bukti/")) {
+                    chain.proceed(chain.request())
+                } else logger.intercept(chain)
+            }
         }
         return builder.build()
     }
@@ -91,6 +96,10 @@ object NetworkModule {
     @Provides @Singleton
     fun provideTransactionHistoryApi(retrofit: Retrofit): com.esimko.mobile.data.remote.api.TransactionHistoryApi =
         retrofit.create(com.esimko.mobile.data.remote.api.TransactionHistoryApi::class.java)
+
+    @Provides @Singleton
+    fun provideReceiptApi(retrofit: Retrofit): com.esimko.mobile.data.remote.api.ReceiptApi =
+        retrofit.create(com.esimko.mobile.data.remote.api.ReceiptApi::class.java)
 
     @Provides @Singleton
     fun provideDeviceApi(retrofit: Retrofit): com.esimko.mobile.data.remote.api.DeviceApi =
