@@ -61,6 +61,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.esimko.mobile.ui.common.AmountField
 import com.esimko.mobile.ui.common.EsimkoPreview
 import com.esimko.mobile.ui.common.LightDarkPreview
+import com.esimko.mobile.util.MoneyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +77,7 @@ fun SavingsFormScreen(
     LaunchedEffect(jenis) { viewModel.start(jenis) }
 
     var konfirmasiKeluar by remember { mutableStateOf(false) }
+    var konfirmasiKirim by remember { mutableStateOf(false) }
     BackHandler(enabled = state.punyaDraft) { konfirmasiKeluar = true }
 
     val judul = if (jenis == "setoran") "Setoran Simpanan Sukarela" else "Penarikan Simpanan Sukarela"
@@ -133,11 +135,8 @@ fun SavingsFormScreen(
                     state = state,
                     onNominalChange = viewModel::onNominalChange,
                     onKeteranganChange = viewModel::onKeteranganChange,
-                    onSubmit = {
-                        keyboard?.hide()
-                        focus.clearFocus()
-                        viewModel.submitNominal()
-                    }
+                    // Pengajuan BARU dikirim ke server setelah anggota menyetujui dialog konfirmasi.
+                    onSubmit = { konfirmasiKirim = true }
                 )
                 FormStep.BUKTI -> BuktiStep(
                     state = state,
@@ -154,10 +153,37 @@ fun SavingsFormScreen(
         }
     }
 
+    if (konfirmasiKirim) {
+        val nominal = state.nominal.toLongOrNull() ?: 0L
+        val aksi = if (state.jenis == "setoran") "Setoran Simpanan Sukarela" else "Penarikan Simpanan Sukarela"
+        AlertDialog(
+            onDismissRequest = { konfirmasiKirim = false },
+            title = { Text("Setujui pengajuan?") },
+            text = {
+                Text(
+                    "Pengajuan $aksi sebesar ${MoneyFormatter.format(nominal)} akan dikirim ke koperasi " +
+                        "dan TERCATAT sebagai transaksi (menunggu verifikasi petugas). " +
+                        "Lanjutkan hanya jika nominal sudah benar."
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    konfirmasiKirim = false
+                    keyboard?.hide()
+                    focus.clearFocus()
+                    viewModel.submitNominal()
+                }) { Text("Ya, Kirim") }
+            },
+            dismissButton = {
+                TextButton(onClick = { konfirmasiKirim = false }) { Text("Periksa Lagi") }
+            }
+        )
+    }
+
     if (konfirmasiKeluar) {
         AlertDialog(
             onDismissRequest = { konfirmasiKeluar = false },
-            title = { Text("Batalkan pengisian?") },
+            title = { Text(if (state.lastTransactionId != null) "Keluar dari pengisian?" else "Batalkan pengisian?") },
             text = {
                 Text(
                     if (state.lastTransactionId != null)
