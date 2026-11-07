@@ -54,7 +54,8 @@ table { width: 100%; border-collapse: collapse; } td { padding: 7px 8px; vertica
 <td style="width: 110px; padding-left: 0"><img src="{{ $qr }}" style="width: 105px; height: 105px" alt="QR verifikasi"></td>
 <td><strong>Cek keaslian bukti</strong><p>Scan QR untuk mencocokkan bukti dengan status transaksi di server eSIMKO.</p>
 <div class="code">Kode: {{ implode('-', str_split(strtoupper($bukti['kode']), 8)) }}</div>
-<p class="muted">Bila transaksi berubah, kode bukti lama tidak lagi valid. Simpan dan bagikan dokumen ini hanya kepada pihak yang berwenang.</p></td>
+<p class="muted">Bila transaksi berubah, kode bukti lama tidak lagi valid. Simpan dan bagikan dokumen ini hanya kepada pihak yang berwenang.</p>
+<p><strong>Dokumen ini TIDAK SAH apabila pemindaian QR menunjukkan status "TIDAK VALID".</strong></p></td>
 </tr></table></div>
 <div class="footer muted">Diunduh {{ date('d-m-Y H:i:s') }} · Dokumen elektronik eSIMKO berdasarkan data sistem. Cek QR untuk mencocokkan data. Bukan tanda tangan elektronik tersertifikasi.</div>
 </body></html>

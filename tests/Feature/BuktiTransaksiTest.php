@@ -44,6 +44,8 @@ class BuktiTransaksiTest extends TestCase
             ['id'=>2,'fid_anggota'=>'A','fid_status'=>3,'fid_jenis_transaksi'=>9,'nominal'=>-12000000,'tanggal'=>'2026-11-07','tenor'=>12],
             ['id'=>3,'fid_anggota'=>'B','fid_status'=>4,'fid_jenis_transaksi'=>4,'nominal'=>100000,'tanggal'=>'2026-11-07','tenor'=>0],
             ['id'=>4,'fid_anggota'=>'A','fid_status'=>2,'fid_jenis_transaksi'=>4,'nominal'=>100000,'tanggal'=>'2026-11-07','tenor'=>0],
+            // Dibatalkan: bukti sukses TIDAK boleh pernah diterbitkan untuk baris ini.
+            ['id'=>5,'fid_anggota'=>'A','fid_status'=>5,'fid_jenis_transaksi'=>6,'nominal'=>-100000,'tanggal'=>'2026-11-07','tenor'=>0],
         ]);
         DB::table('angsuran')->insert(['id'=>1,'fid_transaksi'=>2,'fid_status'=>6,'angsuran_ke'=>1,'angsuran_pokok'=>1000000,'angsuran_bunga'=>120000]);
         DB::table('penjualan')->insert(['id'=>1,'fid_anggota'=>'A','fid_status'=>2,'jenis_belanja'=>'toko','total_pembayaran'=>50000,'tanggal'=>'2026-11-07','no_transaksi'=>'TEST-01']);
@@ -112,6 +114,15 @@ class BuktiTransaksiTest extends TestCase
         $kode = BuktiTransaksi::load('penjualan', 1)['kode'];
         $page = $this->get('/cek-bukti?' . http_build_query(['ref' => 'penjualan:1', 'kode' => $kode]))->assertOk();
         $this->assertStringContainsString(config('koperasi.logo'), $page->getContent());
+    }
+
+    public function test_cancelled_and_rejected_transactions_never_produce_a_receipt()
+    {
+        foreach ([4, 5] as $id) {
+            $this->assertNull(BuktiTransaksi::load('transaksi', $id), "id $id harus ditolak");
+            $this->get('/receipt-test/transaksi/' . $id . '?no_anggota=A')->assertStatus(404);
+        }
+        $this->assertNull(BuktiTransaksi::load('transaksi', 999999));
     }
 
     public function test_web_print_returns_inline_pdf()
