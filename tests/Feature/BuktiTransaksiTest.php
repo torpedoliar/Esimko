@@ -30,7 +30,9 @@ class BuktiTransaksiTest extends TestCase
             $t->decimal('total_pembayaran', 18, 2); $t->string('tanggal'); $t->integer('fid_metode_pembayaran')->nullable();
             $t->string('no_transaksi'); $t->string('created_by')->default('STAFF'); $t->timestamps();
         });
-        Schema::create('item_penjualan', function (Blueprint $t) { $t->increments('id'); $t->integer('fid_penjualan'); $t->string('nama_produk'); $t->integer('jumlah'); $t->decimal('total',18,2); });
+        Schema::create('produk', function (Blueprint $t) { $t->increments('id'); $t->string('nama_produk'); $t->string('kode'); $t->integer('fid_satuan')->nullable(); });
+        Schema::create('satuan_barang', function (Blueprint $t) { $t->increments('id'); $t->string('satuan'); });
+        Schema::create('item_penjualan', function (Blueprint $t) { $t->increments('id'); $t->integer('fid_penjualan'); $t->integer('fid_produk')->nullable(); $t->string('nama_barang')->nullable(); $t->integer('jumlah'); $t->decimal('total',18,2); });
         Schema::create('angsuran', function (Blueprint $t) { $t->increments('id'); $t->integer('fid_transaksi'); $t->integer('fid_status'); $t->integer('angsuran_ke'); $t->decimal('angsuran_pokok',18,2); $t->decimal('angsuran_bunga',18,2); $t->timestamps(); });
         Schema::create('rekening_pembayaran', function (Blueprint $t) { $t->increments('id'); $t->string('keterangan'); });
         Schema::create('verifikasi_transaksi', function (Blueprint $t) { $t->increments('id'); $t->integer('fid_transaksi'); $t->string('jenis'); $t->string('created_by')->nullable(); $t->timestamps(); });
@@ -45,7 +47,9 @@ class BuktiTransaksiTest extends TestCase
         ]);
         DB::table('angsuran')->insert(['id'=>1,'fid_transaksi'=>2,'fid_status'=>6,'angsuran_ke'=>1,'angsuran_pokok'=>1000000,'angsuran_bunga'=>120000]);
         DB::table('penjualan')->insert(['id'=>1,'fid_anggota'=>'A','fid_status'=>2,'jenis_belanja'=>'toko','total_pembayaran'=>50000,'tanggal'=>'2026-11-07','no_transaksi'=>'TEST-01']);
-        DB::table('item_penjualan')->insert(['fid_penjualan'=>1,'nama_produk'=>'Contoh Produk','jumlah'=>2,'total'=>50000]);
+        DB::table('satuan_barang')->insert(['id'=>1,'satuan'=>'pcs']);
+        DB::table('produk')->insert(['id'=>1,'nama_produk'=>'Contoh Produk','kode'=>'P-001','fid_satuan'=>1]);
+        DB::table('item_penjualan')->insert(['fid_penjualan'=>1,'fid_produk'=>1,'jumlah'=>2,'total'=>50000]);
         Route::get('/receipt-test/{jenis}/{id}', function (Request $r, $jenis, $id) { return (new BuktiTransaksiController)->mobile($r,$jenis,$id); });
         Route::get('/receipt-web/{jenis}/{id}', function (Request $r,$jenis,$id) { return (new BuktiTransaksiController)->web($r,$jenis,$id); });
     }
@@ -84,6 +88,30 @@ class BuktiTransaksiTest extends TestCase
         // transaksi anggota mana pun di modulnya.
         DB::table('transaksi')->where('id',1)->update(['created_by'=>'OTHER']);
         $this->withSession(['useractive'=>(object)['no_anggota'=>'STAFF','hak_akses'=>1]])->get('/receipt-web/transaksi/1')->assertOk();
+    }
+
+    public function test_item_name_from_product_staff_shown_and_verify_page_has_logo()
+    {
+        // Belanja: nama barang harus dari tabel produk (nama_produk), bukan kode/nama_barang kosong.
+        $data = BuktiTransaksi::load('penjualan', 1);
+        $this->assertSame('Contoh Produk', $data['items'][0]['nama']);
+        $this->assertSame('pcs', $data['items'][0]['satuan']);
+        $this->assertNotSame('P-001', $data['items'][0]['nama']);
+
+        // Petugas: terisi dari created_by walau tidak ada baris verifikasi_transaksi.
+        $this->assertSame('Petugas Uji', $data['petugas']);
+        $this->assertSame('Petugas Uji', BuktiTransaksi::load('transaksi', 1)['petugas']);
+
+        $data['logo'] = 'data:image/png;base64,';
+        $html = view('bukti.transaksi', ['bukti' => $data, 'qr' => 'data:image/png;base64,', 'verifyUrl' => 'x'])->render();
+        $this->assertStringContainsString('Contoh Produk', $html);
+        $this->assertStringContainsString('pcs', $html);
+        $this->assertStringContainsString('Petugas Uji', $html);
+
+        // Halaman cek verifikasi menampilkan logo koperasi.
+        $kode = BuktiTransaksi::load('penjualan', 1)['kode'];
+        $page = $this->get('/cek-bukti?' . http_build_query(['ref' => 'penjualan:1', 'kode' => $kode]))->assertOk();
+        $this->assertStringContainsString(config('koperasi.logo'), $page->getContent());
     }
 
     public function test_verification_masks_personal_data_and_detects_tampering_and_changes()

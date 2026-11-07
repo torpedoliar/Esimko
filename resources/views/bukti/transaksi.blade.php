@@ -44,7 +44,7 @@ table { width: 100%; border-collapse: collapse; } td { padding: 7px 8px; vertica
 </div>
 @if(count($bukti['items']))
 <table class="items"><thead><tr><th>Barang</th><th>Jumlah</th><th>Total</th></tr></thead><tbody>
-@foreach($bukti['items'] as $item)<tr><td>{{ $item['nama'] }}</td><td>{{ $item['jumlah'] }}</td><td>{{ \App\Support\BuktiTransaksi::rupiah($item['total']) }}</td></tr>@endforeach
+@foreach($bukti['items'] as $item)<tr><td>{{ $item['nama'] }}</td><td>{{ $item['jumlah'] }}{{ $item['satuan'] ? ' '.$item['satuan'] : '' }}</td><td>{{ \App\Support\BuktiTransaksi::rupiah($item['total']) }}</td></tr>@endforeach
 </tbody></table>
 @endif
 @if(strpos($bukti['judul'], 'Persetujuan') !== false)

@@ -73,28 +73,52 @@ class BuktiTransaksi
             $label = 'Belanja ' . ucfirst($row->jenis_belanja);
             $status = (($row->jenis_belanja === 'toko' && (int) $row->fid_status === 4) || (int) $row->fid_status === 6) ? 'Kredit Lunas' : 'Selesai';
         }
-        $items = $jenis === 'penjualan' ? DB::table('item_penjualan')->where('fid_penjualan', $id)->orderBy('id')->get()->map(function ($item) {
-            return ['nama' => (string) ($item->nama_barang ?? $item->nama_produk ?? $item->keterangan ?? 'Barang #' . ($item->fid_produk ?? $item->id)), 'jumlah' => (string) $item->jumlah, 'total' => number_format((float) $item->total, 2, '.', '')];
-        })->all() : [];
+        $items = $jenis === 'penjualan'
+            ? DB::table('item_penjualan')
+                ->leftJoin('produk', 'produk.id', '=', 'item_penjualan.fid_produk')
+                ->leftJoin('satuan_barang', 'satuan_barang.id', '=', 'produk.fid_satuan')
+                ->where('item_penjualan.fid_penjualan', $id)
+                ->orderBy('item_penjualan.id')
+                ->get([
+                    'item_penjualan.fid_produk', 'item_penjualan.nama_barang', 'item_penjualan.jumlah', 'item_penjualan.total',
+                    'produk.nama_produk', 'produk.kode as kode_produk',
+                    DB::raw('satuan_barang.satuan as satuan_ref'),
+                ])->map(function ($item) {
+                    $nama = trim((string) ($item->nama_produk ?? '')) !== ''
+                        ? $item->nama_produk
+                        : (trim((string) ($item->nama_barang ?? '')) !== '' ? $item->nama_barang : 'Barang #' . ($item->fid_produk ?? ''));
+                    return [
+                        'nama' => (string) $nama,
+                        'satuan' => (string) ($item->satuan_ref ?? ''),
+                        'jumlah' => rtrim(rtrim(number_format((float) $item->jumlah, 4, '.', ''), '0'), '.'),
+                        'total' => number_format((float) $item->total, 2, '.', ''),
+                    ];
+                })->all()
+            : [];
         $methodId = $jenis === 'penjualan' ? ($row->fid_metode_pembayaran ?? null) : (($loan ?: $row)->fid_metode_transaksi ?? null);
         $method = $methodId ? DB::table('rekening_pembayaran')->where('id', $methodId)->value('keterangan') : null;
         $auditKind = $jenis === 'penjualan' ? 'penjualan' : 'transaksi';
         $auditId = $loan ? $loan->id : $row->id;
         $audit = DB::table('verifikasi_transaksi')->where('jenis', $auditKind)->where('fid_transaksi', $auditId)->orderByDesc('id')->first();
-        $staff = $audit && $audit->created_by ? DB::table('anggota')->where('no_anggota', $audit->created_by)->value('nama_lengkap') : null;
+        $processBy = (string) (($loan ?: $row)->created_by ?? '');
         $date = $row->tanggal ?? $row->created_at ?? '';
         if ($jenis === 'angsuran') {
-            $paymentDate = DB::table('transaksi')->where('fid_angsuran', $row->id)
+            $payment = DB::table('transaksi')->where('fid_angsuran', $row->id)
                 ->where('fid_anggota', $owner)->where('fid_status', 4)
-                ->whereIn('fid_jenis_transaksi', [12, 13, 14])->orderBy('id')->value('tanggal');
-            $date = $paymentDate ?: 'Tanggal pembayaran tidak tercatat';
+                ->whereIn('fid_jenis_transaksi', [12, 13, 14])->orderBy('id')->first(['tanggal', 'created_by']);
+            $date = ($payment->tanggal ?? null) ?: 'Tanggal pembayaran tidak tercatat';
+            if (!empty($payment->created_by)) $processBy = (string) $payment->created_by;
         }
+        // Petugas: utamakan nama dari jejak verifikasi; kalau tidak ada, pakai pembuat transaksi
+        // (sama seperti yang ditampilkan aplikasi).
+        $staffById = function ($no) { return $no ? DB::table('anggota')->where('no_anggota', $no)->value('nama_lengkap') : null; };
+        $staff = ($audit && $audit->created_by ? $staffById($audit->created_by) : null) ?: $staffById($processBy);
         $data = [
             'jenis' => $jenis, 'id' => (int) $id, 'owner' => (string) $owner,
             'nama' => (string) $member->nama_lengkap, 'nominal' => number_format(abs($amount), 2, '.', ''),
             'tanggal' => (string) $date, 'status_id' => (int) $row->fid_status, 'status' => $status,
             'judul' => $title, 'label' => $label, 'module' => $module,
-            'created_by' => (string) (($loan ?: $row)->created_by ?? ''),
+            'created_by' => $processBy,
             'metode' => (string) ($method ?: 'Tidak tercatat'), 'petugas' => (string) ($staff ?: 'Tidak tercatat'),
             'diverifikasi_at' => (string) ($audit->created_at ?? ''), 'items' => $items,
             'tenor' => (int) ($row->tenor ?? 0), 'angsuran_ke' => (int) ($row->angsuran_ke ?? 0),
