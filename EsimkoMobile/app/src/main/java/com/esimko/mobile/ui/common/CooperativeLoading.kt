@@ -1,6 +1,5 @@
 package com.esimko.mobile.ui.common
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,14 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.esimko.mobile.R
 
 /** Loading standar: logo eSIMKO (sesuai aset resmi) + indikator berputar. */
 @Composable
@@ -32,7 +28,6 @@ fun CooperativeLoading(
 ) {
     StatusBarAppearance(darkIcons = MaterialTheme.colorScheme.background.luminance() > 0.5f)
     val animate = animationsEnabled()
-    val darkBackground = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Column(
         modifier = modifier
@@ -43,15 +38,7 @@ fun CooperativeLoading(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically)
     ) {
-        Image(
-            painter = painterResource(
-                if (darkBackground) R.drawable.logo_esimko_wordmark_light
-                else R.drawable.logo_esimko_wordmark
-            ),
-            contentDescription = "Logo eSIMKO",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.width(220.dp)
-        )
+        EsimkoLogo(modifier = Modifier.width(260.dp))
         if (animate) {
             CircularProgressIndicator(
                 modifier = Modifier.size(28.dp),

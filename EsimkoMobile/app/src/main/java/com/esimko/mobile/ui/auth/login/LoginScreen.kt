@@ -1,6 +1,5 @@
 package com.esimko.mobile.ui.auth.login
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.esimko.mobile.ui.common.EsimkoLogo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,7 +43,6 @@ import androidx.compose.ui.graphics.luminance
 import com.esimko.mobile.ui.common.StatusBarAppearance
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
@@ -53,7 +52,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.esimko.mobile.R
 import com.esimko.mobile.ui.common.EsimkoPreview
 import com.esimko.mobile.ui.common.LightDarkPreview
 import com.esimko.mobile.ui.common.heroBackground
@@ -96,10 +94,9 @@ fun LoginScreen(
                 .padding(top = 72.dp, bottom = 96.dp, start = 24.dp, end = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Image(
-                painter = painterResource(R.drawable.logo_esimko_wordmark_light),
-                contentDescription = "esimko",
-                modifier = Modifier.height(28.dp)
+            EsimkoLogo(
+                background = heroBackground(),
+                modifier = Modifier.height(56.dp).fillMaxWidth()
             )
             Spacer(Modifier.height(8.dp))
             Text(
@@ -211,10 +208,9 @@ private fun LoginBrandHeaderPreview() {
                 .padding(top = 72.dp, bottom = 96.dp, start = 24.dp, end = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Image(
-                painter = painterResource(R.drawable.logo_esimko_wordmark_light),
-                contentDescription = "esimko",
-                modifier = Modifier.height(28.dp)
+            EsimkoLogo(
+                background = heroBackground(),
+                modifier = Modifier.height(56.dp).fillMaxWidth()
             )
             Spacer(Modifier.height(8.dp))
             Text(

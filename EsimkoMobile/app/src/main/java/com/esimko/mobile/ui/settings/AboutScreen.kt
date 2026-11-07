@@ -1,6 +1,5 @@
 package com.esimko.mobile.ui.settings
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -19,14 +18,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import com.esimko.mobile.ui.common.EsimkoLogo
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.esimko.mobile.BuildConfig
-import com.esimko.mobile.R
 import com.esimko.mobile.ui.common.EsimkoPreview
 import com.esimko.mobile.ui.common.LightDarkPreview
 import com.esimko.mobile.ui.common.SectionHeader
@@ -54,10 +52,9 @@ fun AboutScreen(onBack: () -> Unit = {}) {
                 .padding(horizontal = 24.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Image(
-                painter = painterResource(R.drawable.logo_esimko_wordmark),
-                contentDescription = "esimko",
-                modifier = Modifier.height(32.dp)
+            EsimkoLogo(
+                background = MaterialTheme.colorScheme.background,
+                modifier = Modifier.height(64.dp).fillMaxWidth()
             )
             Spacer(Modifier.height(16.dp))
             Text(

@@ -1,6 +1,5 @@
 package com.esimko.mobile.ui.auth.register
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import com.esimko.mobile.ui.common.EsimkoLogo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,14 +34,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.esimko.mobile.R
 import com.esimko.mobile.ui.common.EsimkoPreview
 import com.esimko.mobile.ui.common.LightDarkPreview
 import com.esimko.mobile.ui.common.heroBackground
@@ -83,12 +81,9 @@ fun RegisterScreen(
                     tint = OnHero
                 )
             }
-            Image(
-                painter = painterResource(R.drawable.logo_esimko_wordmark_light),
-                contentDescription = "esimko",
-                modifier = Modifier
-                    .height(24.dp)
-                    .padding(horizontal = 24.dp)
+            EsimkoLogo(
+                background = heroBackground(),
+                modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth().height(48.dp)
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -227,12 +222,9 @@ private fun RegisterBrandHeaderPreview() {
                 .padding(top = 16.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            Image(
-                painter = painterResource(R.drawable.logo_esimko_wordmark_light),
-                contentDescription = "esimko",
-                modifier = Modifier
-                    .height(24.dp)
-                    .padding(horizontal = 24.dp)
+            EsimkoLogo(
+                background = heroBackground(),
+                modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth().height(48.dp)
             )
             Spacer(Modifier.height(4.dp))
             Text(

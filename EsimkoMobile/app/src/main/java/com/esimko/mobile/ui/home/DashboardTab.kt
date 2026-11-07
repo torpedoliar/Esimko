@@ -1,7 +1,6 @@
 package com.esimko.mobile.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +43,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.esimko.mobile.ui.common.heroBackground
+import com.esimko.mobile.ui.common.EsimkoLogo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -63,7 +63,6 @@ import androidx.activity.ComponentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.esimko.mobile.R
 import com.esimko.mobile.domain.model.News
 import com.esimko.mobile.domain.model.Profile
 import com.esimko.mobile.ui.common.ActionGrid
@@ -207,10 +206,9 @@ private fun DashboardHero(
 ) {
     HeroSurface {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(R.drawable.logo_esimko_wordmark_light),
-                contentDescription = "esimko",
-                modifier = Modifier.height(20.dp)
+            EsimkoLogo(
+                background = heroBackground(),
+                modifier = Modifier.width(160.dp).height(40.dp)
             )
             Spacer(Modifier.weight(1f))
             // Lonceng notifikasi + badge jumlah belum dibaca.
