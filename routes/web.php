@@ -132,6 +132,8 @@ Route::group(['middleware' => ['ceklogin']],function(){
     Route::get('dashboard', 'HomeController@dashboard');
     Route::get('bukti-transaksi/{jenis}/{id}', 'BuktiTransaksiController@web')
         ->where(['jenis' => 'transaksi|angsuran|penjualan', 'id' => '[0-9]+']);
+    Route::get('transaksi/lampiran/{id}', 'BuktiTransaksiController@lampiran')
+        ->where(['id' => '[0-9]+']);
     
     // System Update Routes
     Route::get('pengaturan/system-update', 'SystemUpdateController@index')->name('system-update');

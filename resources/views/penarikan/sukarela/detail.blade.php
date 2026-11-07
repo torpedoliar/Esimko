@@ -69,6 +69,17 @@
               <th>:</th>
               <td>{{(!empty($data['simpanan']->keterangan) ? $data['simpanan']->keterangan : 'Tidak ada keterangan')}}</td>
             </tr>
+            <tr>
+              <th>Lampiran Bukti</th>
+              <th>:</th>
+              <td>
+                @if(!empty($data['simpanan']->bukti_transaksi))
+                <a href="{{url('transaksi/lampiran/'.$data['simpanan']->id)}}" target="_blank" rel="noopener" class="btn btn-primary">Lihat Lampiran</a>
+                @else
+                <span class="text-muted">Belum ada lampiran</span>
+                @endif
+              </td>
+            </tr>
           </table>
           <h5 class="mb-3 mt-4">Riwayat Transaksi</h5>
           <ul class="verti-timeline list-unstyled">

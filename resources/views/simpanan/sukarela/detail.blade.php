@@ -82,7 +82,7 @@
               <th>:</th>
               <td>
                 @if(!empty($data['simpanan']->bukti_transaksi))
-                <a href="{{asset('storage/'.$data['simpanan']->bukti_transaksi)}}" target="_blank" class="btn btn-primary" >Lihat Dokumen</a>
+                <a href="{{url('transaksi/lampiran/'.$data['simpanan']->id)}}" target="_blank" rel="noopener" class="btn btn-primary">Lihat Dokumen</a>
                 @else
                 <a href="" target="_blank" class="btn btn-danger" disabled >Belum Upload</a>
                 @endif

@@ -29,6 +29,38 @@ class BuktiTransaksiController extends Controller
         return $this->download($bukti);
     }
 
+    /**
+     * Lampiran bukti yang DIUNGGAH anggota (foto transfer) — bukan bukti PDF yang dibuat sistem.
+     * Disajikan lewat rute ber-login dari penyimpanan privat, supaya bisa dibuka dari web
+     * tanpa bergantung pada folder public/storage (yang bisa tidak sinkron).
+     */
+    public function lampiran(Request $request, $id)
+    {
+        $row = DB::table('transaksi')->where('id', $id)->first();
+        $user = Session::get('useractive');
+        abort_unless($row && $user && !empty($row->bukti_transaksi), 404);
+
+        $root = realpath(storage_path('app'));
+        $real = realpath(storage_path('app/' . $row->bukti_transaksi));
+        abort_unless($root && $real && is_file($real) && strpos($real, $root . DIRECTORY_SEPARATOR) === 0, 404);
+
+        if ((int) $user->hak_akses === 2) {
+            abort_unless((string) $user->no_anggota === (string) $row->fid_anggota, 404);
+        } else {
+            $module = BuktiTransaksi::moduleTransaksi($row->fid_jenis_transaksi);
+            $permission = DB::table('otoritas_user')
+                ->where('fid_hak_akses', $user->hak_akses)->where('fid_modul', $module)->first();
+            abort_unless($permission && $permission->is_view === 'Y', 404);
+        }
+        $mime = mime_content_type($real) ?: 'application/octet-stream';
+        return response()->stream(function () use ($real) {
+            $out = fopen('php://output', 'wb');
+            $in = fopen($real, 'rb');
+            stream_copy_to_stream($in, $out);
+            fclose($in); fclose($out);
+        }, 200, $this->headers() + ['Content-Type' => $mime, 'Content-Length' => filesize($real)]);
+    }
+
     public function mobile(Request $request, $jenis, $id)
     {
         $bukti = BuktiTransaksi::load($jenis, $id);

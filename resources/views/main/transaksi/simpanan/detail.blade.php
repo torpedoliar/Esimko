@@ -102,13 +102,16 @@ Simpanan |
             @endif
             <button class="btn btn-{{(!empty($data['simpanan']->bukti_transaksi) ? 'primary' : 'warning')}}" data-target="#modal-upload" data-toggle="modal">Upload Bukti Pembayaran</button>
             @if(!empty($data['simpanan']->bukti_transaksi))
-            <a href="{{asset('storage/'.$data['simpanan']->bukti_transaksi)}}" target="_blank" class="btn btn-secondary">Lihat Bukti Transaksi</a>
+            <a href="{{url('transaksi/lampiran/'.$id)}}" target="_blank" rel="noopener" class="btn btn-secondary">Lihat Bukti Transaksi</a>
             @endif
           </div>
           @endif
         </div>
         <div class="card-footer">
           @include('bukti.tombol', ['jenis' => 'transaksi', 'id' => $id, 'row' => $data['simpanan']])
+          @if(!empty($data['simpanan']->bukti_transaksi))
+          <a href="{{url('transaksi/lampiran/'.$id)}}" target="_blank" rel="noopener" class="btn btn-secondary">Lihat Lampiran</a>
+          @endif
           <a href="{{url('main/simpanan')}}" class="btn btn-dark pull-right">Kembali</a>
         </div>
       </div>

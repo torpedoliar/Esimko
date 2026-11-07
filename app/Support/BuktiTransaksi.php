@@ -10,6 +10,18 @@ use chillerlan\QRCode\QROptions;
 
 class BuktiTransaksi
 {
+    /** Modul otorisasi untuk sebuah jenis transaksi (dipakai cek izin lampiran). */
+    public static function moduleTransaksi($tipe)
+    {
+        $t = (int) $tipe;
+        if (in_array($t, [9, 10, 11, 15], true)) return 15;
+        if ($t === 6) return 31;
+        if ($t === 7) return 32;
+        if ($t === 8) return 33;
+        if (in_array($t, [12, 13, 14], true)) return 17;
+        return 34;
+    }
+
     public static function eligible($jenis, $row)
     {
         if (!$row) return false;
