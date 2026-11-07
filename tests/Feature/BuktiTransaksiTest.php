@@ -79,9 +79,11 @@ class BuktiTransaksiTest extends TestCase
         DB::table('otoritas_user')->insert(['fid_hak_akses'=>1,'fid_modul'=>34,'is_view'=>'Y','is_print'=>'N','is_all_user'=>'Y']);
         $this->get('/receipt-web/transaksi/1')->assertStatus(404);
         DB::table('otoritas_user')->update(['is_print'=>'Y','is_all_user'=>'N']);
-        $this->get('/receipt-web/transaksi/1')->assertOk();
+        $this->withSession(['useractive'=>(object)['no_anggota'=>'STAFF','hak_akses'=>1]])->get('/receipt-web/transaksi/1')->assertOk();
+        // is_all_user/created_by tidak dipakai aplikasi; petugas dengan lihat+cetak boleh mengunduh
+        // transaksi anggota mana pun di modulnya.
         DB::table('transaksi')->where('id',1)->update(['created_by'=>'OTHER']);
-        $this->get('/receipt-web/transaksi/1')->assertStatus(404);
+        $this->withSession(['useractive'=>(object)['no_anggota'=>'STAFF','hak_akses'=>1]])->get('/receipt-web/transaksi/1')->assertOk();
     }
 
     public function test_verification_masks_personal_data_and_detects_tampering_and_changes()

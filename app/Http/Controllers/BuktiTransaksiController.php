@@ -17,10 +17,11 @@ class BuktiTransaksiController extends Controller
         if ((int) $user->hak_akses === 2) {
             abort_unless((string) $user->no_anggota === $bukti['owner'], 404);
         } else {
-            // Read fresh permission values: cached permissions may have been revoked.
+            // Petugas: sama seperti halaman detail modul — butuh izin lihat + cetak pada modul
+            // terkait (diambil segar, karena izin bisa dicabut). Aplikasi tidak memakai
+            // is_all_user/created_by untuk membatasi akses, jadi jangan ditambahkan di sini.
             $permission = DB::table('otoritas_user')->where('fid_hak_akses', $user->hak_akses)->where('fid_modul', $bukti['module'])->first();
             abort_unless($permission && $permission->is_view === 'Y' && $permission->is_print === 'Y', 404);
-            abort_unless($permission->is_all_user === 'Y' || (string) $user->no_anggota === $bukti['created_by'], 404);
         }
         return $this->download($bukti);
     }
