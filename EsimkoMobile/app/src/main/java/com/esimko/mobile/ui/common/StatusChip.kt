@@ -51,7 +51,7 @@ fun StatusChip(
             text = status,
             style = MaterialTheme.typography.labelSmall,
             color = accent,
-            maxLines = 1
+            maxLines = 2
         )
     }
 }

@@ -16,7 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.esimko.mobile.data.local.AuthEvents
+import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.data.local.FcmTokenStore
 import com.esimko.mobile.data.local.ThemeMode
 import com.esimko.mobile.domain.repository.DeviceRepository
@@ -34,7 +34,8 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var deviceRepository: DeviceRepository
 
-    private var lastRegisteredToken: String? = null
+    @Inject
+    lateinit var tokenStore: TokenStore
 
     private val requestNotifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -56,20 +57,18 @@ class MainActivity : ComponentActivity() {
             EsimkoTheme(darkTheme = darkTheme) {
                 val vm: MainViewModel = viewModel()
                 val loggedIn by vm.isLoggedIn.collectAsStateWithLifecycle()
+                val sessionRevision by vm.sessionChanges.collectAsStateWithLifecycle()
                 val navController = rememberNavController()
 
-                // Sesi invalid (401 dari interceptor) → paksa balik ke login
-                LaunchedEffect(AuthEvents) {
-                    AuthEvents.loggedOut.collect {
+                // State, not a lossy one-shot event: 401 while stopped is handled on resume too.
+                LaunchedEffect(sessionRevision) {
+                    if (!tokenStore.isLoggedIn() && sessionRevision != 0L) {
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }
+                    } else if (tokenStore.isLoggedIn()) {
+                        daftarkanToken()
                     }
-                }
-
-                // Setelah login berhasil, daftarkan token device ke backend utk push.
-                LaunchedEffect(loggedIn) {
-                    if (loggedIn) daftarkanToken()
                 }
 
                 // Cadangan: kalau token FCM baru tersedia SETELAH login (perangkat baru
@@ -105,14 +104,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun daftarkanToken() {
+        val session = tokenStore.currentSession() ?: return
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             val token = if (task.isSuccessful) task.result else FcmTokenStore.get(applicationContext)
             token?.let { t ->
                 FcmTokenStore.save(applicationContext, t)
-                // Kirim ulang hanya bila tokennya berbeda — hindari POST berulang tiap resume.
-                if (t != lastRegisteredToken) {
-                    lastRegisteredToken = t
-                    lifecycleScope.launch { deviceRepository.registerToken(t) }
+                lifecycleScope.launch {
+                    deviceRepository.registerToken(t, session.revision)
                 }
             }
         }

@@ -7,6 +7,7 @@ import com.esimko.mobile.domain.model.Version
 import com.esimko.mobile.domain.model.VersionCheck
 import com.esimko.mobile.domain.repository.VersionRepository
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 
 class VersionRepositoryImpl @Inject constructor(
     private val api: VersionApi
@@ -26,6 +27,8 @@ class VersionRepositoryImpl @Inject constructor(
             } else {
                 Result.Error(response.message ?: "Failed to load version")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Network error"))
         }
@@ -37,7 +40,9 @@ class VersionRepositoryImpl @Inject constructor(
             if (response.success && response.data != null) {
                 val dto = response.data
                 Result.Success(VersionCheck(
-                    updateAvailable = dto.updateAvailable ?: false,
+                    // Backend compares names only; Android also permits same-name build updates.
+                    updateAvailable = dto.updateAvailable == true || dto.forceUpdate == true ||
+                        (dto.latestVersionCode ?: 0) > com.esimko.mobile.BuildConfig.VERSION_CODE,
                     forceUpdate = dto.forceUpdate ?: false,
                     message = dto.message,
                     url = dto.url,
@@ -50,6 +55,8 @@ class VersionRepositoryImpl @Inject constructor(
             } else {
                 Result.Error(response.message ?: "Failed to check version")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Network error"))
         }

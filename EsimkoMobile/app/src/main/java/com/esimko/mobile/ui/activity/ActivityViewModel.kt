@@ -11,6 +11,8 @@ import com.esimko.mobile.domain.repository.TransactionRepository
 import com.esimko.mobile.util.ActivityGrouping
 import com.esimko.mobile.util.ActivityRow
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,6 +57,19 @@ class ActivityViewModel @Inject constructor(
     val state: StateFlow<ActivityState> = _state.asStateFlow()
 
     private var initialised = false
+    private var generation = 0L
+    private var statusGeneration = 0L
+    private var pageJob: Job? = null
+    private var statusJob: Job? = null
+    private var searchJob: Job? = null
+
+    /** Invalidate immediately, including during debounce and non-cooperative repository calls. */
+    private fun invalidatePages() {
+        generation++
+        pageJob?.cancel()
+        searchJob?.cancel()
+        _state.value = _state.value.copy(isLoadingMore = false, isRefreshing = false)
+    }
 
     /** Dipanggil sekali dari `LaunchedEffect(Unit)` dengan `filter` dari argumen rute. */
     fun start(filterKey: String?) {
@@ -64,57 +79,65 @@ class ActivityViewModel @Inject constructor(
     }
 
     fun selectSegment(segment: ActivitySegment) {
-        // ponytail: pindah segmen memuat ulang dari halaman 1 — tidak ada cache per segmen.
-        // Kalau bolak-balik segmen terasa lambat, simpan Map<ActivitySegment, List<Transaction>>.
+        invalidatePages()
+        statusGeneration++
+        statusJob?.cancel()
         _state.value = ActivityState(segment = segment)
         if (segment.modul != null) loadStatuses(segment)
         loadPage(1)
     }
 
     fun selectStatus(statusId: Int?) {
+        invalidatePages()
         _state.value = _state.value.copy(selectedStatusId = statusId, isFirstLoad = true)
         loadPage(1)
     }
 
     fun refresh() {
+        invalidatePages()
         _state.value = _state.value.copy(isRefreshing = true)
         loadPage(1)
     }
 
     fun loadMore() {
         val s = _state.value
-        if (!s.hasMore || s.isLoadingMore || s.isRefreshing) return
+        if (!s.hasMore || s.isLoadingMore || s.isRefreshing || s.isFirstLoad ||
+            pageJob?.isActive == true || searchJob?.isActive == true) return
         _state.value = s.copy(isLoadingMore = true)
         loadPage(s.page + 1)
     }
 
-    fun retry() = if (_state.value.items.isEmpty()) loadPage(1) else refresh()
-
-    private var searchJob: kotlinx.coroutines.Job? = null
+    fun retry() {
+        if (_state.value.items.isEmpty()) {
+            invalidatePages()
+            _state.value = _state.value.copy(isFirstLoad = true)
+            loadPage(1)
+        } else refresh()
+    }
 
     /** Debounce ketikan pencarian supaya tidak membebani server tiap huruf. */
     fun onSearchChange(value: String) {
+        invalidatePages()
         _state.value = _state.value.copy(search = value)
-        searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            kotlinx.coroutines.delay(400)
+            delay(400)
             _state.value = _state.value.copy(isFirstLoad = true)
             loadPage(1)
         }
     }
 
     fun toggleSort() {
+        invalidatePages()
         _state.value = _state.value.copy(sortTerbaru = !_state.value.sortTerbaru, isFirstLoad = true)
         loadPage(1)
     }
 
-    private fun sortParam(): String = if (_state.value.sortTerbaru) "terbaru" else "terlama"
-
     private fun loadStatuses(segment: ActivitySegment) {
-        viewModelScope.launch {
-            // `master/status_transaksi/{modul}`: 'simpanan' mengembalikan 5 baris (id 6 dibuang),
-            // modul lain 6. `filterKey` sudah persis nilai yang diterima backend.
-            when (val result = masterRepository.getTransactionStatuses(segment.filterKey)) {
+        val requestGeneration = statusGeneration
+        statusJob = viewModelScope.launch {
+            val result = masterRepository.getTransactionStatuses(requireNotNull(segment.modul))
+            if (requestGeneration != statusGeneration) return@launch
+            when (result) {
                 is Result.Success -> _state.value = _state.value.copy(
                     statuses = result.data, statusError = null
                 )
@@ -125,21 +148,25 @@ class ActivityViewModel @Inject constructor(
     }
 
     private fun loadPage(page: Int) {
-        val segment = _state.value.segment
-        viewModelScope.launch {
-            val result: Result<Pair<List<Transaction>, Boolean>> = when (segment) {
-                ActivitySegment.SIMPANAN, ActivitySegment.PINJAMAN -> loadTransactions(segment, page)
-                ActivitySegment.BELANJA -> loadPurchases(page)
-                ActivitySegment.ANGSURAN_BELANJA -> loadInstallments(page)
-                ActivitySegment.RETUR -> loadReturns(page)
+        // Snapshot all filters once: the three purchase calls must use the same query.
+        val query = _state.value
+        val requestGeneration = ++generation
+        pageJob?.cancel()
+        pageJob = viewModelScope.launch {
+            val result: Result<Pair<List<Transaction>, Boolean>> = when (query.segment) {
+                ActivitySegment.SIMPANAN, ActivitySegment.PINJAMAN -> loadTransactions(query, page)
+                ActivitySegment.BELANJA -> loadPurchases(query, page)
+                ActivitySegment.ANGSURAN_BELANJA -> loadInstallments(query, page)
+                ActivitySegment.RETUR -> loadReturns(query, page)
             }
+            if (requestGeneration != generation) return@launch
             when (result) {
                 is Result.Success -> {
                     val (fresh, hasMore) = result.data
-                    val merged = if (page == 1) fresh else _state.value.items + fresh
+                    val merged = ActivityGrouping.distinct(if (page == 1) fresh else query.items + fresh)
                     _state.value = _state.value.copy(
                         items = merged,
-                        rows = ActivityGrouping.build(merged, terbaru = _state.value.sortTerbaru),
+                        rows = ActivityGrouping.build(merged, terbaru = query.sortTerbaru),
                         page = page,
                         hasMore = hasMore,
                         isFirstLoad = false,
@@ -161,14 +188,14 @@ class ActivityViewModel @Inject constructor(
     }
 
     private suspend fun loadTransactions(
-        segment: ActivitySegment,
+        query: ActivityState,
         page: Int
     ): Result<Pair<List<Transaction>, Boolean>> {
         val result = transactionRepository.getTransactions(
-            modul = segment.modul ?: "transaksi",
-            status = _state.value.selectedStatusId,
-            search = _state.value.search.takeIf { it.isNotBlank() },
-            sort = sortParam(),
+            modul = requireNotNull(query.segment.modul),
+            status = query.selectedStatusId,
+            search = query.search.takeIf { it.isNotBlank() },
+            sort = if (query.sortTerbaru) "terbaru" else "terlama",
             page = page
         )
         return when (result) {
@@ -183,15 +210,15 @@ class ActivityViewModel @Inject constructor(
      * menggabungkan tiga panggilan. Gagal sebagian tidak membatalkan seluruhnya — daftar apa pun
      * yang berhasil tetap ditampilkan; hanya kalau ketiganya gagal barulah error muncul.
      */
-    private suspend fun loadPurchases(page: Int): Result<Pair<List<Transaction>, Boolean>> {
+    private suspend fun loadPurchases(query: ActivityState, page: Int): Result<Pair<List<Transaction>, Boolean>> {
         val merged = mutableListOf<Transaction>()
         var hasMore = false
         var lastError: String? = null
         JENIS_BELANJA.forEach { jenis ->
             when (val r = shoppingRepository.getPurchaseHistory(
                 jenis, page = page,
-                search = _state.value.search.takeIf { it.isNotBlank() },
-                sort = sortParam()
+                search = query.search.takeIf { it.isNotBlank() },
+                sort = if (query.sortTerbaru) "terbaru" else "terlama"
             )) {
                 is Result.Success -> {
                     merged += r.data.items.map { ActivityMapper.purchaseToActivity(it, jenis) }
@@ -206,11 +233,11 @@ class ActivityViewModel @Inject constructor(
         else Result.Success(merged to hasMore)
     }
 
-    private suspend fun loadInstallments(page: Int): Result<Pair<List<Transaction>, Boolean>> {
+    private suspend fun loadInstallments(query: ActivityState, page: Int): Result<Pair<List<Transaction>, Boolean>> {
         return when (val r = shoppingRepository.getShoppingInstallments(
             page = page,
-            search = _state.value.search.takeIf { it.isNotBlank() },
-            sort = sortParam()
+            search = query.search.takeIf { it.isNotBlank() },
+            sort = if (query.sortTerbaru) "terbaru" else "terlama"
         )) {
             is Result.Success ->
                 Result.Success(r.data.items.map(ActivityMapper::installmentToActivity) to r.data.hasMore)
@@ -219,10 +246,10 @@ class ActivityViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadReturns(page: Int): Result<Pair<List<Transaction>, Boolean>> {
+    private suspend fun loadReturns(query: ActivityState, page: Int): Result<Pair<List<Transaction>, Boolean>> {
         return when (val r = shoppingRepository.getReturns(
-            search = _state.value.search.takeIf { it.isNotBlank() },
-            sort = sortParam(),
+            search = query.search.takeIf { it.isNotBlank() },
+            sort = if (query.sortTerbaru) "terbaru" else "terlama",
             page = page
         )) {
             is Result.Success ->

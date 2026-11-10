@@ -1,9 +1,9 @@
 package com.esimko.mobile.data.remote.interceptor
 
-import com.esimko.mobile.data.local.AuthEvents
 import com.esimko.mobile.data.local.TokenStore
 import okhttp3.Interceptor
 import okhttp3.Response
+import java.io.IOException
 import javax.inject.Inject
 
 class AuthInterceptor @Inject constructor(
@@ -11,24 +11,26 @@ class AuthInterceptor @Inject constructor(
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
+        val path = request.url.encodedPath.trimEnd('/')
+        val publicAuth = path.endsWith("/mobile/auth/login") || path.endsWith("/mobile/auth/register")
+        val logout = path.endsWith("/mobile/auth/logout")
+        val boundSession = request.tag(TokenStore.Session::class.java)
+        val session = tokenStore.currentSession()
+        // A queued registration must never be sent using a replacement account's credentials.
+        if (boundSession != null && boundSession != session) throw IOException("Session changed")
         val builder = request.newBuilder()
-
-        val (token, revision) = synchronized(tokenStore) {
-            tokenStore.token to tokenStore.sessionRevision
+        val authorization = when {
+            publicAuth -> null
+            logout -> request.header("Authorization") // logout is explicitly bound before local clear
+            else -> session?.let { "Bearer ${it.token}" }
         }
-        // Credentials, token metadata, and authenticated resource URLs must not be logged.
-        token?.takeIf { it.isNotEmpty() }?.let {
-            builder.addHeader("Authorization", "Bearer $it")
-        }
-
+        builder.removeHeader("Authorization")
+        if (authorization != null) builder.header("Authorization", authorization)
         val response = chain.proceed(builder.build())
-
-        // 401 dengan token yang dipakai = sesi invalid (expired / direset server).
-        // Bersihkan token + notify agar UI balik ke login. Jangan untuk login/logout request sendiri.
-        if (response.code == 401 && token?.isNotEmpty() == true) {
-            if (tokenStore.clearIfCurrent(revision)) AuthEvents.emitLoggedOut()
+        // Public auth failures and late logout responses cannot invalidate another session.
+        if (response.code == 401 && !publicAuth && !logout && session != null) {
+            tokenStore.clearIfCurrent(session.revision)
         }
-
         return response
     }
 }

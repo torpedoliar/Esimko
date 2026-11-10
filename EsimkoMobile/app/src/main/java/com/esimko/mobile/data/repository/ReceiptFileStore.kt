@@ -19,17 +19,22 @@ class ReceiptFileStore @Inject constructor(@ApplicationContext private val conte
     }
 
     fun publish(file: File, name: String, beforePublish: () -> Unit): SavedReceipt {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            beforePublish()
-            val target = File(file.parentFile, name)
-            check(file.renameTo(target)) { "Gagal menyiapkan bukti. Coba lagi." }
-            try {
-                return SavedReceipt(FileProvider.getUriForFile(context, "${context.packageName}.provider", target).toString(), false)
-            } catch (e: Exception) {
-                target.delete()
-                throw e
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return publishToDownloads(file, name, beforePublish)
         }
+        beforePublish()
+        val target = File(file.parentFile, name)
+        check(file.renameTo(target)) { "Gagal menyiapkan bukti. Coba lagi." }
+        try {
+            return SavedReceipt(FileProvider.getUriForFile(context, "${context.packageName}.provider", target).toString(), false)
+        } catch (e: Exception) {
+            target.delete()
+            throw e
+        }
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
+    private fun publishToDownloads(file: File, name: String, beforePublish: () -> Unit): SavedReceipt {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, name)
@@ -40,8 +45,17 @@ class ReceiptFileStore @Inject constructor(@ApplicationContext private val conte
         val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
             ?: error("Gagal menyimpan bukti. Periksa ruang penyimpanan.")
         try {
-            resolver.openOutputStream(uri)?.use { output -> file.inputStream().use { it.copyTo(output) } }
-                ?: error("Gagal menulis bukti. Periksa ruang penyimpanan.")
+            resolver.openOutputStream(uri)?.use { output ->
+                file.inputStream().use { input ->
+                    val buffer = ByteArray(8192)
+                    while (true) {
+                        beforePublish() // Cancellation/session checks during slow storage writes too.
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        output.write(buffer, 0, count)
+                    }
+                }
+            } ?: error("Gagal menulis bukti. Periksa ruang penyimpanan.")
             beforePublish() // Recheck after the potentially long storage copy, while still pending.
             check(resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null) > 0)
             return SavedReceipt(uri.toString(), true)

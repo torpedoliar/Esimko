@@ -62,6 +62,12 @@ import com.esimko.mobile.ui.common.AmountField
 import com.esimko.mobile.ui.common.EsimkoPreview
 import com.esimko.mobile.ui.common.LightDarkPreview
 import com.esimko.mobile.util.MoneyFormatter
+import com.esimko.mobile.util.readBounded
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +84,7 @@ fun SavingsFormScreen(
 
     var konfirmasiKeluar by remember { mutableStateOf(false) }
     var konfirmasiKirim by remember { mutableStateOf(false) }
+    var konfirmasiPeriksa by remember { mutableStateOf(false) }
     BackHandler(enabled = state.punyaDraft) { konfirmasiKeluar = true }
 
     val judul = if (jenis == "setoran") "Setoran Simpanan Sukarela" else "Penarikan Simpanan Sukarela"
@@ -136,7 +143,8 @@ fun SavingsFormScreen(
                     onNominalChange = viewModel::onNominalChange,
                     onKeteranganChange = viewModel::onKeteranganChange,
                     // Pengajuan BARU dikirim ke server setelah anggota menyetujui dialog konfirmasi.
-                    onSubmit = { konfirmasiKirim = true }
+                    onSubmit = { konfirmasiKirim = true },
+                    onReconcile = { konfirmasiPeriksa = true }
                 )
                 FormStep.BUKTI -> BuktiStep(
                     state = state,
@@ -147,13 +155,15 @@ fun SavingsFormScreen(
                 )
                 FormStep.SELESAI -> SelesaiStep(
                     transactionId = state.lastTransactionId,
-                    onDone = onDone
+                    onDone = { viewModel.completeSubmission(onDone) },
+                    isSubmitting = state.isSubmitting,
+                    error = state.error
                 )
             }
         }
     }
 
-    if (konfirmasiKirim) {
+    if (konfirmasiKirim && !state.blocked && !state.isLoading) {
         val nominal = state.nominal.toLongOrNull() ?: 0L
         val aksi = if (state.jenis == "setoran") "Setoran Simpanan Sukarela" else "Penarikan Simpanan Sukarela"
         AlertDialog(
@@ -180,6 +190,27 @@ fun SavingsFormScreen(
         )
     }
 
+    if (konfirmasiPeriksa && state.hasPendingSubmission && !state.blocked && !state.isLoading) {
+        AlertDialog(
+            onDismissRequest = { konfirmasiPeriksa = false },
+            title = { Text("Periksa / ubah pengajuan") },
+            text = { Text(
+                "Perlu koneksi internet. Jika pengajuan sudah tercatat, Anda akan melanjutkan ke bukti " +
+                    "pada transaksi yang sama. Jika belum, server akan menutup pengajuan lama secara aman " +
+                    "sebelum Anda dapat mengubahnya. Pengajuan baru tetap memerlukan persetujuan Anda."
+            ) },
+            confirmButton = {
+                Button(onClick = {
+                    konfirmasiPeriksa = false
+                    keyboard?.hide()
+                    focus.clearFocus()
+                    viewModel.reconcilePending()
+                }) { Text("Periksa Sekarang") }
+            },
+            dismissButton = { TextButton(onClick = { konfirmasiPeriksa = false }) { Text("Kembali") } }
+        )
+    }
+
     if (konfirmasiKeluar) {
         AlertDialog(
             onDismissRequest = { konfirmasiKeluar = false },
@@ -188,6 +219,8 @@ fun SavingsFormScreen(
                 Text(
                     if (state.lastTransactionId != null)
                         "Pengajuan sudah terkirim. Bukti bisa diunggah lain waktu dari Aktivitas."
+                    else if (state.hasPendingSubmission)
+                        "Status pengajuan belum dipastikan. Pengajuan disimpan aman dan akan dibuka kembali dengan nominal yang sama; jangan membuat pengajuan pengganti."
                     else "Nominal yang sudah diisi akan hilang."
                 )
             },
@@ -204,7 +237,8 @@ private fun NominalStep(
     state: SavingsFormState,
     onNominalChange: (String) -> Unit,
     onKeteranganChange: (String) -> Unit,
-    onSubmit: () -> Unit
+    onSubmit: () -> Unit,
+    onReconcile: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -216,14 +250,21 @@ private fun NominalStep(
         AmountField(
             value = state.nominal,
             onValueChange = onNominalChange,
-            label = "Nominal"
+            label = "Nominal",
+            enabled = state.canEdit
         )
         OutlinedTextField(
             value = state.keterangan,
             onValueChange = onKeteranganChange,
             label = { Text("Keterangan (opsional)") },
             modifier = Modifier.fillMaxWidth(),
-            minLines = 2
+            minLines = 2,
+            enabled = state.canEdit
+        )
+        if (state.isLoading) CircularProgressIndicator(Modifier.size(24.dp))
+        if (state.hasPendingSubmission) Text(
+            "Pengajuan sebelumnya dibuka kembali. Coba data yang sama atau periksa ke server agar dapat mengubahnya dengan aman.",
+            style = MaterialTheme.typography.bodySmall
         )
         state.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -231,15 +272,20 @@ private fun NominalStep(
         Spacer(Modifier.weight(1f))
         Button(
             onClick = onSubmit,
-            enabled = state.nominalValid && !state.isSubmitting,
+            enabled = state.nominalValid && !state.isSubmitting && !state.isLoading && !state.blocked,
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
             if (state.isSubmitting) {
                 CircularProgressIndicator(Modifier.size(24.dp), color = Color.White)
             } else {
-                Text("Kirim Pengajuan")
+                Text(if (state.hasPendingSubmission) "Coba Pengajuan yang Sama" else "Kirim Pengajuan")
             }
         }
+        if (state.hasPendingSubmission) OutlinedButton(
+            onClick = onReconcile,
+            enabled = !state.isSubmitting && !state.isLoading && !state.blocked,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Periksa / ubah pengajuan") }
     }
 }
 
@@ -252,19 +298,29 @@ private fun BuktiStep(
     onSkip: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var reading by remember { mutableStateOf(false) }
+    var imageError by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let {
-            context.contentResolver.openInputStream(it)?.use { stream ->
-                // Kompres dulu: foto kamera HP 3-8MB → ~200KB. Tanpa ini server 413.
-                val compressed = stream.readBytes().compressForUpload()
-                if (compressed != null) {
-                    onPick(
-                        compressed,
-                        "image/jpeg",
-                        it.lastPathSegment ?: "bukti"
-                    )
+        uri?.let { selected ->
+            reading = true
+            imageError = null
+            scope.launch {
+                try {
+                    val bytes = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(selected)?.use { stream ->
+                            stream.readBounded().compressForUpload()
+                        }
+                    } ?: error("Gambar tidak dapat dibaca")
+                    onPick(bytes, "image/jpeg", selected.lastPathSegment ?: "bukti")
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    imageError = "Foto tidak dapat dibaca. Pilih gambar valid maksimal 20 MB."
+                } finally {
+                    reading = false
                 }
             }
         }
@@ -282,9 +338,12 @@ private fun BuktiStep(
             style = MaterialTheme.typography.bodyMedium
         )
 
+        imageError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (reading) CircularProgressIndicator(Modifier.size(24.dp))
         if (state.buktiBytes == null) {
             OutlinedButton(
                 onClick = { picker.launch("image/*") },
+                enabled = !reading && !state.isSubmitting,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             ) {
                 Icon(Icons.Filled.CloudUpload, contentDescription = null)
@@ -309,8 +368,8 @@ private fun BuktiStep(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { picker.launch("image/*") }) { Text("Ganti") }
-                TextButton(onClick = onClear) { Text("Hapus") }
+                OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !reading && !state.isSubmitting) { Text("Ganti") }
+                TextButton(onClick = onClear, enabled = !reading && !state.isSubmitting) { Text("Hapus") }
             }
         }
 
@@ -321,7 +380,7 @@ private fun BuktiStep(
         Spacer(Modifier.weight(1f))
         Button(
             onClick = onUpload,
-            enabled = state.buktiBytes != null && !state.isSubmitting,
+            enabled = state.buktiBytes != null && !state.isSubmitting && !reading,
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
             if (state.isSubmitting) {
@@ -335,7 +394,7 @@ private fun BuktiStep(
 }
 
 @Composable
-private fun SelesaiStep(transactionId: Long?, onDone: () -> Unit) {
+private fun SelesaiStep(transactionId: Long?, onDone: () -> Unit, isSubmitting: Boolean = false, error: String? = null) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -359,7 +418,8 @@ private fun SelesaiStep(transactionId: Long?, onDone: () -> Unit) {
         }
         Text("Menunggu verifikasi pengurus.", style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onDone, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Button(onClick = onDone, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth().height(52.dp)) {
             Text("Selesai")
         }
     }
@@ -370,7 +430,7 @@ private fun SelesaiStep(transactionId: Long?, onDone: () -> Unit) {
 private fun NominalStepPreview() = EsimkoPreview {
     NominalStep(
         state = SavingsFormState(jenis = "setoran", nominal = "250000", keterangan = ""),
-        onNominalChange = {}, onKeteranganChange = {}, onSubmit = {}
+        onNominalChange = {}, onKeteranganChange = {}, onSubmit = {}, onReconcile = {}
     )
 }
 

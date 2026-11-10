@@ -72,17 +72,26 @@ class MobileController extends Controller
         }
       }
       if ($password_ok) {
-        $token = Str::random(32);
-        $anggota->token = $token;
-        $anggota->login_at = date('Y-m-d H:i:s');
-        $anggota->save();
-        $return = array(
-          'token' => $anggota->token,
-          'no_anggota' => $anggota->no_anggota,
-          'nama' => $anggota->nama_lengkap,
-          'avatar' => (!empty($anggota->avatar) ? asset('storage/' . $anggota->avatar) : asset('assets/images/user-avatar-placeholder.png'))
-        );
-        return ApiResponse::success($return);
+        $verifiedPassword = $anggota->password;
+        return DB::transaction(function () use ($anggota, $verifiedPassword) {
+          $current = Anggota::whereKey($anggota->id)->lockForUpdate()->first();
+          if (!$current || !in_array((string) $current->fid_status, ['2', '3', '5'], true)
+              || !hash_equals((string) $verifiedPassword, (string) $current->password)) {
+            return ApiResponse::error('Data akun berubah. Silakan masuk kembali.', 401);
+          }
+          $current->token = Str::random(32);
+          $current->login_at = date('Y-m-d H:i:s');
+          $current->save();
+          // Keep device associations on login: the member is unchanged, and clearing
+          // them would silently disable notifications on the member's other devices.
+          // Logout still removes every association for this member.
+          return ApiResponse::success([
+            'token' => $current->token,
+            'no_anggota' => $current->no_anggota,
+            'nama' => $current->nama_lengkap,
+            'avatar' => !empty($current->avatar) ? asset('storage/' . $current->avatar) : asset('assets/images/user-avatar-placeholder.png'),
+          ]);
+        }, 3);
       } else {
         return ApiResponse::error('Password yang anda masukkan salah', 401);
       }
@@ -93,12 +102,15 @@ class MobileController extends Controller
 
   public function logout(Request $request)
   {
-    $anggota = Anggota::where('no_anggota', $request->no_anggota)->first();
-    if (!empty($anggota)) {
+    return DB::transaction(function () use ($request) {
+      $anggota = \App\Support\MobileSessionGuard::lockedMember($request);
+      if (!$anggota) return ApiResponse::error('Sesi berakhir. Silakan masuk kembali.', 401);
       $anggota->token = null;
+      $anggota->login_at = null;
       $anggota->save();
-    }
-    return ApiResponse::success(null, 'Logout berhasil');
+      \App\DeviceToken::where('fid_anggota', $anggota->no_anggota)->delete();
+      return ApiResponse::success(null, 'Logout berhasil');
+    }, 3);
   }
 
   public function register(Request $request)
@@ -509,7 +521,22 @@ class MobileController extends Controller
     return ApiResponse::success(['list' => $data, 'bulan' => $gaji_pokok[0], 'gaji_pokok' => $gaji_pokok[1]]);
   }
 
+  public function rekonsiliasi_simpanan(Request $request, $jenis)
+  {
+    return \App\Support\MobileSavingsIdempotency::reconcile($request, $jenis);
+  }
+
   public function proses_transaksi(Request $request, $jenis)
+  {
+    if ($request->headers->has('Idempotency-Key')) {
+      return \App\Support\MobileSavingsIdempotency::run($request, $jenis, function (Request $normalized) use ($jenis) {
+        return $this->proses_transaksi_legacy($normalized, $jenis);
+      });
+    }
+    return $this->proses_transaksi_legacy($request, $jenis);
+  }
+
+  private function proses_transaksi_legacy(Request $request, $jenis)
   {
     if ($jenis === 'pinjaman' && $request->action !== 'delete') {
       return $this->proses_pinjaman_mobile($request);
@@ -923,13 +950,18 @@ class MobileController extends Controller
     if ($token === '' || strlen($token) > 600) {
       return ApiResponse::error('Token perangkat tidak valid');
     }
-    \App\DeviceToken::where('token', $token)->delete();
-    \App\DeviceToken::create([
-      'fid_anggota' => $request->no_anggota,
-      'token' => $token,
-      'platform' => 'android',
-    ]);
-    return ApiResponse::success(null, 'Perangkat terdaftar');
+    return DB::transaction(function () use ($request, $token) {
+      \App\Support\MobileSessionGuard::lockDeviceRegistration();
+      $anggota = \App\Support\MobileSessionGuard::lockedMember($request);
+      if (!$anggota) return ApiResponse::error('Sesi berakhir. Silakan masuk kembali.', 401);
+      \App\DeviceToken::where('token', $token)->delete();
+      \App\DeviceToken::create([
+        'fid_anggota' => $anggota->no_anggota,
+        'token' => $token,
+        'platform' => 'android',
+      ]);
+      return ApiResponse::success(null, 'Perangkat terdaftar');
+    }, 3);
   }
 
   // Validasi file dokumen: hanya JPG/PNG/PDF (cek mime server-side, bukan sekadar

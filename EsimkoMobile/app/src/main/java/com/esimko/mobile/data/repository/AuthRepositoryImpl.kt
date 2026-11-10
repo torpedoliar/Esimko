@@ -1,6 +1,5 @@
 package com.esimko.mobile.data.repository
 
-import android.util.Log
 import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.core.network.apiErrorMessage
 import com.esimko.mobile.data.local.TokenStore
@@ -9,6 +8,9 @@ import com.esimko.mobile.data.remote.dto.LoginRequest
 import com.esimko.mobile.data.remote.dto.RegisterRequest
 import com.esimko.mobile.domain.model.User
 import com.esimko.mobile.domain.repository.AuthRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,37 +19,33 @@ class AuthRepositoryImpl @Inject constructor(
     private val api: AuthApi,
     private val tokenStore: TokenStore
 ) : AuthRepository {
+    private var authAttempt = 0L
 
     override suspend fun login(username: String, password: String): Result<User> {
+        val (revision, attempt) = synchronized(tokenStore) {
+            tokenStore.sessionRevision to ++authAttempt
+        }
         return try {
-            Log.d("AuthRepository", "Attempting login for user: $username")
             val response = api.login(LoginRequest(username, password))
-            Log.d("AuthRepository", "Login response: success=${response.success}, message=${response.message}")
-
-            if (response.success && response.data != null) {
-                val data = response.data
+            val data = response.data
+            if (response.success && data != null) {
                 val token = data.token
                 val noAnggota = data.no_anggota
-                Log.d("AuthRepository", "Token received: ${token?.take(10)}..., no_anggota: $noAnggota")
-
-                // Check if login actually succeeded (token exists)
-                if (token.isNullOrEmpty() || noAnggota.isNullOrEmpty()) {
-                    // Login failed - backend returned error message
-                    val errorMsg = data.msg ?: "Login gagal"
-                    Log.e("AuthRepository", "Login failed: $errorMsg")
-                    Result.Error(errorMsg)
+                if (token.isNullOrBlank() || noAnggota.isNullOrBlank()) {
+                    Result.Error(data.msg ?: "Login gagal")
+                } else if (!synchronized(tokenStore) {
+                    attempt == authAttempt && tokenStore.saveSessionIfCurrent(revision, token, noAnggota)
+                }) {
+                    Result.Error("Sesi berubah. Silakan masuk kembali.")
                 } else {
-                    tokenStore.token = token
-                    tokenStore.noAnggota = noAnggota
-                    Log.d("AuthRepository", "Token saved to TokenStore successfully")
                     Result.Success(User(noAnggota, data.nama.orEmpty(), token, data.avatar))
                 }
             } else {
-                Log.e("AuthRepository", "Login failed: ${response.message}")
                 Result.Error(response.message ?: "Login gagal")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.e("AuthRepository", "Login exception: ${e.message}", e)
             Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
@@ -73,24 +71,35 @@ class AuthRepositoryImpl @Inject constructor(
             } else {
                 Result.Error(response.message ?: "Registrasi gagal")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Network error"))
         }
     }
 
     override suspend fun logout(): Result<Unit> {
-        return try {
-            val response = api.logout()
+        val session = synchronized(tokenStore) {
+            authAttempt++
+            val current = tokenStore.currentSession()
+            // End the local session immediately, including a pending login with no saved token yet.
             tokenStore.clear()
-            if (response.success) {
-                Result.Success(Unit)
-            } else {
-                Result.Error(response.message ?: "Logout failed")
-            }
-        } catch (e: Exception) {
-            tokenStore.clear()
-            Result.Success(Unit)
+            current
         }
+        if (session != null) {
+            // Local clear may immediately remove the profile/login screen and cancel its VM.
+            // Finish this already-requested revocation (bounded by the HTTP client's timeout).
+            withContext(NonCancellable) {
+                try {
+                    api.logout("Bearer ${session.token}")
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Local logout remains successful offline; never clear a later login.
+                }
+            }
+        }
+        return Result.Success(Unit)
     }
 
     override fun isLoggedIn(): Boolean = tokenStore.isLoggedIn()

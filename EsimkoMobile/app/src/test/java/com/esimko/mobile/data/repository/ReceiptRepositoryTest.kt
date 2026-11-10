@@ -26,6 +26,34 @@ class ReceiptRepositoryTest {
         return ReceiptRepository(api, tokens, files)
     }
 
+    @Test fun `lampiran rejects account switch and closes response`() = runTest {
+        val repo = repository()
+        val body = okio.Buffer().writeUtf8("image")
+        val response = mockk<okhttp3.ResponseBody>(relaxed = true)
+        every { response.contentLength() } returns -1L
+        every { response.source() } returns body
+        coEvery { api.lampiran(12) } answers {
+            every { tokens.sessionRevision } returns 8L
+            Response.success(response)
+        }
+        try { repo.loadLampiran(12); fail("Must reject previous session") } catch (_: IllegalStateException) { }
+        verify { response.close() }
+    }
+
+    @Test fun `lampiran rejects unknown length overflow and empty body`() = runTest {
+        val response = mockk<okhttp3.ResponseBody>()
+        every { response.contentLength() } returns -1L
+        every { response.source() } returns okio.Buffer().write(ByteArray(MAX_LAMPIRAN_BYTES + 1))
+        try { readLampiran(response); fail("Must bound unknown length") } catch (_: IllegalStateException) { }
+        try { readLampiran(ByteArray(0).toResponseBody()); fail("Must reject empty") } catch (_: IllegalStateException) { }
+    }
+
+    @Test fun `lampiran preserves cancellation`() = runTest {
+        val repo = repository()
+        coEvery { api.lampiran(12) } throws CancellationException("cancelled")
+        try { repo.loadLampiran(12); fail("Must cancel") } catch (_: CancellationException) { }
+    }
+
     @Test fun `valid PDF streams then publishes with session identity`() = runTest {
         val repo = repository()
         val temp = File.createTempFile("receipt-test", ".pdf")

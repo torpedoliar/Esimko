@@ -74,6 +74,7 @@ class ReceiptViewModelTest {
         dispatcher.scheduler.runCurrent()
         vm.download("angsuran", 1)
         dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.states.value["angsuran/1"]?.downloading == true)
         assertNull(vm.states.value["angsuran/1"]?.error)
         assertNull(vm.states.value["angsuran/1"]?.saved)
     }

@@ -153,7 +153,8 @@ fun HomeScreen(
             composable(Tab.AKUN.route) {
                 AccountTab(
                     onLogout = onLogout,
-                    onOpenSettings = { onNavigateRoot("settings") }
+                    onOpenSettings = { onNavigateRoot("settings") },
+                    onOpenInstallments = { onNavigateRoot("installment") }
                 )
             }
             }

@@ -15,11 +15,22 @@ sealed interface ActivityRow {
     }
 
     data class ItemRow(val transaction: Transaction) : ActivityRow {
-        override val key get() = "trx:${transaction.id}"
+        override val key get() = "trx:${ActivityGrouping.identity(transaction)}"
     }
 }
 
 object ActivityGrouping {
+
+    /** Installments share the sale id, but different periods/installment numbers are real rows. */
+    fun identity(transaction: Transaction): String = buildString {
+        append(transaction.modul).append(':').append(transaction.id)
+        if (transaction.jenis == "Angsuran Belanja") {
+            append(':').append(transaction.tanggal).append(':').append(transaction.subtitleOverride)
+        }
+    }
+
+    fun distinct(transactions: List<Transaction>): List<Transaction> =
+        transactions.distinctBy(::identity)
 
     private val MONTHS = listOf(
         "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -48,7 +59,7 @@ object ActivityGrouping {
         } else {
             compareBy<Transaction> { it.tanggal }.thenBy { it.id }
         }
-        val sorted = transactions.sortedWith(comparator)
+        val sorted = distinct(transactions).sortedWith(comparator)
         val (running, finished) = sorted.partition { !StatusMeta.isFinal(it.status) }
 
         val rows = mutableListOf<ActivityRow>()
@@ -60,14 +71,11 @@ object ActivityGrouping {
 
         if (finished.isNotEmpty()) {
             rows += ActivityRow.SectionHeaderRow("Selesai")
-            var currentMonth: String? = null
-            finished.forEach { trx ->
-                val month = monthLabel(trx.tanggal)
-                if (month != currentMonth) {
-                    rows += ActivityRow.MonthHeaderRow(month)
-                    currentMonth = month
-                }
-                rows += ActivityRow.ItemRow(trx)
+            // Raw dates can be malformed/non-canonical and interleave the same month label.
+            // Group once per label, preserving the sorted order of the first occurrence.
+            finished.groupBy { monthLabel(it.tanggal) }.forEach { (month, items) ->
+                rows += ActivityRow.MonthHeaderRow(month)
+                items.forEach { rows += ActivityRow.ItemRow(it) }
             }
         }
 

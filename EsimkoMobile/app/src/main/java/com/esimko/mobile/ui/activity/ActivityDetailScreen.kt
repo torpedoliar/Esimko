@@ -80,13 +80,16 @@ private fun BuktiLampiranImage(
     ) {
         when (val s = state) {
             is LampiranState.Loading -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-            is LampiranState.Error -> Text(
-                text = s.message,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(12.dp)
-            )
+            is LampiranState.Error -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = s.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(12.dp)
+                )
+                Button(onClick = { viewModel.load(transactionId) }) { Text("Coba Lagi") }
+            }
             is LampiranState.Success -> {
                 val bitmap = remember(s.bytes) { s.bytes.decodeSampled() }
                 if (bitmap != null) {

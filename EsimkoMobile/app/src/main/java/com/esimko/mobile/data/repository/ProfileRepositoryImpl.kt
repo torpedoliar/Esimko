@@ -8,10 +8,12 @@ import com.esimko.mobile.data.remote.api.ProfileApi
 import com.esimko.mobile.data.remote.dto.ChangePasswordRequest
 import com.esimko.mobile.domain.model.Profile
 import com.esimko.mobile.domain.repository.ProfileRepository
+import com.esimko.mobile.domain.repository.AuthRepository
 import com.esimko.mobile.util.roundL
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +30,8 @@ import javax.inject.Singleton
 class ProfileRepositoryImpl @Inject constructor(
     private val api: ProfileApi,
     private val tokenStore: TokenStore,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val authRepository: AuthRepository
 ) : ProfileRepository {
     // Memory only: TokenStore's encryption can fall back to plaintext, so it is not
     // suitable for persisting identity and financial data. Never read the legacy file.
@@ -159,8 +162,14 @@ class ProfileRepositoryImpl @Inject constructor(
     }
 
     override suspend fun logout() {
-        tokenStore.clear()
-        withContext(Dispatchers.IO) { File(context.filesDir, "profile_cache.json").delete() }
+        try {
+            // AuthRepository captures the bearer before immediately clearing local credentials.
+            authRepository.logout()
+        } finally {
+            withContext(NonCancellable + Dispatchers.IO) {
+                try { File(context.filesDir, "profile_cache.json").delete() } catch (_: SecurityException) { }
+            }
+        }
     }
 
     companion object {

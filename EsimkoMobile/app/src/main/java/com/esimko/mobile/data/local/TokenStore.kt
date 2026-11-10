@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -60,12 +62,43 @@ class TokenStore @Inject constructor(
             context.deleteSharedPreferences("esimko_secure_prefs")
         } catch (_: Exception) {
         }
+        _sessionChanges.value = sessionRevision
     }
 
     // Synchronous invalidation lets session-bound caches clear before credentials change.
+    @Volatile
     internal var sessionRevision: Long = 0
         private set
     private val sessionListeners = mutableListOf<() -> Unit>()
+    private val _sessionChanges = MutableStateFlow(0L)
+    val sessionChanges = _sessionChanges.asStateFlow()
+
+    // Never log this value: it contains the bearer credential.
+    data class Session(val token: String, val noAnggota: String, val revision: Long) {
+        override fun toString(): String = "Session(revision=$revision)"
+    }
+
+    @Synchronized
+    fun currentSession(): Session? {
+        val credential = token?.takeIf { it.isNotBlank() } ?: return null
+        val member = noAnggota?.takeIf { it.isNotBlank() } ?: return null
+        return Session(credential, member, sessionRevision)
+    }
+
+    @Synchronized
+    internal fun saveSessionIfCurrent(revision: Long, token: String, noAnggota: String): Boolean {
+        if (sessionRevision != revision) return false
+        require(token.isNotBlank() && noAnggota.isNotBlank())
+        invalidateSession()
+        try {
+            prefs.edit().putString("auth_token", token).putString("no_anggota", noAnggota).apply()
+        } catch (e: Exception) {
+            pulihkan(e)
+            plain.edit().putString("auth_token", token).putString("no_anggota", noAnggota).apply()
+        }
+        _sessionChanges.value = sessionRevision
+        return true
+    }
 
     @Synchronized
     internal fun addSessionListener(listener: () -> Unit) {
@@ -101,6 +134,7 @@ class TokenStore @Inject constructor(
                 pulihkan(e)
                 plain.edit().putString("auth_token", value).apply()
             }
+            _sessionChanges.value = sessionRevision
         }
 
     @get:Synchronized
@@ -120,6 +154,7 @@ class TokenStore @Inject constructor(
                 pulihkan(e)
                 plain.edit().putString("no_anggota", value).apply()
             }
+            _sessionChanges.value = sessionRevision
         }
 
     @Synchronized
@@ -130,7 +165,8 @@ class TokenStore @Inject constructor(
         } catch (e: Exception) {
             pulihkan(e)
         }
+        _sessionChanges.value = sessionRevision
     }
 
-    fun isLoggedIn(): Boolean = token != null
+    fun isLoggedIn(): Boolean = currentSession() != null
 }

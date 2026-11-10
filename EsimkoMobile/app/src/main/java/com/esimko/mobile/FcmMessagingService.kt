@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.esimko.mobile.data.local.FcmTokenStore
+import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.domain.repository.DeviceRepository
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -23,6 +24,9 @@ class FcmMessagingService : FirebaseMessagingService() {
     @Inject
     lateinit var deviceRepository: DeviceRepository
 
+    @Inject
+    lateinit var tokenStore: TokenStore
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
@@ -32,7 +36,8 @@ class FcmMessagingService : FirebaseMessagingService() {
      */
     override fun onNewToken(token: String) {
         FcmTokenStore.save(this, token)
-        scope.launch { deviceRepository.registerToken(token) }
+        val session = tokenStore.currentSession() ?: return
+        scope.launch { deviceRepository.registerToken(token, session.revision) }
     }
 
     override fun onDestroy() {

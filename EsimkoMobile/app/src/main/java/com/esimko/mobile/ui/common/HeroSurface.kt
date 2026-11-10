@@ -1,7 +1,7 @@
 package com.esimko.mobile.ui.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +25,8 @@ import com.esimko.mobile.ui.theme.OnHero
 
 /** Hijau pekat hero, satu-satunya di app (spec §3 aturan 1). */
 @Composable
-fun heroBackground(): Color = if (isSystemInDarkTheme()) DarkHeroGreen else HeroGreen
+fun heroBackground(): Color =
+    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) DarkHeroGreen else HeroGreen
 
 /**
  * Latar hijau pekat yang mengalir ke belakang status bar. Mengambil insets

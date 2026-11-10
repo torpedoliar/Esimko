@@ -2,6 +2,7 @@ package com.esimko.mobile.data.repository
 
 import com.esimko.mobile.core.network.Result
 import com.esimko.mobile.core.network.apiErrorMessage
+import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.data.remote.api.TransactionApi
 import com.esimko.mobile.data.remote.dto.TransactionRequest
 import com.esimko.mobile.data.remote.dto.TransactionResponse
@@ -10,13 +11,17 @@ import com.esimko.mobile.domain.model.Paged
 import com.esimko.mobile.domain.model.Transaction
 import com.esimko.mobile.domain.model.TransactionDetail
 import com.esimko.mobile.domain.repository.TransactionRepository
+import com.esimko.mobile.domain.repository.SavingsReconciliation
+import kotlinx.coroutines.CancellationException
+import java.util.UUID
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 class TransactionRepositoryImpl @Inject constructor(
-    private val api: TransactionApi
+    private val api: TransactionApi,
+    private val tokenStore: TokenStore
 ) : TransactionRepository {
 
     override suspend fun getTransactions(
@@ -55,6 +60,8 @@ class TransactionRepositoryImpl @Inject constructor(
             } else {
                 Result.Error(response.message ?: "Gagal memuat transaksi")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
@@ -90,6 +97,8 @@ class TransactionRepositoryImpl @Inject constructor(
             } else {
                 Result.Error(response.message ?: "Gagal memuat detail transaksi")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
@@ -98,12 +107,18 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun processTransaction(
         jenis: String,
         nominal: Long,
-        keterangan: String?
+        keterangan: String?,
+        idempotencyKey: String,
+        session: TokenStore.Session
     ): Result<Transaction> {
         return try {
+            require(jenis == "setoran" || jenis == "penarikan")
+            require(nominal > 0 && UUID.fromString(idempotencyKey).toString() == idempotencyKey)
+            if (tokenStore.currentSession() != session) return Result.Error("Sesi berubah. Buka kembali pengajuan pada akun asal.")
             val request = TransactionRequest(action = "add", nominal = nominal, keterangan = keterangan)
-            val response = api.processTransaction(jenis, request)
-            if (response.success && response.data != null) {
+            val response = api.processTransaction(jenis, request, idempotencyKey, session)
+            if (tokenStore.currentSession() != session) return Result.Error("Sesi berubah. Buka kembali pengajuan pada akun asal.")
+            if (response.success && response.data != null && response.data.id > 0) {
                 val dto = response.data
                 Result.Success(Transaction(
                     id = dto.id,
@@ -118,8 +133,38 @@ class TransactionRepositoryImpl @Inject constructor(
             } else {
                 Result.Error(response.message ?: "Gagal mengirim pengajuan")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
+        }
+    }
+
+    override suspend fun reconcileSavings(
+        jenis: String, nominal: Long, keterangan: String?, idempotencyKey: String, session: TokenStore.Session
+    ): Result<SavingsReconciliation> {
+        return try {
+            require(jenis == "setoran" || jenis == "penarikan")
+            require(nominal > 0 && UUID.fromString(idempotencyKey).toString() == idempotencyKey)
+            if (tokenStore.currentSession() != session) return Result.Error("Sesi berubah. Buka kembali pengajuan pada akun asal.")
+            val response = api.reconcileSavings(
+                jenis, TransactionRequest(action = "abandon", nominal = nominal, keterangan = keterangan), idempotencyKey, session
+            )
+            if (tokenStore.currentSession() != session) return Result.Error("Sesi berubah. Buka kembali pengajuan pada akun asal.")
+            val dto = response.data
+            if (!response.success || dto == null || dto.jenis != jenis) {
+                Result.Error(response.message ?: "Status pengajuan belum dapat dipastikan. Coba periksa lagi.")
+            } else when {
+                dto.state == "existing" && dto.id != null && dto.id > 0 ->
+                    Result.Success(SavingsReconciliation.Existing(dto.id))
+                dto.state == "abandoned" && dto.id == null ->
+                    Result.Success(SavingsReconciliation.Abandoned(idempotencyKey, jenis))
+                else -> Result.Error("Status pengajuan belum dapat dipastikan. Coba periksa lagi.")
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Pengajuan lama tetap tersimpan; coba periksa lagi."))
         }
     }
 
@@ -132,22 +177,32 @@ class TransactionRepositoryImpl @Inject constructor(
             } else {
                 Result.Error(response.message ?: "Gagal membatalkan transaksi")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
     }
 
-    override suspend fun uploadTransactionProof(id: Long, fileBytes: ByteArray, mimeType: String): Result<Unit> {
+    override suspend fun uploadTransactionProof(
+        id: Long, fileBytes: ByteArray, mimeType: String, session: TokenStore.Session?
+    ): Result<Unit> {
         return try {
+            val bound = session ?: tokenStore.currentSession()
+                ?: return Result.Error("Silakan masuk kembali.")
+            if (tokenStore.currentSession() != bound) return Result.Error("Sesi berubah. Silakan masuk kembali.")
             val idBody = id.toString().toRequestBody("text/plain".toMediaTypeOrNull())
             val fileBody = fileBytes.toRequestBody(mimeType.toMediaTypeOrNull())
             val part = MultipartBody.Part.createFormData("bukti_transaksi", "bukti.jpg", fileBody)
-            val response = api.uploadTransactionProof(idBody, part)
+            val response = api.uploadTransactionProof(idBody, part, bound)
+            if (tokenStore.currentSession() != bound) return Result.Error("Sesi berubah. Silakan masuk kembali.")
             if (response.success) {
                 Result.Success(Unit)
             } else {
                 Result.Error(response.message ?: "Gagal mengunggah bukti")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(apiErrorMessage(e, "Tidak ada koneksi. Periksa jaringan."))
         }
@@ -161,7 +216,7 @@ class TransactionRepositoryImpl @Inject constructor(
 fun TransactionResponse.toDomain(modul: String): Transaction = Transaction(
     id = id,
     jenis = jenisTransaksi.orEmpty(),
-    modul = modul,
+    modul = if (modul in setOf("simpanan", "pinjaman")) "transaksi" else modul,
     nominal = nominal?.let { Math.round(it) } ?: 0L,
     tanggal = tanggal.orEmpty(),
     status = status.orEmpty(),

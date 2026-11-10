@@ -12,8 +12,9 @@ enum class ActivitySegment(
     val filterKey: String,
     val modul: String? = null
 ) {
-    SIMPANAN("Simpanan", "simpanan", modul = "transaksi"),
-    PINJAMAN("Pinjaman", "pinjaman", modul = "transaksi"),
+    // API filter modules; transaction rows still dispatch details with domain modul=transaksi.
+    SIMPANAN("Simpanan", "simpanan", modul = "simpanan"),
+    PINJAMAN("Pinjaman", "pinjaman", modul = "pinjaman"),
     BELANJA("Belanja", "belanja"),
     ANGSURAN_BELANJA("Angsuran Belanja", "angsuran_belanja"),
     RETUR("Retur", "retur");

@@ -2,6 +2,9 @@ package com.esimko.mobile.update
 
 import android.app.DownloadManager
 import android.content.Context
+import android.content.ClipData
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
@@ -29,12 +32,16 @@ class ApkInstaller(private val context: Context) {
 
     // Query status, bukan mengandalkan broadcast yang dapat terlewat/diblokir ROM OEM.
     // ID disimpan agar rotasi/proses mati tidak memicu unduhan duplikat.
-    suspend fun unduh(url: String, versi: String): String? = withContext(Dispatchers.IO) {
-        var id = prefs.getLong("id", -1L).takeIf { prefs.getString("versi", null) == versi } ?: -1L
+    suspend fun unduh(url: String, versi: String, releaseKey: String): String? = withContext(Dispatchers.IO) {
+        require(validUpdateUrl(url)) { "URL pembaruan tidak aman." }
+        var id = prefs.getLong("id", -1L).takeIf { prefs.getString("release", null) == releaseKey } ?: -1L
         if (id == -1L || status(id) == null || status(id)?.first == DownloadManager.STATUS_FAILED) {
             hapusUnduhan()
-            val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "update").apply { mkdirs() }
-            val file = File(dir, "esimko-mobile-v$versi.apk")
+            val root = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                ?: error("Penyimpanan pembaruan tidak tersedia.")
+            val dir = File(root, "update").apply { mkdirs() }
+            // Never interpolate remote version text into a filesystem path.
+            val file = File(dir, "esimko-mobile.apk")
             if (file.exists()) file.delete()
             id = dm.enqueue(
                 DownloadManager.Request(Uri.parse(url))
@@ -44,10 +51,11 @@ class ApkInstaller(private val context: Context) {
                     .setDestinationUri(Uri.fromFile(file))
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             )
-            prefs.edit().putLong("id", id).putString("versi", versi).apply()
+            prefs.edit().putLong("id", id).putString("release", releaseKey).apply()
         }
         var path: String? = null
         while (true) {
+            currentCoroutineContext().ensureActive()
             val result = status(id) ?: break
             if (result.first == DownloadManager.STATUS_SUCCESSFUL) {
                 path = result.second
@@ -59,8 +67,8 @@ class ApkInstaller(private val context: Context) {
         path
     }
 
-    fun adaUnduhan(versi: String): Boolean =
-        prefs.getString("versi", null) == versi && prefs.getLong("id", -1L) != -1L
+    fun adaUnduhan(releaseKey: String): Boolean =
+        prefs.getString("release", null) == releaseKey && prefs.getLong("id", -1L) != -1L
 
     fun hapusUnduhan() {
         val id = prefs.getLong("id", -1L)
@@ -77,10 +85,11 @@ class ApkInstaller(private val context: Context) {
             }
         }
 
-    fun sha256(path: String): String = File(path).inputStream().use { input ->
+    suspend fun sha256(path: String): String = File(path).inputStream().use { input ->
         val md = MessageDigest.getInstance("SHA-256")
         val buffer = ByteArray(1 shl 16)
         while (true) {
+            currentCoroutineContext().ensureActive()
             val n = input.read(buffer)
             if (n < 0) break
             md.update(buffer, 0, n)
@@ -103,6 +112,7 @@ class ApkInstaller(private val context: Context) {
             Intent(Intent.ACTION_VIEW)
                 .setDataAndType(uri, "application/vnd.android.package-archive")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                .apply { clipData = ClipData.newRawUri("Pembaruan eSIMKO", uri) }
         )
         true
     } catch (_: Exception) {

@@ -9,6 +9,9 @@ import com.esimko.mobile.ui.common.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,28 +81,45 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun uploadAvatar(imageBytes: ByteArray, mimeType: String = "image/jpeg") {
+    fun uploadAvatar(readImage: () -> ByteArray?) {
+        if (_avatarUploadState.value is UiState.Loading) return
+        _avatarUploadState.value = UiState.Loading
         viewModelScope.launch {
-            _avatarUploadState.value = UiState.Loading
-            val requestBody = imageBytes.toRequestBody(mimeType.toMediaTypeOrNull())
-            val part = MultipartBody.Part.createFormData("avatar", "avatar.jpg", requestBody)
-            when (val result = profileRepository.uploadAvatar(part)) {
-                is Result.Success -> {
-                    _avatarUploadState.value = UiState.Success(Unit)
-                    loadProfile(forceRefresh = true)
-                }
-                is Result.Error -> {
-                    _avatarUploadState.value = UiState.Error(result.message)
-                }
-                is Result.Loading -> {
-                    // Already handled
-                }
+            val bytes = try {
+                withContext(Dispatchers.IO) { readImage() }
+                    ?: error("Gambar tidak dapat dibaca. Pilih foto lain.")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _avatarUploadState.value = UiState.Error("Gagal membaca foto. Pastikan berkas gambar valid dan maksimal 20 MB.")
+                return@launch
             }
+            performAvatarUpload(bytes, "image/jpeg")
+        }
+    }
+
+    fun uploadAvatar(imageBytes: ByteArray, mimeType: String = "image/jpeg") {
+        if (_avatarUploadState.value is UiState.Loading) return
+        _avatarUploadState.value = UiState.Loading
+        viewModelScope.launch { performAvatarUpload(imageBytes, mimeType) }
+    }
+
+    private suspend fun performAvatarUpload(imageBytes: ByteArray, mimeType: String) {
+        val requestBody = imageBytes.toRequestBody(mimeType.toMediaTypeOrNull())
+        val part = MultipartBody.Part.createFormData("avatar", "avatar.jpg", requestBody)
+        when (val result = profileRepository.uploadAvatar(part)) {
+            is Result.Success -> {
+                _avatarUploadState.value = UiState.Success(Unit)
+                loadProfile(forceRefresh = true)
+            }
+            is Result.Error -> _avatarUploadState.value = UiState.Error(result.message)
+            is Result.Loading -> Unit
         }
     }
 
     fun logout() {
-        viewModelScope.launch {
+        // Clear locally before session-driven navigation can dispose this view model.
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             profileRepository.logout()
         }
     }

@@ -33,12 +33,15 @@ class FcmSender
     /** Kirim notifikasi ke semua perangkat milik satu anggota. Kembalikan jumlah terkirim. */
     public static function pushToAnggota($noAnggota, $title, $body, array $data = [])
     {
-        $sender = self::fromFile(base_path('firebase-service-account.json'));
+        $sender = static::fromFile(base_path('firebase-service-account.json'));
         if (!$sender) return 0;
-        $tokens = \App\DeviceToken::where('fid_anggota', $noAnggota)->pluck('token')->all();
+        $tokens = \App\DeviceToken::where('fid_anggota', $noAnggota)->distinct()->pluck('token')->all();
         $n = 0;
         foreach ($tokens as $token) {
-            if ($sender->send($token, $title, $body, $data)) $n++;
+            // Recheck immediately before dispatch; already queued FCM messages cannot be revoked.
+            if (!\App\DeviceToken::where('fid_anggota', $noAnggota)->where('token', $token)->exists()) continue;
+            // Never put financial decisions or rejection reasons on a lock screen.
+            if ($sender->send($token, 'Pembaruan eSIMKO', 'Ada pembaruan aktivitas. Buka aplikasi untuk melihat detail.', $data)) $n++;
         }
         return $n;
     }

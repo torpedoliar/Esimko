@@ -53,7 +53,7 @@ fun UpdateGate(
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             viewModel.state.collect { update ->
                 if (update.siapPasang != null && update.otomatisPasang) {
-                    viewModel.pasangSiap(context)
+                    viewModel.pasangSiap(context, lifecycleOwner.lifecycle)
                 }
             }
         }

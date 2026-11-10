@@ -46,6 +46,7 @@ data class TransactionDetailResponse(
     @Json(name = "nama_petugas") val namaPetugas: String? = null
 )
 
+/** Savings retries keep nominal/keterangan byte-for-byte stable; the UUID belongs in Idempotency-Key, not JSON. */
 @JsonClass(generateAdapter = true)
 data class TransactionRequest(
     @Json(name = "action") val action: String = "add",
@@ -54,6 +55,14 @@ data class TransactionRequest(
     @Json(name = "tenor") val tenor: Int? = null,
     @Json(name = "jenis_pinjaman") val jenisPinjaman: Int? = null,
     @Json(name = "gaji_pokok") val gajiPokok: Long? = null
+)
+
+/** Explicit reconciliation response; absence/errors are deliberately not a resolution. */
+@JsonClass(generateAdapter = true)
+data class SavingsReconciliationResponse(
+    @Json(name = "state") val state: String? = null,
+    @Json(name = "id") val id: Long? = null,
+    @Json(name = "jenis") val jenis: String? = null
 )
 
 @JsonClass(generateAdapter = true)

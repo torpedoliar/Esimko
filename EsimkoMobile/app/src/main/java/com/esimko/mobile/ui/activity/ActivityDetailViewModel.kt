@@ -3,6 +3,10 @@ package com.esimko.mobile.ui.activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.esimko.mobile.core.network.Result
+import com.esimko.mobile.data.repository.ReceiptRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import com.esimko.mobile.domain.model.PurchaseDetail
 import com.esimko.mobile.domain.model.TransactionDetail
 import com.esimko.mobile.domain.model.TransactionHistory
@@ -40,7 +44,8 @@ data class ActivityDetailState(
 class ActivityDetailViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val shoppingRepository: ShoppingRepository,
-    private val historyRepository: TransactionHistoryRepository
+    private val historyRepository: TransactionHistoryRepository,
+    private val receiptRepository: ReceiptRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ActivityDetailState())
@@ -49,9 +54,27 @@ class ActivityDetailViewModel @Inject constructor(
     private var id: Long = 0L
     private var modul: String = "transaksi"
     private var started = false
+    private var loadJob: Job? = null
+
+    init {
+        val initialRevision = receiptRepository.sessionRevision.value
+        viewModelScope.launch {
+            var observed = initialRevision
+            receiptRepository.sessionRevision.collect { revision ->
+                if (revision != observed) {
+                    observed = revision
+                    loadJob?.cancel()
+                    started = false
+                    _state.value = ActivityDetailState(isLoading = false, error = "Sesi berubah. Buka kembali rincian.")
+                }
+            }
+        }
+    }
 
     fun start(transactionId: Long, modul: String) {
-        if (started) return
+        if (started && id == transactionId && this.modul == modul) return
+        loadJob?.cancel()
+        _state.value = ActivityDetailState()
         started = true
         this.id = transactionId
         this.modul = modul
@@ -59,13 +82,14 @@ class ActivityDetailViewModel @Inject constructor(
     }
 
     fun load() {
+        loadJob?.cancel()
         // `retur_barang` tidak punya endpoint detail. Jangan panggil apa pun — tampilkan
         // pesan, bukan spinner yang tak pernah berhenti.
         if (modul == "retur") {
             _state.value = ActivityDetailState(isLoading = false, noDetail = true)
             return
         }
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             if (modul in MODUL_BELANJA) loadBelanja() else loadTransaksi()
             loadTimeline()
@@ -73,7 +97,11 @@ class ActivityDetailViewModel @Inject constructor(
     }
 
     private suspend fun loadTransaksi() {
-        when (val r = transactionRepository.getTransactionDetail(modul, id)) {
+        val owner = receiptRepository.sessionRevision.value
+        val r = transactionRepository.getTransactionDetail(modul, id)
+        coroutineContext.ensureActive()
+        if (receiptRepository.sessionRevision.value != owner) return
+        when (r) {
             is Result.Success -> _state.value =
                 _state.value.copy(transaksi = r.data, isLoading = false, error = null)
             // Gagal tidak menghapus data lama (spec Bagian 6).
@@ -83,7 +111,11 @@ class ActivityDetailViewModel @Inject constructor(
     }
 
     private suspend fun loadBelanja() {
-        when (val r = shoppingRepository.getPurchaseDetail(modul, id)) {
+        val owner = receiptRepository.sessionRevision.value
+        val r = shoppingRepository.getPurchaseDetail(modul, id)
+        coroutineContext.ensureActive()
+        if (receiptRepository.sessionRevision.value != owner) return
+        when (r) {
             is Result.Success -> _state.value =
                 _state.value.copy(belanja = r.data, isLoading = false, error = null)
             is Result.Error -> _state.value = _state.value.copy(error = r.message, isLoading = false)
@@ -98,7 +130,11 @@ class ActivityDetailViewModel @Inject constructor(
      */
     private suspend fun loadTimeline() {
         val jenis = if (modul in MODUL_BELANJA) "penjualan" else "transaksi"
-        when (val r = historyRepository.getTransactionHistory(id, jenis)) {
+        val owner = receiptRepository.sessionRevision.value
+        val r = historyRepository.getTransactionHistory(id, jenis)
+        coroutineContext.ensureActive()
+        if (receiptRepository.sessionRevision.value != owner) return
+        when (r) {
             is Result.Success -> _state.value = _state.value.copy(timeline = r.data)
             // Timeline gagal itu bukan kegagalan layar — detail utama tetap tampil.
             is Result.Error, is Result.Loading -> Unit

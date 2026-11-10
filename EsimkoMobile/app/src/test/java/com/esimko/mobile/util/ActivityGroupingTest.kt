@@ -131,6 +131,44 @@ class ActivityGroupingTest {
     }
 
     @Test
+    fun `overlapping pages collapse duplicate transactions`() {
+        val transaction = trx(1, "2026-08-01", "Selesai")
+        val rows = ActivityGrouping.build(listOf(transaction, transaction))
+        assertThat(rows.filterIsInstance<ActivityRow.ItemRow>()).hasSize(1)
+        assertThat(rows.map { it.key }).containsNoDuplicates()
+    }
+
+    @Test
+    fun `same id from distinct modules does not collide`() {
+        val transaction = trx(1, "2026-08-01", "Selesai")
+        val rows = ActivityGrouping.build(listOf(transaction.copy(modul = "toko"),
+            transaction.copy(modul = "online")))
+        assertThat(rows.filterIsInstance<ActivityRow.ItemRow>()).hasSize(2)
+        assertThat(rows.map { it.key }).containsNoDuplicates()
+    }
+
+    @Test
+    fun `installments sharing sale id retain distinct periods and installment numbers`() {
+        val transaction = trx(1, "2026-08-01", "Selesai").copy(jenis = "Angsuran Belanja",
+            modul = "toko", subtitleOverride = "Angsuran ke-1")
+        val second = transaction.copy(tanggal = "2026-09-01", subtitleOverride = "Angsuran ke-2")
+        val rows = ActivityGrouping.build(listOf(transaction, second, transaction))
+        assertThat(rows.filterIsInstance<ActivityRow.ItemRow>()).hasSize(2)
+        assertThat(rows.map { it.key }).containsNoDuplicates()
+    }
+
+    @Test
+    fun `interleaved malformed dates create each month header only once`() {
+        // Lexical ordering places the malformed string between two valid dates in August.
+        val rows = ActivityGrouping.build(listOf(trx(1, "2026-08-31", "Selesai"),
+            trx(2, "2026-08-2x", "Selesai"), trx(3, "2026-08-01", "Selesai"),
+            trx(4, "", "Selesai")))
+        assertThat(rows.filterIsInstance<ActivityRow.MonthHeaderRow>().map { it.title })
+            .containsExactly("Agustus 2026", "Tanpa tanggal").inOrder()
+        assertThat(rows.map { it.key }).containsNoDuplicates()
+    }
+
+    @Test
     fun `kunci baris unik supaya LazyColumn tidak salah daur ulang`() {
         val rows = ActivityGrouping.build(
             listOf(

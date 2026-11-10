@@ -52,6 +52,24 @@ class MobileSavingsDepositTypeTest extends TestCase
         $this->assertSame(250000.0, (float) $row->nominal);
     }
 
+    public function test_controller_retries_idempotent_deposit_without_duplicate()
+    {
+        Schema::create('anggota', function (Blueprint $t) {
+            $t->increments('id'); $t->string('no_anggota'); $t->string('token'); $t->dateTime('login_at')->nullable();
+        });
+        DB::table('anggota')->insert(['no_anggota' => 'A', 'token' => 'synthetic-session', 'login_at' => now()]);
+        require_once database_path('migrations/2026_11_10_000001_create_mobile_savings_requests_table.php');
+        (new \CreateMobileSavingsRequestsTable)->up();
+        $headers = ['Authorization' => 'Bearer synthetic-session', 'Idempotency-Key' => '019477a0-7c00-7000-8000-000000000001'];
+        $body = ['action' => 'add', 'no_anggota' => 'FORGED', 'nominal' => '250.000', 'keterangan' => 'synthetic consent'];
+        $first = $this->post('/savings-type/setoran', $body, $headers)->assertOk();
+        $retry = $this->post('/savings-type/setoran', $body, $headers)->assertOk();
+        $this->assertSame($first->json('data.id'), $retry->json('data.id'));
+        $this->assertSame(1, DB::table('transaksi')->count());
+        $this->assertSame('A', DB::table('transaksi')->value('fid_anggota'));
+        $this->assertSame(1, DB::table('mobile_savings_requests')->count());
+    }
+
     public function test_mobile_withdrawal_still_uses_sukarela_withdrawal_type()
     {
         DB::table('transaksi')->insert([

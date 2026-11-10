@@ -213,10 +213,9 @@ class LoanApplicationViewModel @Inject constructor(
     fun submit() {
         val s = _state.value
         val jenis = s.selectedJenis ?: return
-        if (!s.bisaKirim) return
-
+        if (!s.bisaKirim || s.isSubmitting || s.submitSuccess != null) return
+        _state.value = s.copy(isSubmitting = true, submitError = null)
         viewModelScope.launch {
-            _state.value = _state.value.copy(isSubmitting = true, submitError = null)
             val jenisLabel = when (jenis) {
                 9 -> "Pinjaman Jangka Panjang"
                 10 -> "Pinjaman Jangka Pendek"

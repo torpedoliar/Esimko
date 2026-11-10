@@ -1,0 +1,29 @@
+{
+  "status": "draft-local-only-not-a-deployment-authorization",
+  "backupRequiredBeforeProductionWrite": true,
+  "overwriteCandidates": [
+    "app/Http/Controllers/MobileController.php",
+    "app/Support/FcmSender.php",
+    "routes/api.php"
+  ],
+  "newFileCandidates": [
+    "app/Support/MobileSessionGuard.php",
+    "app/Support/MobileSavingsIdempotency.php",
+    "database/migrations/2026_11_10_000001_create_mobile_savings_requests_table.php"
+  ],
+  "databaseReadOnlyPreflight": [
+    "MySQL version and table engines",
+    "anggota / transaksi / device_tokens schema, indexes and triggers",
+    "migration ledger and pending migrations",
+    "device token duplicates without printing token values",
+    "available space and backup consistency strategy"
+  ],
+  "forbiddenWithoutSeparateApproval": [
+    "financial production smoke writes",
+    "production test login/logout/push without designated account/device scope",
+    "unannounced maintenance",
+    "blanket migration or database restore",
+    "APK publication or mandatory-version change"
+  ],
+  "notes": "Compare all candidate files with actual production before finalizing. Record SHA-256, sizes and backup locations. If integration adds any production target, extend inventory and backup before activation. Never restore revoked tokens or drop the idempotency ledger."
+}

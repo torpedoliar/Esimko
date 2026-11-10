@@ -72,8 +72,10 @@ class TransactionMapperTest {
     }
 
     @Test
-    fun `modul diteruskan ke model`() {
-        assertThat(dto().toDomain("pinjaman").modul).isEqualTo("pinjaman")
+    fun `modul daftar tetap memakai dispatch detail transaksi`() {
+        assertThat(dto().toDomain("pinjaman").modul).isEqualTo("transaksi")
+        assertThat(dto().toDomain("simpanan").modul).isEqualTo("transaksi")
+        assertThat(dto().toDomain("transaksi").modul).isEqualTo("transaksi")
     }
 
     @Test

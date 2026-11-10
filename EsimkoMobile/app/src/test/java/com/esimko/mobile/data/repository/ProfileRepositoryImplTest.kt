@@ -6,6 +6,7 @@ import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.data.remote.api.ProfileApi
 import com.esimko.mobile.data.remote.dto.ApiResponse
 import com.esimko.mobile.data.remote.dto.ProfileResponse
+import com.esimko.mobile.domain.repository.AuthRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.*
 import kotlinx.coroutines.*
@@ -17,6 +18,7 @@ import org.junit.rules.TemporaryFolder
 class ProfileRepositoryImplTest {
     @get:Rule val folder = TemporaryFolder()
     private val api = mockk<ProfileApi>()
+    private val auth = mockk<AuthRepository>()
     private val tokens = mockk<TokenStore>(relaxed = true)
     private val context = mockk<Context>()
     private var revision = 0L
@@ -38,7 +40,11 @@ class ProfileRepositoryImplTest {
             invalidate()
         }
         coEvery { api.getProfile() } returns response()
-        repository = ProfileRepositoryImpl(api, tokens, context)
+        coEvery { auth.logout() } coAnswers {
+            tokens.clear()
+            Result.Success(Unit)
+        }
+        repository = ProfileRepositoryImpl(api, tokens, context, auth)
     }
 
     private fun response(member: String = "A") = ApiResponse(
@@ -78,6 +84,32 @@ class ProfileRepositoryImplTest {
         release.complete(Unit)
         assertThat(request.await()).isInstanceOf(Result.Error::class.java)
         assertThat(repository.profile.value).isNull()
+    }
+
+    @Test fun `logout delegates before credentials disappear and removes legacy file`() = runBlocking {
+        val legacy = folder.newFile("profile_cache.json")
+        legacy.writeText("private cache")
+        coEvery { auth.logout() } coAnswers {
+            assertThat(token).isEqualTo("token-A")
+            tokens.clear()
+            Result.Success(Unit)
+        }
+        repository.logout()
+        coVerify(exactly = 1) { auth.logout() }
+        verify(exactly = 1) { tokens.clear() }
+        assertThat(legacy.exists()).isFalse()
+    }
+
+    @Test fun `logout cleanup survives cancellation from auth repository`() = runBlocking {
+        val legacy = folder.newFile("profile_cache.json")
+        coEvery { auth.logout() } coAnswers {
+            tokens.clear()
+            throw CancellationException("screen removed")
+        }
+        var cancelled = false
+        try { repository.logout() } catch (_: CancellationException) { cancelled = true }
+        assertThat(cancelled).isTrue()
+        assertThat(legacy.exists()).isFalse()
     }
 
     @Test fun `account change invalidates memory and rejects previous response`() = runBlocking {
