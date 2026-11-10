@@ -38,7 +38,6 @@ class DashboardViewModel @Inject constructor(
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state
 
-    val cacheStatus = profileRepository.cacheStatus
     private var loadJob: Job? = null
 
     init {

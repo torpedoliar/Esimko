@@ -173,12 +173,7 @@ fun ProfileScreen(
             )
         }
 
-        if (currentProfile != null) {
-            ProfileCacheNotice(cacheStatus, onRefresh = { viewModel.loadProfile(forceRefresh = true) },
-                modifier = Modifier.align(Alignment.BottomCenter))
-        }
-
-        if (avatarUploadState is UiState.Error) {
+                if (avatarUploadState is UiState.Error) {
             Text(
                 (avatarUploadState as UiState.Error).message,
                 color = MaterialTheme.colorScheme.onErrorContainer,

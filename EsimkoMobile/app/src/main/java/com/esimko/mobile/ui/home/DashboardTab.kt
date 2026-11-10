@@ -99,7 +99,6 @@ fun DashboardTab(
     newsViewModel: NewsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val cacheStatus by viewModel.cacheStatus.collectAsStateWithLifecycle()
     val newsState by newsViewModel.state.collectAsStateWithLifecycle()
     // ViewModel notifikasi harus sama dengan yang dipakai layar riwayat (Activity-scoped),
     // bukan instance NavBackStackEntry terpisah.
@@ -122,81 +121,75 @@ fun DashboardTab(
         )
     }
 
-    Box(Modifier.fillMaxSize()) {
-        when {
-            profile == null && state.error == null -> CooperativeLoading(
-                message = "Menyiapkan beranda Anda…",
-                modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-            )
-            profile == null && state.error != null -> ErrorView(
-                state.error!!,
-                onRetry = viewModel::load,
-                modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-            )
-            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+    when {
+        profile == null && state.error == null -> CooperativeLoading(
+            message = "Menyiapkan beranda Anda…",
+            modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+        )
+        profile == null && state.error != null -> ErrorView(
+            state.error!!,
+            onRetry = viewModel::load,
+            modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+        )
+        else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+            item {
+                DashboardHero(
+                    profile = profile,
+                    expanded = expanded,
+                    unreadCount = unread,
+                    onToggleExpand = { expanded = !expanded },
+                    onOpenAccount = { onNavigate("akun") },
+                    onOpenNotifications = { onNavigate("notifications") },
+                    onOpenInstallments = { onNavigate("installment") }
+                )
+            }
+            if (state.error != null && profile != null) {
                 item {
-                    DashboardHero(
-                        profile = profile,
-                        expanded = expanded,
-                        unreadCount = unread,
-                        onToggleExpand = { expanded = !expanded },
-                        onOpenAccount = { onNavigate("akun") },
-                        onOpenNotifications = { onNavigate("notifications") },
-                        onOpenInstallments = { onNavigate("installment") }
+                    StaleBanner(
+                        onRetry = viewModel::load,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
-                if (state.error != null && profile != null) {
-                    item {
-                        StaleBanner(
-                            onRetry = viewModel::load,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                    }
+            }
+            item {
+                Spacer(Modifier.height(16.dp))
+                ActionGrid(items = actions, modifier = Modifier.padding(horizontal = 8.dp))
+            }
+            if (state.pendingCount > 0) {
+                item { PendingStrip(count = state.pendingCount, onClick = { onNavigate("aktivitas") }) }
+            }
+            item {
+                Spacer(Modifier.height(24.dp))
+                SectionHeader(
+                    title = "Informasi",
+                    actionLabel = "Lihat semua",
+                    onAction = { onNavigate("news") },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+            val two = newsState.news.items.take(2)
+            when {
+                newsState.isLoading && two.isEmpty() -> item {
+                    SkeletonListRows(count = 2, modifier = Modifier.padding(horizontal = 16.dp))
                 }
-                item {
-                    Spacer(Modifier.height(16.dp))
-                    ActionGrid(items = actions, modifier = Modifier.padding(horizontal = 8.dp))
+                two.isEmpty() -> item {
+                    EmptyStateView(
+                        message = "Belum ada informasi.",
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
-                if (state.pendingCount > 0) {
-                    item { PendingStrip(count = state.pendingCount, onClick = { onNavigate("aktivitas") }) }
-                }
-                item {
-                    Spacer(Modifier.height(24.dp))
-                    SectionHeader(
-                        title = "Informasi",
-                        actionLabel = "Lihat semua",
-                        onAction = { onNavigate("news") },
+                else -> items(two, key = { it.id }) { news ->
+                    ListRow(
+                        title = news.judul,
+                        subtitle = HtmlToText.strip(news.ringkasan).take(90),
+                        leading = { NewsThumb(news.gambar) },
+                        onClick = { onOpenNewsDetail(news.id) },
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
+                    RowDivider(Modifier.padding(horizontal = 16.dp))
                 }
-                val two = newsState.news.items.take(2)
-                when {
-                    newsState.isLoading && two.isEmpty() -> item {
-                        SkeletonListRows(count = 2, modifier = Modifier.padding(horizontal = 16.dp))
-                    }
-                    two.isEmpty() -> item {
-                        EmptyStateView(
-                            message = "Belum ada informasi.",
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-                    else -> items(two, key = { it.id }) { news ->
-                        ListRow(
-                            title = news.judul,
-                            subtitle = HtmlToText.strip(news.ringkasan).take(90),
-                            leading = { NewsThumb(news.gambar) },
-                            onClick = { onOpenNewsDetail(news.id) },
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        RowDivider(Modifier.padding(horizontal = 16.dp))
-                    }
-                }
-                item { Spacer(Modifier.height(24.dp)) }
             }
-        }
-        if (profile != null) {
-            com.esimko.mobile.ui.profile.ProfileCacheNotice(cacheStatus, onRefresh = viewModel::load,
-                modifier = Modifier.align(Alignment.BottomCenter))
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }
