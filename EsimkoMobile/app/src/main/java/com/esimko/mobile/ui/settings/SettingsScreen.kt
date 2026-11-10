@@ -180,7 +180,7 @@ fun SettingsScreen(
             RowDivider()
             ListRow(
                 title = "Dikembangkan oleh",
-                subtitle = "Yohanes Octavian Rizky",
+                subtitle = "Bayonet PC",
                 onClick = onOpenAbout
             )
             Spacer(Modifier.height(24.dp))

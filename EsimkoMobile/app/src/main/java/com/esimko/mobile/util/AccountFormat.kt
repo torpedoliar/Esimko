@@ -3,7 +3,7 @@ package com.esimko.mobile.util
 /** Format tampilan tab Akun. Murni — diuji di JVM. */
 object AccountFormat {
 
-    /** "Yohanes Oktavianus Putra" → "YO". Kosong → "?". */
+    /** "Budi Santoso Putra" → "BS". Kosong → "?". */
     fun initials(nama: String): String {
         val parts = nama.trim().split(Regex("\\s+")).filter { it.any(Char::isLetterOrDigit) }
         if (parts.isEmpty()) return "?"

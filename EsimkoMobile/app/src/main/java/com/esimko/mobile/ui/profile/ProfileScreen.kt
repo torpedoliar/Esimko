@@ -110,10 +110,14 @@ fun ProfileScreen(
     val uiState by viewModel.uiState.collectAsState()
     val passwordChangeState by viewModel.passwordChangeState.collectAsState()
     val avatarUploadState by viewModel.avatarUploadState.collectAsState()
+    val cacheStatus by viewModel.cacheStatus.collectAsState()
 
     var hideBalance by rememberSaveable { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val currentProfile = (uiState as? UiState.Success)?.data
+    var photoOptions by remember(currentProfile?.noAnggota, cacheStatus.sessionEpoch) { mutableStateOf(false) }
+    var photoPreview by remember(currentProfile?.noAnggota, cacheStatus.sessionEpoch) { mutableStateOf(false) }
     var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -159,7 +163,7 @@ fun ProfileScreen(
             is UiState.Success -> ProfileContent(
                 profile = state.data,
                 avatarUploadState = avatarUploadState,
-                onPickAvatar = { imagePickerLauncher.launch("image/*") },
+                onPickAvatar = { photoOptions = true },
                 onOpenSettings = onOpenSettings,
                 onOpenInstallments = onOpenInstallments,
                 onChangePassword = { showPasswordDialog = true },
@@ -167,6 +171,11 @@ fun ProfileScreen(
                 hideBalance = hideBalance,
                 onToggleBalance = { hideBalance = !hideBalance }
             )
+        }
+
+        if (currentProfile != null) {
+            ProfileCacheNotice(cacheStatus, onRefresh = { viewModel.loadProfile(forceRefresh = true) },
+                modifier = Modifier.align(Alignment.BottomCenter))
         }
 
         if (avatarUploadState is UiState.Error) {
@@ -177,6 +186,18 @@ fun ProfileScreen(
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer).padding(16.dp)
             )
+        }
+
+        if (photoOptions && currentProfile != null) {
+            ProfilePhotoOptions(
+                hasPhoto = !currentProfile.avatar.isNullOrBlank(),
+                onOpen = { photoOptions = false; photoPreview = true },
+                onChange = { photoOptions = false; imagePickerLauncher.launch("image/*") },
+                onDismiss = { photoOptions = false }
+            )
+        }
+        if (photoPreview && currentProfile?.avatar?.isNotBlank() == true) {
+            ProfilePhotoDialog(currentProfile.avatar, onDismiss = { photoPreview = false })
         }
 
         if (showLogoutDialog) {

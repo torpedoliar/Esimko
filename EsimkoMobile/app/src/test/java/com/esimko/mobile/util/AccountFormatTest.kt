@@ -7,7 +7,7 @@ class AccountFormatTest {
 
     @Test
     fun `inisial dari dua kata pertama`() {
-        assertThat(AccountFormat.initials("Yohanes Oktavianus Putra")).isEqualTo("YO")
+        assertThat(AccountFormat.initials("Budi Santoso Putra")).isEqualTo("BS")
         assertThat(AccountFormat.initials("  budi  ")).isEqualTo("B")
     }
 

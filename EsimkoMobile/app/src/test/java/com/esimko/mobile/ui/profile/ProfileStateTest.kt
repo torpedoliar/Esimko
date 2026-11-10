@@ -24,6 +24,7 @@ class ProfileStateTest {
     @Before fun setup() {
         Dispatchers.setMain(dispatcher)
         every { repository.profile } returns profiles
+        every { repository.cacheStatus } returns MutableStateFlow(com.esimko.mobile.domain.model.ProfileCacheStatus())
         coEvery { repository.getProfile(any()) } coAnswers {
             profiles.value = snapshot
             Result.Success(snapshot)
@@ -59,6 +60,30 @@ class ProfileStateTest {
         coVerify(exactly = 1) { repository.getProfile(any()) }
         release.complete(Unit)
         runCurrent()
+    }
+
+    @Test fun `returning to account immediately displays session cached snapshot`() = runTest(dispatcher) {
+        profiles.value = snapshot
+        val release = CompletableDeferred<Unit>()
+        coEvery { repository.getProfile(any()) } coAnswers { release.await(); Result.Success(snapshot) }
+        val model = ProfileViewModel(repository)
+        assertThat(model.uiState.value).isInstanceOf(UiState.Success::class.java)
+        runCurrent()
+        assertThat(model.uiState.value).isInstanceOf(UiState.Success::class.java)
+        release.complete(Unit)
+        runCurrent()
+        assertThat(model.uiState.value).isInstanceOf(UiState.Success::class.java)
+    }
+
+    @Test fun `failed background refresh does not replace snapshot with full error page`() = runTest(dispatcher) {
+        profiles.value = snapshot
+        coEvery { repository.getProfile(any()) } returns Result.Error("Offline")
+        val model = ProfileViewModel(repository)
+        runCurrent()
+        assertThat(model.uiState.value).isInstanceOf(UiState.Success::class.java)
+        profiles.value = null
+        runCurrent()
+        assertThat(model.uiState.value).isNotInstanceOf(UiState.Success::class.java)
     }
 
     @Test fun `avatar upload suppresses duplicate submissions`() = runTest(dispatcher) {

@@ -19,7 +19,7 @@ import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.MoveDown
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.RequestQuote
-import androidx.compose.material.icons.outlined.Savings
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -100,7 +100,7 @@ private fun ActionGridPreview() {
     EsimkoPreview {
         ActionGrid(
             items = listOf(
-                ActionItem("Setor", Icons.Outlined.Savings, {}),
+                ActionItem("Setor", Icons.Outlined.AccountBalanceWallet, {}),
                 ActionItem("Tarik", Icons.Outlined.MoveDown, {}),
                 ActionItem("Pinjaman", Icons.Outlined.RequestQuote, {}),
                 ActionItem("Angsuran", Icons.Outlined.EventRepeat, {}),

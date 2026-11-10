@@ -35,6 +35,7 @@ class ProfileViewModel @Inject constructor(
     private val _avatarUploadState = MutableStateFlow<UiState<Unit>>(UiState.Idle)
     val avatarUploadState: StateFlow<UiState<Unit>> = _avatarUploadState.asStateFlow()
 
+    val cacheStatus = profileRepository.cacheStatus
     private var loadJob: Job? = null
 
     init {
@@ -50,7 +51,8 @@ class ProfileViewModel @Inject constructor(
     fun loadProfile(forceRefresh: Boolean = false) {
         if (loadJob?.isActive == true) return
         loadJob = viewModelScope.launch {
-            _uiState.value = UiState.Loading
+            val cached = profileRepository.profile.value
+            _uiState.value = if (cached != null) UiState.Success(cached) else UiState.Loading
             when (val result = profileRepository.getProfile(forceRefresh)) {
                 is Result.Success -> {
                     // A logout may have invalidated the result before this continuation.
@@ -58,7 +60,10 @@ class ProfileViewModel @Inject constructor(
                     _uiState.value = if (current != null && current == result.data)
                         UiState.Success(current) else UiState.Error("Sesi berakhir. Silakan masuk kembali.")
                 }
-                is Result.Error -> _uiState.value = UiState.Error(result.message)
+                is Result.Error -> {
+                    val current = profileRepository.profile.value
+                    _uiState.value = if (current != null) UiState.Success(current) else UiState.Error(result.message)
+                }
                 is Result.Loading -> Unit
             }
         }

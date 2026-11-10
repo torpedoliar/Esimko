@@ -86,12 +86,12 @@ fun AboutScreen(onBack: () -> Unit = {}) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Yohanes Octavian Rizky",
+                    text = "Bayonet PC",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Aplikasi mobile eSIMKO terbaru dikembangkan oleh Yohanes Octavian Rizky",
+                    text = "Aplikasi mobile eSIMKO terbaru dikembangkan oleh Bayonet PC",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)

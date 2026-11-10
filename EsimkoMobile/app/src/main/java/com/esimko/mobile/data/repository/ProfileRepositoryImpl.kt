@@ -7,6 +7,7 @@ import com.esimko.mobile.data.local.TokenStore
 import com.esimko.mobile.data.remote.api.ProfileApi
 import com.esimko.mobile.data.remote.dto.ChangePasswordRequest
 import com.esimko.mobile.domain.model.Profile
+import com.esimko.mobile.domain.model.ProfileCacheStatus
 import com.esimko.mobile.domain.repository.ProfileRepository
 import com.esimko.mobile.domain.repository.AuthRepository
 import com.esimko.mobile.util.roundL
@@ -38,6 +39,8 @@ class ProfileRepositoryImpl @Inject constructor(
     private val mutex = Mutex()
     private val _profile = MutableStateFlow<Profile?>(null)
     override val profile: StateFlow<Profile?> = _profile.asStateFlow()
+    private val _cacheStatus = MutableStateFlow(ProfileCacheStatus())
+    override val cacheStatus: StateFlow<ProfileCacheStatus> = _cacheStatus.asStateFlow()
     private var lastFetchAt = 0L
     private var completedFetch = 0L
     private var lastResult: Result<Profile>? = null
@@ -45,6 +48,7 @@ class ProfileRepositoryImpl @Inject constructor(
     init {
         tokenStore.addSessionListener {
             _profile.value = null
+            _cacheStatus.value = ProfileCacheStatus(sessionEpoch = _cacheStatus.value.sessionEpoch + 1)
             lastFetchAt = 0L
             lastResult = null
         }
@@ -58,6 +62,11 @@ class ProfileRepositoryImpl @Inject constructor(
             revision = tokenStore.sessionRevision
             owner = tokenStore.noAnggota.orEmpty()
             observedFetch = completedFetch
+            val cached = _profile.value
+            if (!forceRefresh && owner.isNotBlank() && !tokenStore.token.isNullOrBlank() &&
+                cached != null && cached.noAnggota == owner && System.nanoTime() - lastFetchAt < CACHE_TTL_NS) {
+                return Result.Success(cached)
+            }
         }
         // Never read the legacy plaintext cache, even when deletion fails.
         withContext(Dispatchers.IO) {
@@ -70,6 +79,7 @@ class ProfileRepositoryImpl @Inject constructor(
                 }
                 if (owner.isBlank() || tokenStore.token.isNullOrBlank()) {
                     _profile.value = null
+                    _cacheStatus.value = ProfileCacheStatus(sessionEpoch = _cacheStatus.value.sessionEpoch)
                     return@withLock Result.Error("Sesi berakhir. Silakan masuk kembali.")
                 }
                 // All overlapping callers (including forced refreshes and failures)
@@ -82,10 +92,20 @@ class ProfileRepositoryImpl @Inject constructor(
                     System.nanoTime() - lastFetchAt < CACHE_TTL_NS) {
                     return@withLock Result.Success(cached)
                 }
-                // Do not display unverified financial snapshots during/after refresh.
-                _profile.value = null
+                // Shared metadata labels retained snapshots in every consumer.
+                _cacheStatus.value = _cacheStatus.value.copy(refreshing = true, error = null)
             }
-            val result = fetch(owner, revision)
+            val result = try {
+                fetch(owner, revision)
+            } catch (e: CancellationException) {
+                synchronized(tokenStore) {
+                    if (revision == tokenStore.sessionRevision) {
+                        _cacheStatus.value = _cacheStatus.value.copy(refreshing = false,
+                            error = "Pembaruan belum selesai. Coba muat ulang.")
+                    }
+                }
+                throw e
+            }
             synchronized(tokenStore) {
                 if (revision != tokenStore.sessionRevision) {
                     return@withLock Result.Error("Sesi telah berubah. Silakan masuk kembali.")
@@ -95,6 +115,11 @@ class ProfileRepositoryImpl @Inject constructor(
                 if (result is Result.Success) {
                     lastFetchAt = System.nanoTime()
                     _profile.value = result.data
+                    _cacheStatus.value = _cacheStatus.value.copy(refreshing = false, error = null,
+                        updatedAtMillis = System.currentTimeMillis())
+                } else {
+                    _cacheStatus.value = _cacheStatus.value.copy(refreshing = false,
+                        error = (result as? Result.Error)?.message)
                 }
                 result
             }

@@ -58,8 +58,19 @@ class ProfileRepositoryImplTest {
         assertThat(repository.getProfile(false)).isInstanceOf(Result.Success::class.java)
         repository.getProfile(false)
         coVerify(exactly = 1) { api.getProfile() }
+        verify(exactly = 1) { context.filesDir }
         assertThat(legacy.exists()).isFalse()
         assertThat(repository.profile.value?.noAnggota).isEqualTo("A")
+    }
+
+    @Test fun `expired memory cache refreshes instead of returning unmarked old balance`() = runBlocking {
+        repository.getProfile(false)
+        val timer = ProfileRepositoryImpl::class.java.getDeclaredField("lastFetchAt").apply { isAccessible = true }
+        timer.setLong(repository, System.nanoTime() - 61_000_000_000L)
+        repository.getProfile(false)
+        coVerify(exactly = 2) { api.getProfile() }
+        assertThat(repository.cacheStatus.value.error).isNull()
+        assertThat(repository.cacheStatus.value.refreshing).isFalse()
     }
 
     @Test fun `missing owner rejects cache and network`() = runBlocking {
@@ -165,10 +176,39 @@ class ProfileRepositoryImplTest {
         assertThat(token).isNull()
     }
 
-    @Test fun `refresh failure hides financial snapshot`() = runBlocking {
+    @Test fun `refresh failure retains snapshot with shared stale metadata`() = runBlocking {
         repository.getProfile(false)
+        val previous = repository.profile.value
         coEvery { api.getProfile() } returns ApiResponse<ProfileResponse>(false, "Offline", null, null)
         assertThat(repository.getProfile(true)).isInstanceOf(Result.Error::class.java)
+        assertThat(repository.profile.value).isEqualTo(previous)
+        assertThat(repository.cacheStatus.value.error).isEqualTo("Offline")
+        assertThat(repository.cacheStatus.value.refreshing).isFalse()
+        assertThat(repository.cacheStatus.value.updatedAtMillis).isNotNull()
+    }
+
+    @Test fun `refresh retains visible snapshot and session clear resets metadata`() = runBlocking {
+        repository.getProfile(false)
+        val previous = repository.profile.value
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        coEvery { api.getProfile() } coAnswers {
+            started.complete(Unit)
+            release.await()
+            response()
+        }
+        val request = async { repository.getProfile(true) }
+        started.await()
+        assertThat(repository.profile.value).isEqualTo(previous)
+        assertThat(repository.cacheStatus.value.refreshing).isTrue()
+        val epoch = repository.cacheStatus.value.sessionEpoch
+        tokens.clear()
+        assertThat(repository.profile.value).isNull()
+        assertThat(repository.cacheStatus.value.refreshing).isFalse()
+        assertThat(repository.cacheStatus.value.updatedAtMillis).isNull()
+        assertThat(repository.cacheStatus.value.sessionEpoch).isGreaterThan(epoch)
+        release.complete(Unit)
+        assertThat(request.await()).isInstanceOf(Result.Error::class.java)
         assertThat(repository.profile.value).isNull()
     }
 

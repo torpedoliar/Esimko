@@ -26,6 +26,16 @@ class UiReviewActivity : ComponentActivity() {
             EsimkoTheme(darkTheme = dark) {
                 var account by remember { mutableStateOf(true) }
                 var hideBalance by remember { mutableStateOf(false) }
+                var photoOptions by remember { mutableStateOf(false) }
+                var photoPreview by remember { mutableStateOf(false) }
+                val photo = "android.resource://com.esimko.mobile/${R.drawable.logo_esimko_wordmark}"
+                if (photoOptions) com.esimko.mobile.ui.profile.ProfilePhotoOptions(
+                    hasPhoto = true,
+                    onOpen = { photoOptions = false; photoPreview = true },
+                    onChange = { photoOptions = false },
+                    onDismiss = { photoOptions = false }
+                )
+                if (photoPreview) com.esimko.mobile.ui.profile.ProfilePhotoDialog(photo, onDismiss = { photoPreview = false })
                 com.esimko.mobile.ui.common.StatusBarAppearance(darkIcons = !dark)
                 Surface {
                     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -44,7 +54,7 @@ class UiReviewActivity : ComponentActivity() {
                                     statusAnggota = "Aktif", divisi = "Operasional", bagian = "Administrasi"
                                 ),
                                 avatarUploadState = UiState.Idle,
-                                onPickAvatar = {}, onOpenSettings = {}, onOpenInstallments = {},
+                                onPickAvatar = { photoOptions = true }, onOpenSettings = {}, onOpenInstallments = {},
                                 onChangePassword = {}, onLogout = {},
                                 hideBalance = hideBalance, onToggleBalance = { hideBalance = !hideBalance }
                             )

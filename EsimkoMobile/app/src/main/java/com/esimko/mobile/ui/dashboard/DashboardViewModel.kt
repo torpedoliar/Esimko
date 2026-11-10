@@ -38,6 +38,7 @@ class DashboardViewModel @Inject constructor(
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state
 
+    val cacheStatus = profileRepository.cacheStatus
     private var loadJob: Job? = null
 
     init {
@@ -55,8 +56,8 @@ class DashboardViewModel @Inject constructor(
     private fun load(forceRefresh: Boolean) {
         if (loadJob?.isActive == true) return
         loadJob = viewModelScope.launch {
-            // Hide the financial snapshot until this refresh is verified.
-            _state.value = DashboardState(isLoading = true)
+            // Snapshot remains visible with shared freshness metadata during refresh.
+            _state.value = _state.value.copy(isLoading = _state.value.profile == null, error = null)
             when (val result = profileRepository.getProfile(forceRefresh)) {
                 is Result.Success -> {
                     val current = profileRepository.profile.value
@@ -65,7 +66,9 @@ class DashboardViewModel @Inject constructor(
                     else DashboardState(error = "Sesi berakhir. Silakan masuk kembali.")
                     if (_state.value.profile != null) loadPending()
                 }
-                is Result.Error -> _state.value = DashboardState(error = result.message)
+                is Result.Error -> _state.value = if (profileRepository.profile.value != null) {
+                    _state.value.copy(profile = profileRepository.profile.value, isLoading = false, error = result.message)
+                } else DashboardState(error = result.message)
                 is Result.Loading -> Unit
             }
         }

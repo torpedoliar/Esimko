@@ -1,5 +1,7 @@
 package com.esimko.mobile.ui.activity
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -22,6 +24,11 @@ class ActivityKindTest {
         assertThat(ActivityKinds.of("Belanja Toko", "toko")).isEqualTo(ActivityKind.SHOPPING)
         assertThat(ActivityKinds.of("Angsuran Belanja", "online")).isEqualTo(ActivityKind.INSTALLMENT)
         assertThat(ActivityKinds.of("Retur Barang", "retur")).isEqualTo(ActivityKind.RETURN)
+    }
+
+    @Test
+    fun `simpanan memakai ikon dompet netral`() {
+        assertThat(ActivityKind.SAVINGS.icon()).isEqualTo(Icons.Outlined.AccountBalanceWallet)
     }
 
     @Test

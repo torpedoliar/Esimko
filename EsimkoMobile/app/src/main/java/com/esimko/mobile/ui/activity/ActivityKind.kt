@@ -7,7 +7,6 @@ import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.MoveDown
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.RequestQuote
-import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -43,7 +42,7 @@ object ActivityKinds {
 }
 
 fun ActivityKind.icon(): ImageVector = when (this) {
-    ActivityKind.SAVINGS -> Icons.Outlined.Savings
+    ActivityKind.SAVINGS -> Icons.Outlined.AccountBalanceWallet
     ActivityKind.WITHDRAWAL -> Icons.Outlined.MoveDown
     ActivityKind.LOAN -> Icons.Outlined.RequestQuote
     ActivityKind.INSTALLMENT -> Icons.Outlined.EventRepeat
